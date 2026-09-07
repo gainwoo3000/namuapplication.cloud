@@ -19,6 +19,18 @@
     --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Pretendard, sans-serif;
   }
+  body.light-theme{
+    --bg:#F4F5F7;
+    --panel:#FFFFFF;
+    --panel-2:#EEF0F3;
+    --line:#DEE2E8;
+    --text:#1B222C;
+    --muted:#6B7480;
+    --up:#0E9F6E;
+    --down:#D93A4A;
+    --gold:#B8860B;
+  }
+  body{transition:background .2s ease, color .2s ease;}
   *{box-sizing:border-box;}
   body{
     margin:0; background:var(--bg); color:var(--text);
@@ -40,7 +52,8 @@
     border-radius:8px; cursor:pointer; font-weight:600; user-select:none;
   }
   .tab.active{background:var(--panel-2); color:var(--text);}
-  main{flex:1; padding:12px 12px 40px;}
+  main{flex:1; padding:12px 12px 40px; transition:padding-bottom .2s ease;}
+  body.chart-open main{padding-bottom:60vh;}
   .view{display:none;}
   .view.active{display:block;}
 
@@ -125,10 +138,18 @@
 
   /* Chart panel */
   .chart-panel{
-    margin-top:14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:14px;
+    position:fixed; left:50%; transform:translateX(-50%); bottom:0;
+    width:100%; max-width:520px; margin:0; box-sizing:border-box;
+    border:1px solid var(--line); border-bottom:none; border-radius:16px 16px 0 0;
+    background:var(--panel); padding:14px; padding-bottom:calc(14px + env(safe-area-inset-bottom));
+    box-shadow:0 -10px 30px rgba(0,0,0,0.45); z-index:60; max-height:72vh; overflow-y:auto;
   }
-  .chart-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .chart-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; gap:8px;}
   .chart-head .name{font-size:15px; font-weight:700;}
+  .chart-close{
+    color:var(--muted); font-size:18px; font-weight:700; cursor:pointer; line-height:1;
+    padding:2px 4px; flex-shrink:0;
+  }
   .chart-head .price-big{font-family:var(--mono); font-size:18px; font-weight:700;}
   .prem-badge{font-family:var(--mono); font-size:12px; font-weight:700; margin-top:2px;}
   .src-note{font-size:11px; color:var(--muted); margin-top:8px;}
@@ -147,25 +168,28 @@
   .opt.active{background:var(--gold); color:#1a1400; border-color:var(--gold); font-weight:700;}
   .desc{font-size:11px; color:var(--muted); margin-top:8px; line-height:1.5;}
 
-  /* Premium */
-  .prem-card{
-    border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:16px; margin-bottom:10px;
-  }
-  .prem-top{display:flex; justify-content:space-between; align-items:center;}
-  .prem-coin{font-size:14px; font-weight:700;}
-  .prem-val{font-family:var(--mono); font-size:22px; font-weight:800;}
-  .prem-rows{margin-top:10px; font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px;}
-  .prem-rows span.v{color:var(--text); font-family:var(--mono);}
-
   /* Portfolio */
+  .pf-pick-wrap{position:relative; margin-bottom:8px;}
+  .pf-pick-wrap input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:9px; font-size:13px;
+  }
+  .pf-coin-results{
+    position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:25;
+    max-height:260px; overflow-y:auto; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.45);
+  }
   .pf-add{
     display:flex; gap:6px; margin-bottom:12px;
   }
-  .pf-add select, .pf-add input{
+  .pf-selected{
+    flex:1.3; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:8px; padding:9px; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .pf-add input{
     background:var(--panel-2); border:1px solid var(--line); color:var(--text);
     border-radius:8px; padding:9px; font-size:13px;
   }
-  .pf-add select{flex:1.3;}
   .pf-add input{flex:1;}
   .pf-add button{
     background:var(--gold); color:#1a1400; border:none; border-radius:8px; padding:9px 14px;
@@ -193,7 +217,6 @@
       <h1>코인워치</h1>
       <div class="sub" id="updatedAt">불러오는 중…</div>
     </div>
-    <div class="sub" id="srcLabel">기준: 5거래소 평균</div>
   </header>
 
   <div class="tabs">
@@ -233,9 +256,12 @@
       <div class="chart-panel" id="chartPanel" style="display:none;">
         <div class="chart-head">
           <div class="name" id="chartCoinName">-</div>
-          <div style="text-align:right;">
-            <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
-            <div class="prem-badge" id="chartPremBadge"></div>
+          <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
+            <div>
+              <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
+              <div class="prem-badge" id="chartPremBadge"></div>
+            </div>
+            <div class="chart-close" id="chartCloseBtn">✕</div>
           </div>
         </div>
         <div id="tvChartContainer" style="height:320px;"></div>
@@ -245,24 +271,20 @@
 
     <!-- 프리미엄 탭 -->
     <section class="view" id="view-premium">
-      <div class="prem-card">
-        <div class="prem-top">
-          <div class="prem-coin" id="premCoinName">BTC 김치 프리미엄</div>
-          <div class="prem-val" id="premValue">-</div>
-        </div>
-        <div class="prem-rows">
-          <div>국내(업비트) 가격 &nbsp; <span class="v" id="premDomestic">-</span></div>
-          <div>해외(바이낸스) 가격 &nbsp; <span class="v" id="premIntl">-</span></div>
-          <div>적용 환율(USD/KRW) &nbsp; <span class="v" id="premFx">-</span></div>
-        </div>
+      <div class="grid-wrap" id="premGridWrap">
+        <div class="loading">시세 탭에서 먼저 시세를 불러와주세요…</div>
       </div>
-      <div class="desc">프리미엄 = (국내가격 − 해외가격×환율) / (해외가격×환율) × 100. 시세 탭에서 코인을 선택하면 해당 코인 기준으로 계산됩니다. 값이 양수이면 국내가 더 비싼(김치 프리미엄) 상태입니다.</div>
+      <div class="desc">프리미엄 = (나의 거래소 가격 − 가격×환율) / (가격×환율) × 100. "나의 거래소" 구성은 시세 탭에서 바꿀 수 있어요. 값이 양수이면 국내가 더 비싼(김치 프리미엄) 상태입니다.</div>
     </section>
 
     <!-- 포트폴리오 탭 -->
     <section class="view" id="view-portfolio">
+      <div class="pf-pick-wrap">
+        <input type="text" id="pfCoinSearch" placeholder="코인 검색 (예: BTC, 리플)" autocomplete="off">
+        <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
+      </div>
       <div class="pf-add">
-        <select id="pfCoinSelect"></select>
+        <div class="pf-selected" id="pfSelectedCoin">코인을 선택해주세요</div>
         <input type="number" id="pfAmount" placeholder="수량" step="any">
         <button id="pfAddBtn">추가</button>
       </div>
@@ -271,7 +293,7 @@
         <div class="label">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>
       </div>
-      <div class="desc">포트폴리오 데이터는 이 창을 새로고침하면 초기화됩니다. 저장이 필요하면 스크린샷이나 메모로 남겨두세요.</div>
+      <div class="desc">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다. (파일을 다운로드해서 직접 연 경우에만 저장되며, 미리보기 화면에서는 저장되지 않아요.)</div>
     </section>
 
     <!-- 설정 탭 -->
@@ -287,6 +309,21 @@
           <div class="opt" data-ex="kraken">크라켄</div>
         </div>
         <div class="desc">시총 순위는 CoinGecko 기준입니다. "가격(USD)"에 반영할 거래소를 켜고 끌 수 있어요 — 2개만 켜면 그 2개로만 평균 내고, "평균"을 누르면 다시 5개 전체 평균으로 돌아가요.</div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title">표시 통화</div>
+        <div class="opt-row" id="currencyOpts">
+          <div class="opt active" data-cur="usd">달러 ($)</div>
+          <div class="opt" data-cur="krw">원화 (₩)</div>
+        </div>
+        <div class="desc">"나의 거래소"와 "가격" 컬럼을 어떤 통화로 볼지 골라주세요. 실시간 환율로 자동 환산됩니다.</div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title">테마</div>
+        <div class="opt-row" id="themeOpts">
+          <div class="opt active" data-theme="dark">다크</div>
+          <div class="opt" data-theme="light">라이트</div>
+        </div>
       </div>
       <div class="setting-group">
         <div class="setting-title">갱신 주기</div>
@@ -309,7 +346,7 @@ let coinsList = [];      // 현재 화면에 표시되는 관심 코인 목록(�
 let allTickers = [];     // 검색/추가용 전체 마켓 풀
 let watchlist = [];      // 사용자가 선택한 코인 id 목록 (순서 유지)
 let editMode = false;    // 삭제 버튼 표시 여부
-let visibleCount = 10;
+let visibleCount = 8;
 let selectedCoinId = null;
 let intlExchangeFilter = new Set(); // 빈 값 = 5개 해외 거래소 전체 평균, 값이 있으면 그것들만 평균
 const EX_LABEL = {binance:"바이낸스", okx:"OKX", bybit:"바이빗", coinbase:"코인베이스", kraken:"크라켄"};
@@ -319,18 +356,23 @@ let refreshTimer = null;
 let usdKrw = null;
 let lastSource = "binance";
 let myExchanges = new Set(["upbit","bithumb"]); // "나의 거래소" 평균에 포함할 국내 거래소
+let displayCurrency = "usd"; // "usd" | "krw" - 나의 거래소/가격 컬럼 표시 통화
 let krakenPairMap = null;    // 심볼 -> 크라켄 페어 키 (최초 1회 캐싱)
 let upbitMarketSet = null;   // 업비트에 상장된 심볼 집합 (최초 1회 캐싱)
 const enrichedCache = {};    // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
+const virtualCoins = {};     // id -> 트레이딩뷰 검색으로 추가한, 우리 가격 풀에 없는 코인(새로고침에도 유지)
 
 // watchlist + allTickers(기본 시세)에 마지막으로 보강된 데이터(있다면)를 합쳐 coinsList를 구성
+// id 하나를 allTickers(기본 정보) + enrichedCache(있다면 최신 보강값)를 합쳐 조회
+function findCoinAnywhere(id){
+  const base = allTickers.find(c=>c.id===id);
+  if(!base) return null;
+  const cached = enrichedCache[id];
+  return cached ? {...base, ...cached} : base;
+}
+
 function buildCoinsList(){
-  return watchlist.map(id=>{
-    const base = allTickers.find(c=>c.id===id);
-    if(!base) return null;
-    const cached = enrichedCache[id];
-    return cached ? {...base, ...cached} : base;
-  }).filter(Boolean);
+  return watchlist.map(id=>findCoinAnywhere(id)).filter(Boolean);
 }
 
 // 상위 종목 표시용 한글/영문 이름 매핑 (없으면 심볼 그대로 표시)
@@ -401,6 +443,38 @@ function fmtChg(n){
   return s + n.toFixed(2) + "%";
 }
 
+// "가격(USD)" 컬럼 표시값: displayCurrency에 따라 USD 그대로 또는 KRW로 환산해서 보여줌
+function displayPriceNum(usdVal){
+  if(usdVal === null || usdVal === undefined || isNaN(usdVal)) return null;
+  if(displayCurrency === "krw"){
+    if(!usdKrw) return null;
+    return usdVal * usdKrw;
+  }
+  return usdVal;
+}
+function fmtDisplayPrice(usdVal){
+  const v = displayPriceNum(usdVal);
+  if(v === null) return "-";
+  return displayCurrency === "krw" ? fmtKrw(v) : fmtPrice(v);
+}
+// "나의 거래소" 컬럼 표시값: displayCurrency에 따라 KRW 그대로 또는 USD로 환산해서 보여줌
+function displayMyxNum(krwVal){
+  if(krwVal === null || krwVal === undefined || isNaN(krwVal)) return null;
+  if(displayCurrency === "usd"){
+    if(!usdKrw) return null;
+    return krwVal / usdKrw;
+  }
+  return krwVal;
+}
+function fmtDisplayMyx(krwVal){
+  const v = displayMyxNum(krwVal);
+  if(v === null) return "-";
+  return displayCurrency === "usd" ? fmtPrice(v) : fmtKrw(v);
+}
+function priceColumnLabel(){
+  return "가격(" + (displayCurrency === "krw" ? "KRW" : "USD") + ")";
+}
+
 // ---------- 시세 그리드 ----------
 // 순위는 시가총액 기준(CoinGecko)으로 매기고, 가격/등락률은 가능하면 바이낸스 실시간 값으로 덮어써서 사용
 async function loadFromGecko(){
@@ -444,6 +518,35 @@ async function loadFromBinance(){
 }
 
 // ---------- 해외 거래소(코인베이스/크라켄/바이낸스) ----------
+// 트레이딩뷰의 (비공식) 심볼 검색 엔드포인트로 우리 자체 시세 풀에 없는 코인까지 폭넓게 검색.
+// 비공식 API라 응답 형식이 바뀌거나 막힐 수 있어, 실패하면 조용히 빈 배열을 반환해 로컬 검색만 쓰게 함.
+async function searchTradingViewSymbols(query){
+  if(!query || !query.trim()) return [];
+  try{
+    const url = `https://symbol-search.tradingview.com/symbol_search/v3/?text=${encodeURIComponent(query)}&hl=1&lang=en&search_type=crypto&domain=production`;
+    const res = await fetch(url);
+    if(!res.ok) return [];
+    const data = await res.json();
+    const raw = data.symbols || data.data || (Array.isArray(data) ? data : []);
+    const strip = s => (s || "").replace(/<\/?em>/g, "");
+    return raw
+      .filter(s => s && s.symbol && (!s.type || s.type === "crypto" || s.type === "spot"))
+      .map(s => {
+        const sym = strip(s.symbol);
+        const exch = s.exchange || s.exchange_name || "";
+        return {
+          tvSymbol: exch ? `${exch}:${sym}` : sym,
+          symbol: sym,
+          exchange: exch,
+          description: strip(s.description || s.name || sym)
+        };
+      })
+      .slice(0, 15);
+  }catch(e){
+    return [];
+  }
+}
+
 async function fetchBinanceMap(){
   const res = await fetch(`${BINANCE}/ticker/24hr`);
   if(!res.ok) throw new Error("binance http " + res.status);
@@ -591,6 +694,7 @@ function reapplyIntlFilter(){
   coinsList = buildCoinsList();
   renderGrid();
   renderPortfolio();
+  if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   if(selectedCoinId){
     const c = coinsList.find(x=>x.id===selectedCoinId);
     if(c){
@@ -672,11 +776,24 @@ function myExchangeAvg(c){
 // USD/KRW 환율을 최초 1회만 가져와 캐싱(프리미엄 계산, 나의 거래소 환산에 공용으로 사용)
 async function ensureUsdKrw(){
   if(usdKrw) return usdKrw;
-  try{
-    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=KRW");
-    const data = await res.json();
-    usdKrw = data.rates.KRW;
-  }catch(e){ /* 실패하면 다음 호출에서 다시 시도 */ }
+  const sources = [
+    async ()=>{
+      const r = await fetch("https://api.frankfurter.app/latest?from=USD&to=KRW");
+      const d = await r.json();
+      return d.rates && d.rates.KRW;
+    },
+    async ()=>{
+      const r = await fetch("https://open.er-api.com/v6/latest/USD");
+      const d = await r.json();
+      return d.rates && d.rates.KRW;
+    }
+  ];
+  for(const src of sources){
+    try{
+      const rate = await src();
+      if(rate && isFinite(rate) && rate > 0){ usdKrw = rate; break; }
+    }catch(e){ /* 다음 소스로 시도 */ }
+  }
   return usdKrw;
 }
 
@@ -697,13 +814,16 @@ async function loadMarkets(){
       return;
     }
   }
-  // 최초 로드 시에는 거래대금 상위 10개를 기본 관심 코인으로 지정
+  // allTickers는 매번 새로 받아오므로, 검색으로 추가한 가상(트레이딩뷰 전용) 코인은 여기서 다시 합쳐줌
+  Object.values(virtualCoins).forEach(v=>{
+    if(!allTickers.find(c=>c.id===v.id)) allTickers.push(v);
+  });
+  // 최초 로드 시에는 시총 상위 8개를 기본 관심 코인으로 지정
   if(watchlist.length === 0){
-    watchlist = allTickers.slice(0,10).map(c=>c.id);
+    watchlist = allTickers.slice(0,8).map(c=>c.id);
   }
   coinsList = buildCoinsList(); // 우선 캐시된 값(있다면)으로 즉시 렌더
   renderGrid();
-  populatePortfolioSelect();
   document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (lastSource==="gecko" ? " (대체 소스)":"");
   if(coinsList.length > 0){
     let enriched = await enrichIntlPrices(coinsList);
@@ -720,6 +840,7 @@ async function loadMarkets(){
     });
     coinsList = buildCoinsList();
     renderGrid();
+    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   }
   if(selectedCoinId){
     const c = coinsList.find(x=>x.id===selectedCoinId);
@@ -735,7 +856,7 @@ let lastGridSignature = null;
 
 function gridSignature(){
   const ids = coinsList.slice(0, visibleCount).map(c=>c.id).join(",");
-  return editMode + "|" + visibleCount + "|" + selectedCoinId + "|" + ids;
+  return editMode + "|" + visibleCount + "|" + selectedCoinId + "|" + displayCurrency + "|" + ids;
 }
 
 function renderGrid(){
@@ -746,7 +867,7 @@ function renderGrid(){
   }
   lastGridSignature = sig;
   const wrap = document.getElementById("gridWrap");
-  let html = '<div class="grid-row grid-head"><div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">가격(USD)</div><div style="text-align:right">등락률</div></div>';
+  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">${priceColumnLabel()}</div><div style="text-align:right">등락률</div></div>`;
   if(coinsList.length === 0){
     html += '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
   }
@@ -755,17 +876,19 @@ function renderGrid(){
     const selCls = c.id === selectedCoinId ? "selected":"";
     const editCls = editMode ? "editing":"";
     const myxVal = myExchangeAvg(c);
-    const myxText = myxVal !== null ? fmtKrw(myxVal) : "-";
+    const myxText = fmtDisplayMyx(myxVal);
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
       <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}</div></div>
       <div class="myx-price"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span></div>
-      <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtPrice(c.current_price)}</span></span></div>
+      <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
     </div>`;
-    prevValues[c.id+":price"] = c.current_price;
+    const priceNum = displayPriceNum(c.current_price);
+    const myxNum = displayMyxNum(myxVal);
+    if(priceNum !== null) prevValues[c.id+":price"] = priceNum;
     prevValues[c.id+":chg"] = c.price_change_percentage_24h;
-    if(myxVal !== null) prevValues[c.id+":myx"] = myxVal;
+    if(myxNum !== null) prevValues[c.id+":myx"] = myxNum;
   });
   wrap.innerHTML = html;
   wrap.querySelectorAll(".grid-row[data-id]").forEach(row=>{
@@ -794,11 +917,17 @@ function updateGridValues(){
     const priceEl = row.querySelector(".price .roll-wrap");
     const chgEl = row.querySelector(".chg .roll-wrap");
     const myxEl = row.querySelector(".myx-price .roll-wrap");
-    rollNumberByKey(c.id+":price", priceEl, fmtPrice(c.current_price), c.current_price);
+    const priceNum = displayPriceNum(c.current_price);
+    if(priceNum !== null){
+      rollNumberByKey(c.id+":price", priceEl, fmtDisplayPrice(c.current_price), priceNum);
+    }else{
+      priceEl.innerHTML = '<span class="roll-cur">-</span>';
+    }
     rollNumberByKey(c.id+":chg", chgEl, fmtChg(c.price_change_percentage_24h), c.price_change_percentage_24h);
     const myxVal = myExchangeAvg(c);
-    if(myxVal !== null){
-      rollNumberByKey(c.id+":myx", myxEl, fmtKrw(myxVal), myxVal);
+    const myxNum = displayMyxNum(myxVal);
+    if(myxNum !== null){
+      rollNumberByKey(c.id+":myx", myxEl, fmtDisplayMyx(myxVal), myxNum);
     }else{
       myxEl.innerHTML = '<span class="roll-cur">-</span>';
     }
@@ -831,6 +960,8 @@ document.querySelectorAll(".myx-check").forEach(cb=>{
   cb.addEventListener("change", ()=>{
     myExchanges = new Set([...document.querySelectorAll(".myx-check:checked")].map(el=>el.value));
     renderGrid();
+    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+    saveState();
   });
 });
 
@@ -848,10 +979,11 @@ document.getElementById("editModeBtn").addEventListener("click", (e)=>{
 
 document.getElementById("resetWatchBtn").addEventListener("click", ()=>{
   if(allTickers.length === 0) return;
-  watchlist = allTickers.slice(0,10).map(c=>c.id);
-  visibleCount = 10;
+  watchlist = allTickers.slice(0,8).map(c=>c.id);
+  visibleCount = 8;
   coinsList = buildCoinsList();
   renderGrid();
+  saveState();
 });
 
 document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
@@ -863,37 +995,74 @@ document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
 });
 
 document.getElementById("addCoinSearch").addEventListener("input", (e)=>{
-  renderAddResults(e.target.value.trim());
+  const q = e.target.value.trim();
+  renderAddResults(q); // 로컬 풀 결과는 즉시 표시
+  clearTimeout(addSearchDebounce);
+  if(q.length === 0) return;
+  addSearchDebounce = setTimeout(async ()=>{
+    const tvResults = await searchTradingViewSymbols(q);
+    if(document.getElementById("addCoinSearch").value.trim() === q){
+      renderAddResults(q, tvResults); // 트레이딩뷰 결과를 합쳐서 다시 렌더
+    }
+  }, 350);
 });
 
-function renderAddResults(query){
+let addSearchDebounce = null;
+let currentAddResults = []; // renderAddResults가 만든 목록(로컬+TV 혼합), 클릭 시 이 배열로 조회
+
+function renderAddResults(query, tvResults){
+  tvResults = tvResults || [];
   const box = document.getElementById("addCoinResults");
   const q = query.toUpperCase();
-  const pool = query
+  const localMatches = query
     ? allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q))
     : allTickers;
-  if(pool.length === 0){
+  const localSymbols = new Set(localMatches.map(c=>c.symbol.toUpperCase()));
+  const tvOnly = tvResults.filter(t => t.symbol && !localSymbols.has(t.symbol.toUpperCase()));
+  currentAddResults = [
+    ...localMatches.map(c=>({kind:"local", coin:c})),
+    ...tvOnly.map(t=>({kind:"tv", item:t}))
+  ];
+  if(currentAddResults.length === 0){
     box.innerHTML = '<div class="add-empty">일치하는 코인이 없습니다.</div>';
     return;
   }
-  box.innerHTML = pool.map(c=>{
-    const already = watchlist.includes(c.id);
-    return `
-    <div class="add-result-row" data-pick="${c.id}" style="${already ? 'opacity:0.45;' : 'cursor:pointer;'}">
-      <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
-      ${already
-        ? '<span style="font-size:11px; color:var(--muted);">담김</span>'
-        : `<button class="add-plus" data-add="${c.id}">+ 담기</button>`}
-    </div>`;
+  box.innerHTML = currentAddResults.map((entry, idx)=>{
+    if(entry.kind === "local"){
+      const c = entry.coin;
+      const already = watchlist.includes(c.id);
+      return `
+      <div class="add-result-row" data-pick="${idx}" style="${already ? 'opacity:0.45;' : 'cursor:pointer;'}">
+        <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+        ${already
+          ? '<span style="font-size:11px; color:var(--muted);">담김</span>'
+          : `<button class="add-plus" data-pick="${idx}">+ 담기</button>`}
+      </div>`;
+    }else{
+      const t = entry.item;
+      return `
+      <div class="add-result-row" data-pick="${idx}" style="cursor:pointer;">
+        <div><span class="rank" style="color:var(--gold);">TV</span>${t.description} <span style="color:var(--muted)">${t.tvSymbol}</span></div>
+        <button class="add-plus" data-pick="${idx}">+ 담기</button>
+      </div>`;
+    }
   }).join("");
-  box.querySelectorAll("[data-add]").forEach(btn=>{
-    btn.addEventListener("click", (e)=>{ e.stopPropagation(); addCoin(btn.dataset.add); });
-  });
-  box.querySelectorAll(".add-result-row").forEach(row=>{
-    row.addEventListener("click", ()=>{
-      if(!watchlist.includes(row.dataset.pick)) addCoin(row.dataset.pick);
+  box.querySelectorAll("[data-pick]").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      pickAddResult(Number(el.dataset.pick));
     });
   });
+}
+
+function pickAddResult(idx){
+  const entry = currentAddResults[idx];
+  if(!entry) return;
+  if(entry.kind === "local"){
+    if(!watchlist.includes(entry.coin.id)) addCoin(entry.coin.id);
+  }else{
+    addVirtualCoin(entry.item);
+  }
 }
 
 function addCoin(id){
@@ -907,16 +1076,47 @@ function addCoin(id){
   coinsList = buildCoinsList();
   renderGrid();
   renderAddResults(document.getElementById("addCoinSearch").value.trim());
+  saveState();
+}
+
+// 트레이딩뷰 검색 결과(로컬 가격 데이터가 없는 코인)를 담기 목록에 추가.
+// 심볼이 우리 가격 소스(바이낸스 등)와 우연히 일치하면 자동으로 가격도 붙고,
+// 아니면 차트는 트레이딩뷰로 보이되 가격/등락률은 "-"로 표시됨.
+function resolveOrCreateVirtualCoin(tvItem){
+  let base = tvItem.symbol.replace(/(USDT|USDC|BUSD|FDUSD|USD|KRW)$/i, "");
+  if(!base) base = tvItem.symbol;
+  const guessId = base.toUpperCase() + "USDT";
+  let coin = allTickers.find(c => c.id === guessId || c.symbol.toUpperCase() === base.toUpperCase());
+  if(coin){
+    coin.tvSymbol = tvItem.tvSymbol;
+  }else{
+    coin = {
+      id: guessId,
+      symbol: base.toLowerCase(),
+      name: tvItem.description || base,
+      current_price: null,
+      price_change_percentage_24h: null,
+      rank: null,
+      tvSymbol: tvItem.tvSymbol
+    };
+    allTickers.push(coin);
+    virtualCoins[coin.id] = coin;
+  }
+  return coin;
+}
+
+function addVirtualCoin(tvItem){
+  const coin = resolveOrCreateVirtualCoin(tvItem);
+  addCoin(coin.id);
+  return coin;
 }
 
 function removeCoin(id){
   watchlist = watchlist.filter(x=>x!==id);
   coinsList = buildCoinsList();
-  if(selectedCoinId === id){
-    selectedCoinId = null;
-    document.getElementById("chartPanel").style.display = "none";
-  }
+  if(selectedCoinId === id) closeChart();
   renderGrid();
+  saveState();
 }
 
 // ---------- 차트 ----------
@@ -925,15 +1125,24 @@ async function selectCoin(id){
   renderGrid();
   const panel = document.getElementById("chartPanel");
   panel.style.display = "block";
+  document.body.classList.add("chart-open");
   const c = coinsList.find(x=>x.id===id);
   document.getElementById("chartCoinName").textContent = `${c.name} (${c.symbol.toUpperCase()})`;
   document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtPrice(c.current_price) + '</span>';
   prevValues["chart:price"] = c.current_price;
   document.getElementById("chartPremBadge").textContent = "프리미엄 계산 중…";
   updateInlinePremium(c);
-  renderTVChart(id, currentDays);
-  panel.scrollIntoView({behavior:"smooth", block:"nearest"});
+  renderTVChart(c, currentDays);
 }
+
+function closeChart(){
+  selectedCoinId = null;
+  document.getElementById("chartPanel").style.display = "none";
+  document.getElementById("tvChartContainer").innerHTML = "";
+  document.body.classList.remove("chart-open");
+  renderGrid();
+}
+document.getElementById("chartCloseBtn").addEventListener("click", closeChart);
 
 // 국내(업비트) vs 해외(바이낸스) 가격을 비교해 김치 프리미엄(%)을 계산
 async function computePremium(c){
@@ -967,14 +1176,15 @@ const TV_RANGE_MAP = {
   365: { interval: "D",   range: "12M" }
 };
 
-function renderTVChart(id, days){
+function renderTVChart(c, days){
   const container = document.getElementById("tvChartContainer");
   container.innerHTML = ""; // 이전 위젯 제거
   const cfg = TV_RANGE_MAP[days] || TV_RANGE_MAP[1];
+  const tvSymbol = c.tvSymbol || ("BINANCE:" + c.id);
   try{
     new TradingView.widget({
       autosize: true,
-      symbol: "BINANCE:" + id,
+      symbol: tvSymbol,
       interval: cfg.interval,
       range: cfg.range,
       timezone: "Asia/Seoul",
@@ -989,9 +1199,9 @@ function renderTVChart(id, days){
       save_image: false,
       container_id: "tvChartContainer"
     });
-    document.getElementById("chartSrcNote").textContent = "차트: TradingView (바이낸스 " + id + " 캔들)";
+    document.getElementById("chartSrcNote").textContent = "차트: TradingView (" + tvSymbol + ")";
   }catch(e){
-    document.getElementById("chartSrcNote").textContent = "TradingView 차트를 불러오지 못했습니다. 이 코인은 바이낸스에 상장되어 있지 않을 수 있어요.";
+    document.getElementById("chartSrcNote").textContent = "TradingView 차트를 불러오지 못했습니다. 트레이딩뷰에 없는 심볼일 수 있어요.";
   }
 }
 
@@ -999,12 +1209,18 @@ function renderTVChart(id, days){
 
 // ---------- 탭 전환 ----------
 document.querySelectorAll(".tab").forEach(tab=>{
-  tab.addEventListener("click", ()=>{
+  tab.addEventListener("click", async ()=>{
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     tab.classList.add("active");
     document.getElementById("view-"+tab.dataset.tab).classList.add("active");
-    if(tab.dataset.tab === "premium") loadPremium();
+    if(tab.dataset.tab === "premium"){
+      if(!usdKrw){
+        document.getElementById("premGridWrap").innerHTML = '<div class="loading">환율 정보를 불러오는 중입니다…</div>';
+        await ensureUsdKrw();
+      }
+      renderPremiumGrid();
+    }
   });
 });
 
@@ -1021,6 +1237,7 @@ document.getElementById("exchangeOpts").addEventListener("click", (e)=>{
   }
   renderExchangeOpts();
   reapplyIntlFilter();
+  saveState();
 });
 
 function renderExchangeOpts(){
@@ -1031,11 +1248,31 @@ function renderExchangeOpts(){
     o.classList.toggle("active", active);
   });
   const label = isAvg ? "5거래소 평균" : [...intlExchangeFilter].map(x=>EX_LABEL[x]).join("+");
-  document.getElementById("srcLabel").textContent = "기준: " + label;
   if(document.getElementById("chartPanel").style.display !== "none"){
     document.getElementById("chartSrcNote").textContent = "가격 기준: " + label;
   }
 }
+
+document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
+  const opt = e.target.closest(".opt");
+  if(!opt) return;
+  document.querySelectorAll("#currencyOpts .opt").forEach(o=>o.classList.remove("active"));
+  opt.classList.add("active");
+  displayCurrency = opt.dataset.cur;
+  if(!usdKrw) await ensureUsdKrw();
+  renderGrid(); // gridSignature에 displayCurrency가 포함돼 있어 자동으로 헤더까지 다시 그려짐
+  if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+  saveState();
+});
+
+document.getElementById("themeOpts").addEventListener("click", (e)=>{
+  const opt = e.target.closest(".opt");
+  if(!opt) return;
+  document.querySelectorAll("#themeOpts .opt").forEach(o=>o.classList.remove("active"));
+  opt.classList.add("active");
+  document.body.classList.toggle("light-theme", opt.dataset.theme === "light");
+  saveState();
+});
 
 document.getElementById("refreshOpts").addEventListener("click", (e)=>{
   const opt = e.target.closest(".opt");
@@ -1044,6 +1281,7 @@ document.getElementById("refreshOpts").addEventListener("click", (e)=>{
   opt.classList.add("active");
   refreshSec = Number(opt.dataset.sec);
   restartRefreshTimer();
+  saveState();
 });
 
 function restartRefreshTimer(){
@@ -1052,44 +1290,172 @@ function restartRefreshTimer(){
 }
 
 // ---------- 프리미엄(김치 프리미엄) ----------
-async function loadPremium(){
-  const id = selectedCoinId || "BTCUSDT";
-  const c = coinsList.find(x=>x.id===id) || coinsList.find(x=>x.id==="BTCUSDT") || coinsList[0];
-  document.getElementById("premCoinName").textContent = (c ? c.symbol.toUpperCase() : "BTC") + " 프리미엄";
-  try{
-    const { premium, domesticKrw, intlKrw } = await computePremium(c);
-    document.getElementById("premValue").textContent = (premium>=0?"+":"") + premium.toFixed(2) + "%";
-    document.getElementById("premValue").className = "prem-val " + (premium>=0?"up":"down");
-    document.getElementById("premDomestic").textContent = fmtKrw(domesticKrw);
-    document.getElementById("premIntl").textContent = fmtKrw(intlKrw) + " (" + fmtPrice(c.current_price) + ")";
-    document.getElementById("premFx").textContent = usdKrw.toFixed(1) + " 원";
-  }catch(e){
-    document.getElementById("premValue").textContent = "N/A";
-    document.getElementById("premDomestic").textContent = "업비트에 해당 마켓이 없거나 조회 실패";
-    document.getElementById("premIntl").textContent = "-";
-    document.getElementById("premFx").textContent = "-";
+function premiumPct(c, myxVal){
+  if(myxVal === null || myxVal === undefined || !usdKrw) return null;
+  const intlKrw = c.current_price * usdKrw;
+  if(!intlKrw) return null;
+  return ((myxVal - intlKrw) / intlKrw) * 100;
+}
+
+let lastPremSignature = null;
+
+function premSignature(){
+  const ids = coinsList.map(c=>c.id).join(",");
+  return displayCurrency + "|" + [...myExchanges].sort().join(",") + "|" + ids;
+}
+
+function renderPremiumGrid(){
+  const wrap = document.getElementById("premGridWrap");
+  if(!wrap) return;
+  if(coinsList.length === 0){
+    lastPremSignature = null;
+    wrap.innerHTML = '<div class="loading">관심 코인이 없습니다. 시세 탭에서 코인을 담아보세요.</div>';
+    return;
   }
+  const sig = premSignature();
+  if(sig === lastPremSignature){
+    updatePremiumValues(); // 구성은 그대로, 값만 롤링 애니메이션으로 갱신
+    return;
+  }
+  lastPremSignature = sig;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">나의 거래소</div><div style="text-align:right">${priceColumnLabel()}</div><div style="text-align:right">김치프리미엄</div></div>`;
+  coinsList.forEach(c=>{
+    const myxVal = myExchangeAvg(c);
+    const premPct = premiumPct(c, myxVal);
+    const premCls = premPct === null ? "" : (premPct >= 0 ? "up":"down");
+    const premText = premPct === null ? "-" : fmtChg(premPct);
+    html += `<div class="grid-row" data-id="${c.id}">
+      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}</div></div>
+      <div class="myx-price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayMyx(myxVal)}</span></span></div>
+      <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
+      <div class="chg ${premCls}"><span class="roll-wrap"><span class="roll-cur">${premText}</span></span></div>
+    </div>`;
+    const myxNum = displayMyxNum(myxVal);
+    const priceNum = displayPriceNum(c.current_price);
+    if(myxNum !== null) prevValues["prem:"+c.id+":myx"] = myxNum;
+    if(priceNum !== null) prevValues["prem:"+c.id+":price"] = priceNum;
+    if(premPct !== null) prevValues["prem:"+c.id+":pct"] = premPct;
+  });
+  wrap.innerHTML = html;
+}
+
+// 구성은 그대로 둔 채 나의거래소/가격/프리미엄 값만 위아래로 슬라이드시키며 갱신
+function updatePremiumValues(){
+  const wrap = document.getElementById("premGridWrap");
+  if(!wrap) return;
+  coinsList.forEach(c=>{
+    const row = wrap.querySelector(`.grid-row[data-id="${c.id}"]`);
+    if(!row) return;
+    const myxVal = myExchangeAvg(c);
+    const premPct = premiumPct(c, myxVal);
+    const myxEl = row.querySelector(".myx-price .roll-wrap");
+    const priceEl = row.querySelector(".price .roll-wrap");
+    const pctEl = row.querySelector(".chg .roll-wrap");
+    const myxNum = displayMyxNum(myxVal);
+    const priceNum = displayPriceNum(c.current_price);
+    if(myxNum !== null) rollNumberByKey("prem:"+c.id+":myx", myxEl, fmtDisplayMyx(myxVal), myxNum);
+    else myxEl.innerHTML = '<span class="roll-cur">-</span>';
+    if(priceNum !== null) rollNumberByKey("prem:"+c.id+":price", priceEl, fmtDisplayPrice(c.current_price), priceNum);
+    else priceEl.innerHTML = '<span class="roll-cur">-</span>';
+    if(premPct !== null) rollNumberByKey("prem:"+c.id+":pct", pctEl, fmtChg(premPct), premPct);
+    else pctEl.innerHTML = '<span class="roll-cur">-</span>';
+    const chgDiv = row.querySelector(".chg");
+    if(premPct !== null){
+      chgDiv.classList.toggle("up", premPct >= 0);
+      chgDiv.classList.toggle("down", premPct < 0);
+    }
+  });
 }
 
 // ---------- 포트폴리오 ----------
 let portfolio = []; // {id, symbol, name, amount}
 
-function populatePortfolioSelect(){
-  const sel = document.getElementById("pfCoinSelect");
-  if(sel.options.length === coinsList.length) return;
-  sel.innerHTML = coinsList.map(c=>`<option value="${c.id}">${c.name} (${c.symbol.toUpperCase()})</option>`).join("");
+let pfSelectedCoin = null; // 포트폴리오에 담을 코인으로 현재 선택된 항목
+let pfCurrentResults = [];
+let pfSearchDebounce = null;
+
+document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
+  const q = e.target.value.trim();
+  renderPfResults(q);
+  clearTimeout(pfSearchDebounce);
+  if(q.length === 0) return;
+  pfSearchDebounce = setTimeout(async ()=>{
+    const tvResults = await searchTradingViewSymbols(q);
+    if(document.getElementById("pfCoinSearch").value.trim() === q){
+      renderPfResults(q, tvResults);
+    }
+  }, 350);
+});
+
+document.getElementById("pfCoinSearch").addEventListener("focus", ()=>{
+  if(document.getElementById("pfCoinSearch").value.trim()) {
+    document.getElementById("pfCoinResults").style.display = "block";
+  }
+});
+
+document.addEventListener("click", (e)=>{
+  if(e.target.closest("#pfCoinResults") || e.target.closest("#pfCoinSearch")) return;
+  document.getElementById("pfCoinResults").style.display = "none";
+});
+
+function renderPfResults(query, tvResults){
+  tvResults = tvResults || [];
+  const box = document.getElementById("pfCoinResults");
+  if(!query){ box.style.display = "none"; return; }
+  const q = query.toUpperCase();
+  const localMatches = allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q)).slice(0, 20);
+  const localSymbols = new Set(localMatches.map(c=>c.symbol.toUpperCase()));
+  const tvOnly = tvResults.filter(t => t.symbol && !localSymbols.has(t.symbol.toUpperCase()));
+  pfCurrentResults = [
+    ...localMatches.map(c=>({kind:"local", coin:c})),
+    ...tvOnly.map(t=>({kind:"tv", item:t}))
+  ];
+  box.style.display = "block";
+  if(pfCurrentResults.length === 0){
+    box.innerHTML = '<div class="add-empty">일치하는 코인이 없습니다.</div>';
+    return;
+  }
+  box.innerHTML = pfCurrentResults.map((entry, idx)=>{
+    if(entry.kind === "local"){
+      const c = entry.coin;
+      return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
+        <div>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+      </div>`;
+    }
+    const t = entry.item;
+    return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
+      <div><span class="rank" style="color:var(--gold);">TV</span>${t.description} <span style="color:var(--muted)">${t.tvSymbol}</span></div>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("[data-pfpick]").forEach(el=>{
+    el.addEventListener("click", ()=> pickPfResult(Number(el.dataset.pfpick)));
+  });
+}
+
+function pickPfResult(idx){
+  const entry = pfCurrentResults[idx];
+  if(!entry) return;
+  const coin = entry.kind === "local" ? entry.coin : resolveOrCreateVirtualCoin(entry.item);
+  pfSelectedCoin = coin;
+  document.getElementById("pfSelectedCoin").textContent = `${coin.name} (${coin.symbol.toUpperCase()})`;
+  document.getElementById("pfSelectedCoin").style.color = "var(--text)";
+  document.getElementById("pfCoinSearch").value = "";
+  document.getElementById("pfCoinResults").style.display = "none";
 }
 
 document.getElementById("pfAddBtn").addEventListener("click", ()=>{
-  const id = document.getElementById("pfCoinSelect").value;
   const amount = parseFloat(document.getElementById("pfAmount").value);
-  if(!id || !amount || amount<=0) return;
-  const c = coinsList.find(x=>x.id===id);
+  if(!pfSelectedCoin || !amount || amount<=0) return;
+  const id = pfSelectedCoin.id;
   const existing = portfolio.find(p=>p.id===id);
   if(existing) existing.amount += amount;
-  else portfolio.push({id, symbol:c.symbol.toUpperCase(), name:c.name, amount});
+  else portfolio.push({id, symbol:pfSelectedCoin.symbol.toUpperCase(), name:pfSelectedCoin.name, amount});
   document.getElementById("pfAmount").value = "";
+  pfSelectedCoin = null;
+  document.getElementById("pfSelectedCoin").textContent = "코인을 선택해주세요";
+  document.getElementById("pfSelectedCoin").style.color = "var(--muted)";
   renderPortfolio();
+  saveState();
 });
 
 function renderPortfolio(){
@@ -1102,14 +1468,14 @@ function renderPortfolio(){
   let total = 0;
   let html = "";
   portfolio.forEach((p, idx)=>{
-    const c = coinsList.find(x=>x.id===p.id);
-    const price = c ? c.current_price : 0;
+    const c = findCoinAnywhere(p.id);
+    const price = (c && c.current_price) ? c.current_price : 0;
     const value = price * p.amount;
     total += value;
     html += `<div class="pf-row">
       <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
       <div>${p.amount}</div>
-      <div class="price">${fmtPrice(value)}</div>
+      <div class="price">${price ? fmtPrice(value) : "-"}</div>
       <div class="del" data-idx="${idx}">✕</div>
     </div>`;
   });
@@ -1118,12 +1484,74 @@ function renderPortfolio(){
     d.addEventListener("click", ()=>{
       portfolio.splice(Number(d.dataset.idx),1);
       renderPortfolio();
+      saveState();
     });
   });
   document.getElementById("pfTotal").textContent = fmtPrice(total);
 }
 
+// ---------- 로컬 저장 ----------
+// 참고: 이 저장 기능은 파일을 다운로드해서 사파리/크롬 등 실제 브라우저로 직접 열었을 때만 동작합니다.
+// 클로드 앱/웹 안의 파일 미리보기 화면에서는 브라우저 저장소 접근이 막혀 있어 저장되지 않아요.
+const STORAGE_KEY = "coinwatch_state_v1";
+
+function saveState(){
+  try{
+    const state = {
+      watchlist,
+      portfolio,
+      myExchanges: [...myExchanges],
+      intlExchangeFilter: [...intlExchangeFilter],
+      displayCurrency,
+      theme: document.body.classList.contains("light-theme") ? "light" : "dark",
+      refreshSec,
+      virtualCoins: Object.fromEntries(
+        Object.entries(virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
+      )
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ /* 저장 실패(프라이빗 브라우징 등)해도 앱은 계속 동작 */ }
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const state = JSON.parse(raw);
+    if(Array.isArray(state.watchlist)) watchlist = state.watchlist;
+    if(Array.isArray(state.portfolio)) portfolio = state.portfolio;
+    if(Array.isArray(state.myExchanges)) myExchanges = new Set(state.myExchanges);
+    if(Array.isArray(state.intlExchangeFilter)) intlExchangeFilter = new Set(state.intlExchangeFilter);
+    if(state.displayCurrency) displayCurrency = state.displayCurrency;
+    if(state.refreshSec) refreshSec = state.refreshSec;
+    if(state.virtualCoins){
+      Object.entries(state.virtualCoins).forEach(([id,c])=>{
+        virtualCoins[id] = {...c, current_price:null, price_change_percentage_24h:null, rank:null};
+      });
+    }
+    if(state.theme === "light") document.body.classList.add("light-theme");
+  }catch(e){ /* 저장된 값이 손상됐으면 무시하고 기본값 사용 */ }
+}
+
+// 불러온 설정값을 화면의 토글/체크박스에도 반영
+function applyLoadedUIState(){
+  document.querySelectorAll(".myx-check").forEach(cb=>{ cb.checked = myExchanges.has(cb.value); });
+  renderExchangeOpts();
+  document.querySelectorAll("#currencyOpts .opt").forEach(o=>{
+    o.classList.toggle("active", o.dataset.cur === displayCurrency);
+  });
+  const isLight = document.body.classList.contains("light-theme");
+  document.querySelectorAll("#themeOpts .opt").forEach(o=>{
+    o.classList.toggle("active", (o.dataset.theme === "light") === isLight);
+  });
+  document.querySelectorAll("#refreshOpts .opt").forEach(o=>{
+    o.classList.toggle("active", Number(o.dataset.sec) === refreshSec);
+  });
+}
+
 // ---------- 초기화 ----------
+loadState();
+applyLoadedUIState();
 loadMarkets();
 restartRefreshTimer();
 </script>
