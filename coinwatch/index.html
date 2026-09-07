@@ -89,7 +89,7 @@
   /* Ticker grid */
   .grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel);}
   .grid-row{
-    display:grid; grid-template-columns: 1.15fr 0.95fr 0.95fr 0.75fr;
+    display:grid; grid-template-columns: 0.68fr 1.2fr 1.2fr 0.5fr; gap:10px;
     padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer;
     align-items:center; position:relative; transition:padding-left .15s ease;
   }
@@ -105,8 +105,9 @@
   .grid-head .myx-head{cursor:pointer; text-decoration:underline dotted; text-align:right;}
   .coin-name{font-size:13px; font-weight:600;}
   .coin-sym{font-size:11px; color:var(--muted);}
-  .price{font-family:var(--mono); font-size:13px; text-align:right;}
-  .myx-price{font-family:var(--mono); font-size:12px; text-align:right; color:var(--muted);}
+  .grid-row > div{min-width:0;} /* 그리드 셀 기본 min-width:auto로 인한 옆 칸 침범(겹침) 방지 */
+  .price{font-family:var(--mono); font-size:12px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .myx-price{font-family:var(--mono); font-size:12px; text-align:right; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .chg{font-family:var(--mono); font-size:12px; text-align:right; font-weight:600;}
   .up{color:var(--up);} .down{color:var(--down);}
   .roll-wrap{
@@ -115,6 +116,7 @@
   }
   .roll-wrap .roll-cur, .roll-wrap .roll-next{
     position:absolute; left:0; right:0; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
   }
   .more-btn{
     width:100%; padding:12px; background:var(--panel-2); color:var(--text);
@@ -169,6 +171,16 @@
   .desc{font-size:11px; color:var(--muted); margin-top:8px; line-height:1.5;}
 
   /* Portfolio */
+  /* Portfolio */
+  .pf-toolbar{position:relative; display:flex; gap:6px; margin-bottom:10px;}
+  .pf-toolbar .wt-btn{flex:1;}
+  .drop-panel{
+    position:absolute; top:calc(100% + 4px); z-index:30; width:230px; max-height:280px; overflow-y:auto;
+    border:1px solid var(--line); border-radius:12px; background:var(--panel-2); padding:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.45);
+  }
+  .drop-panel.left{left:0;}
+  .drop-panel.right{right:0;}
   .pf-pick-wrap{position:relative; margin-bottom:8px;}
   .pf-pick-wrap input{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
@@ -249,6 +261,12 @@
           <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
           <label><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
           <label><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
+          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
+          <label><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
+          <label><input type="checkbox" class="myx-check" value="okx"> OKX</label>
+          <label><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
+          <label><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
+          <label><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
         </div>
       </div>
       <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>
@@ -279,6 +297,22 @@
 
     <!-- 포트폴리오 탭 -->
     <section class="view" id="view-portfolio">
+      <div class="pf-toolbar">
+        <button class="wt-btn" id="pfPortfolioBtn">포트폴리오 1 ▾</button>
+        <button class="wt-btn" id="pfExBtn">거래소 설정 ▾</button>
+        <div class="drop-panel left" id="pfPortfolioPanel" style="display:none;"></div>
+        <div class="drop-panel right" id="pfExPanel" style="display:none;">
+          <div class="desc" style="margin-top:0; margin-bottom:6px;">이 포트폴리오의 가격 기준 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
+          <label><input type="checkbox" class="pfex-check" value="upbit"> 업비트</label>
+          <label><input type="checkbox" class="pfex-check" value="bithumb"> 빗썸</label>
+          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
+          <label><input type="checkbox" class="pfex-check" value="binance"> 바이낸스</label>
+          <label><input type="checkbox" class="pfex-check" value="okx"> OKX</label>
+          <label><input type="checkbox" class="pfex-check" value="bybit"> 바이빗</label>
+          <label><input type="checkbox" class="pfex-check" value="coinbase"> 코인베이스</label>
+          <label><input type="checkbox" class="pfex-check" value="kraken"> 크라켄</label>
+        </div>
+      </div>
       <div class="pf-pick-wrap">
         <input type="text" id="pfCoinSearch" placeholder="코인 검색 (예: BTC, 리플)" autocomplete="off">
         <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
@@ -763,14 +797,28 @@ async function enrichDomesticPrices(list){
 }
 
 // 사용자가 고른 국내 거래소들의 평균가(KRW)를 계산. 데이터가 하나도 없으면 null
-function myExchangeAvg(c){
+// 코인 c의 가격을 exchangeSet(Set 또는 배열)에 담긴 거래소들의 원화(KRW) 평균으로 계산. 데이터가 없으면 null
+function exchangeAvgFor(c, exchangeSet){
+  const set = exchangeSet instanceof Set ? exchangeSet : new Set(exchangeSet);
   const vals = [];
   if(c.domestic){
-    if(myExchanges.has("upbit") && c.domestic.upbit) vals.push(c.domestic.upbit);
-    if(myExchanges.has("bithumb") && c.domestic.bithumb) vals.push(c.domestic.bithumb);
+    if(set.has("upbit") && c.domestic.upbit) vals.push(c.domestic.upbit);
+    if(set.has("bithumb") && c.domestic.bithumb) vals.push(c.domestic.bithumb);
+  }
+  // 해외 거래소는 실시간 환율(usdKrw)로 원화 환산해서 같이 평균낸다
+  if(c.exUsd && usdKrw){
+    if(set.has("binance") && c.exUsd.binance) vals.push(c.exUsd.binance * usdKrw);
+    if(set.has("okx") && c.exUsd.okx) vals.push(c.exUsd.okx * usdKrw);
+    if(set.has("bybit") && c.exUsd.bybit) vals.push(c.exUsd.bybit * usdKrw);
+    if(set.has("coinbase") && c.exUsd.coinbase) vals.push(c.exUsd.coinbase * usdKrw);
+    if(set.has("kraken") && c.exUsd.kraken) vals.push(c.exUsd.kraken * usdKrw);
   }
   if(vals.length === 0) return null;
   return vals.reduce((a,b)=>a+b,0) / vals.length;
+}
+
+function myExchangeAvg(c){
+  return exchangeAvgFor(c, myExchanges);
 }
 
 // USD/KRW 환율을 최초 1회만 가져와 캐싱(프리미엄 계산, 나의 거래소 환산에 공용으로 사용)
@@ -1262,6 +1310,7 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   if(!usdKrw) await ensureUsdKrw();
   renderGrid(); // gridSignature에 displayCurrency가 포함돼 있어 자동으로 헤더까지 다시 그려짐
   if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+  renderPortfolio();
   saveState();
 });
 
@@ -1368,7 +1417,11 @@ function updatePremiumValues(){
 }
 
 // ---------- 포트폴리오 ----------
-let portfolio = []; // {id, symbol, name, amount}
+const MAX_PORTFOLIOS = 10;
+let portfolios = [ { name:"포트폴리오 1", holdings:[], exchanges:["upbit"] } ]; // {name, holdings:[{id,symbol,name,amount}], exchanges:[...]}
+let activePortfolioIdx = 0;
+
+function currentPortfolio(){ return portfolios[activePortfolioIdx]; }
 
 let pfSelectedCoin = null; // 포트폴리오에 담을 코인으로 현재 선택된 항목
 let pfCurrentResults = [];
@@ -1394,8 +1447,15 @@ document.getElementById("pfCoinSearch").addEventListener("focus", ()=>{
 });
 
 document.addEventListener("click", (e)=>{
-  if(e.target.closest("#pfCoinResults") || e.target.closest("#pfCoinSearch")) return;
-  document.getElementById("pfCoinResults").style.display = "none";
+  if(!e.target.closest("#pfCoinResults") && !e.target.closest("#pfCoinSearch")){
+    document.getElementById("pfCoinResults").style.display = "none";
+  }
+  if(!e.target.closest("#pfPortfolioPanel") && !e.target.closest("#pfPortfolioBtn")){
+    document.getElementById("pfPortfolioPanel").style.display = "none";
+  }
+  if(!e.target.closest("#pfExPanel") && !e.target.closest("#pfExBtn")){
+    document.getElementById("pfExPanel").style.display = "none";
+  }
 });
 
 function renderPfResults(query, tvResults){
@@ -1447,9 +1507,10 @@ document.getElementById("pfAddBtn").addEventListener("click", ()=>{
   const amount = parseFloat(document.getElementById("pfAmount").value);
   if(!pfSelectedCoin || !amount || amount<=0) return;
   const id = pfSelectedCoin.id;
-  const existing = portfolio.find(p=>p.id===id);
+  const holdings = currentPortfolio().holdings;
+  const existing = holdings.find(p=>p.id===id);
   if(existing) existing.amount += amount;
-  else portfolio.push({id, symbol:pfSelectedCoin.symbol.toUpperCase(), name:pfSelectedCoin.name, amount});
+  else holdings.push({id, symbol:pfSelectedCoin.symbol.toUpperCase(), name:pfSelectedCoin.name, amount});
   document.getElementById("pfAmount").value = "";
   pfSelectedCoin = null;
   document.getElementById("pfSelectedCoin").textContent = "코인을 선택해주세요";
@@ -1458,37 +1519,164 @@ document.getElementById("pfAddBtn").addEventListener("click", ()=>{
   saveState();
 });
 
+// 이 포트폴리오에서 고른 거래소 기준 가격을 USD로 반환(내부 계산은 USD 기준으로 통일). 데이터 없으면 null
+function pfCoinPriceUsd(c, exchangeSet){
+  const krw = exchangeAvgFor(c, exchangeSet);
+  if(krw !== null && usdKrw) return krw / usdKrw;
+  return null;
+}
+
 function renderPortfolio(){
   const list = document.getElementById("pfList");
-  if(portfolio.length === 0){
+  const totalLabel = displayCurrency === "krw" ? "₩0" : "$0.00";
+  const holdings = currentPortfolio().holdings;
+  const exSet = new Set(currentPortfolio().exchanges);
+  if(holdings.length === 0){
     list.innerHTML = '<div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>';
-    document.getElementById("pfTotal").textContent = "$0.00";
+    document.getElementById("pfTotal").textContent = totalLabel;
     return;
   }
   let total = 0;
   let html = "";
-  portfolio.forEach((p, idx)=>{
+  holdings.forEach((p, idx)=>{
     const c = findCoinAnywhere(p.id);
-    const price = (c && c.current_price) ? c.current_price : 0;
-    const value = price * p.amount;
-    total += value;
+    const priceUsd = c ? pfCoinPriceUsd(c, exSet) : null;
+    const value = priceUsd !== null ? priceUsd * p.amount : null;
+    if(value !== null) total += value;
     html += `<div class="pf-row">
       <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
       <div>${p.amount}</div>
-      <div class="price">${price ? fmtPrice(value) : "-"}</div>
+      <div class="price">${value !== null ? fmtDisplayPrice(value) : "-"}</div>
       <div class="del" data-idx="${idx}">✕</div>
     </div>`;
   });
   list.innerHTML = html;
   list.querySelectorAll(".del").forEach(d=>{
     d.addEventListener("click", ()=>{
-      portfolio.splice(Number(d.dataset.idx),1);
+      holdings.splice(Number(d.dataset.idx),1);
       renderPortfolio();
       saveState();
     });
   });
-  document.getElementById("pfTotal").textContent = fmtPrice(total);
+  document.getElementById("pfTotal").textContent = fmtDisplayPrice(total);
 }
+
+// ---------- 포트폴리오 전환 / 추가 / 삭제 ----------
+function renderPortfolioHeaderBtn(){
+  document.getElementById("pfPortfolioBtn").textContent = currentPortfolio().name + " ▾";
+}
+
+function renderPortfolioDropdown(){
+  const box = document.getElementById("pfPortfolioPanel");
+  let html = portfolios.map((p, idx)=>`
+    <div class="add-result-row" data-pfsel="${idx}" style="cursor:pointer;">
+      <div>${p.name}${idx===activePortfolioIdx ? ' <span style="color:var(--gold);">✓</span>' : ''}</div>
+      <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
+        <span style="color:var(--muted); cursor:pointer;" data-pfrename="${idx}">✎</span>
+        ${portfolios.length > 1 ? `<span style="color:var(--down); font-weight:700; cursor:pointer;" data-pfdel="${idx}">✕</span>` : ''}
+      </div>
+    </div>`).join("");
+  html += `<div class="add-result-row" data-pfnew="1" style="cursor:pointer; justify-content:center; color:var(--gold); font-weight:700;">+ 포트폴리오 추가</div>`;
+  box.innerHTML = html;
+  box.querySelectorAll("[data-pfsel]").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      if(e.target.closest("[data-pfdel]") || e.target.closest("[data-pfrename]")) return;
+      switchPortfolio(Number(el.dataset.pfsel));
+    });
+  });
+  box.querySelectorAll("[data-pfrename]").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      renamePortfolio(Number(el.dataset.pfrename));
+    });
+  });
+  box.querySelectorAll("[data-pfdel]").forEach(el=>{
+    el.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      deletePortfolio(Number(el.dataset.pfdel));
+    });
+  });
+  box.querySelector("[data-pfnew]").addEventListener("click", addPortfolio);
+}
+
+function switchPortfolio(idx){
+  activePortfolioIdx = idx;
+  renderPortfolioHeaderBtn();
+  syncPfExCheckboxes();
+  renderPortfolio();
+  document.getElementById("pfPortfolioPanel").style.display = "none";
+  saveState();
+}
+
+function addPortfolio(){
+  if(portfolios.length >= MAX_PORTFOLIOS){
+    alert("포트폴리오는 최대 " + MAX_PORTFOLIOS + "개까지 만들 수 있어요.");
+    return;
+  }
+  portfolios.push({ name: "포트폴리오 " + (portfolios.length+1), holdings:[], exchanges:["upbit"] });
+  activePortfolioIdx = portfolios.length - 1;
+  renderPortfolioHeaderBtn();
+  renderPortfolioDropdown();
+  syncPfExCheckboxes();
+  renderPortfolio();
+  document.getElementById("pfPortfolioPanel").style.display = "none";
+  saveState();
+}
+
+function renamePortfolio(idx){
+  const p = portfolios[idx];
+  const newName = prompt("포트폴리오 이름을 입력해주세요", p.name);
+  if(newName === null) return; // 취소
+  const trimmed = newName.trim();
+  if(!trimmed) return;
+  p.name = trimmed.slice(0, 20);
+  renderPortfolioHeaderBtn();
+  renderPortfolioDropdown();
+  saveState();
+}
+
+function deletePortfolio(idx){
+  if(portfolios.length <= 1) return; // 최소 1개는 유지
+  const p = portfolios[idx];
+  if(p.holdings.length > 0){
+    const ok = confirm(`"${p.name}"에 담긴 코인 ${p.holdings.length}개가 함께 삭제됩니다. 정말 삭제하시겠어요?`);
+    if(!ok) return;
+  }
+  portfolios.splice(idx, 1);
+  if(activePortfolioIdx >= portfolios.length) activePortfolioIdx = portfolios.length - 1;
+  else if(activePortfolioIdx > idx) activePortfolioIdx--;
+  renderPortfolioHeaderBtn();
+  renderPortfolioDropdown();
+  syncPfExCheckboxes();
+  renderPortfolio();
+  saveState();
+}
+
+function syncPfExCheckboxes(){
+  const set = new Set(currentPortfolio().exchanges);
+  document.querySelectorAll(".pfex-check").forEach(cb=>{ cb.checked = set.has(cb.value); });
+}
+
+document.getElementById("pfPortfolioBtn").addEventListener("click", ()=>{
+  renderPortfolioDropdown();
+  const panel = document.getElementById("pfPortfolioPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+  document.getElementById("pfExPanel").style.display = "none";
+});
+
+document.getElementById("pfExBtn").addEventListener("click", ()=>{
+  const panel = document.getElementById("pfExPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+  document.getElementById("pfPortfolioPanel").style.display = "none";
+});
+
+document.querySelectorAll(".pfex-check").forEach(cb=>{
+  cb.addEventListener("change", ()=>{
+    currentPortfolio().exchanges = [...document.querySelectorAll(".pfex-check:checked")].map(el=>el.value);
+    renderPortfolio();
+    saveState();
+  });
+});
 
 // ---------- 로컬 저장 ----------
 // 참고: 이 저장 기능은 파일을 다운로드해서 사파리/크롬 등 실제 브라우저로 직접 열었을 때만 동작합니다.
@@ -1499,7 +1687,8 @@ function saveState(){
   try{
     const state = {
       watchlist,
-      portfolio,
+      portfolios,
+      activePortfolioIdx,
       myExchanges: [...myExchanges],
       intlExchangeFilter: [...intlExchangeFilter],
       displayCurrency,
@@ -1519,7 +1708,19 @@ function loadState(){
     if(!raw) return;
     const state = JSON.parse(raw);
     if(Array.isArray(state.watchlist)) watchlist = state.watchlist;
-    if(Array.isArray(state.portfolio)) portfolio = state.portfolio;
+    if(Array.isArray(state.portfolios) && state.portfolios.length > 0){
+      portfolios = state.portfolios.map(p=>({
+        name: p.name || "포트폴리오",
+        holdings: Array.isArray(p.holdings) ? p.holdings : [],
+        exchanges: Array.isArray(p.exchanges) && p.exchanges.length ? p.exchanges : ["upbit"]
+      })).slice(0, MAX_PORTFOLIOS);
+      activePortfolioIdx = Number.isInteger(state.activePortfolioIdx) && state.activePortfolioIdx < portfolios.length
+        ? state.activePortfolioIdx : 0;
+    }else if(Array.isArray(state.portfolio)){
+      // 구버전(단일 포트폴리오) 데이터 마이그레이션
+      portfolios = [{ name:"포트폴리오 1", holdings: state.portfolio, exchanges:["upbit"] }];
+      activePortfolioIdx = 0;
+    }
     if(Array.isArray(state.myExchanges)) myExchanges = new Set(state.myExchanges);
     if(Array.isArray(state.intlExchangeFilter)) intlExchangeFilter = new Set(state.intlExchangeFilter);
     if(state.displayCurrency) displayCurrency = state.displayCurrency;
@@ -1547,6 +1748,8 @@ function applyLoadedUIState(){
   document.querySelectorAll("#refreshOpts .opt").forEach(o=>{
     o.classList.toggle("active", Number(o.dataset.sec) === refreshSec);
   });
+  renderPortfolioHeaderBtn();
+  syncPfExCheckboxes();
 }
 
 // ---------- 초기화 ----------
