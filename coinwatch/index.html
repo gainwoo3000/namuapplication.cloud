@@ -14,6 +14,10 @@
       <h1>코인워치</h1>
       <div class="sub" id="updatedAt">불러오는 중…</div>
     </div>
+    <div class="fng-mini" id="fngMini" style="display:none;">
+      <span class="fng-mini-cap">공포·탐욕 지수</span>
+      <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+    </div>
   </header>
 
   <div class="tabs">
@@ -26,18 +30,6 @@
   <main>
     <!-- 시세 탭 -->
     <section class="view active" id="view-ticker">
-      <div class="fng-card" id="fngCard" style="display:none;">
-        <div class="fng-top">
-          <span class="fng-label">공포·탐욕 지수</span>
-          <span class="fng-val" id="fngVal">-</span>
-        </div>
-        <div class="fng-track"><div class="fng-marker" id="fngMarker"></div></div>
-        <div class="fng-bottom">
-          <span class="fng-scale">공포</span>
-          <span class="fng-class" id="fngClass">-</span>
-          <span class="fng-scale">탐욕</span>
-        </div>
-      </div>
       <div class="watch-toolbar">
         <button class="wt-btn" id="editModeBtn">코인 편집</button>
         <button class="wt-btn" id="addCoinBtn">+ 코인 추가</button>

@@ -621,12 +621,17 @@ document.getElementById("gridWrap").addEventListener("click", (e)=>{
   }
 });
 
-// 말풍선 바깥을 탭하면 자동으로 닫힘
+// 위에 뜬 말풍선/패널 바깥을 아무 데나 탭하면 자동으로 닫힘
 document.addEventListener("click", (e)=>{
-  const panel = document.getElementById("myxPanel");
-  if(panel.style.display === "none") return;
-  if(e.target.closest("#myxPanel") || e.target.closest(".myx-head")) return;
-  panel.style.display = "none";
+  const myx = document.getElementById("myxPanel");
+  if(myx.style.display !== "none" && !e.target.closest("#myxPanel") && !e.target.closest(".myx-head")){
+    myx.style.display = "none";
+  }
+  const addPanel = document.getElementById("addCoinPanel");
+  if(addPanel.style.display !== "none" && !e.target.closest("#addCoinPanel") && !e.target.closest("#addCoinBtn")){
+    addPanel.style.display = "none";
+    document.getElementById("addCoinBtn").classList.remove("active");
+  }
 });
 
 document.querySelectorAll(".myx-check").forEach(cb=>{
@@ -1393,7 +1398,7 @@ function fngColor(v){
 }
 
 async function loadFearGreed(){
-  const card = document.getElementById("fngCard");
+  const box = document.getElementById("fngMini");
   try{
     const res = await fetch("https://api.alternative.me/fng/?limit=1");
     if(!res.ok) throw new Error("fng http " + res.status);
@@ -1401,16 +1406,15 @@ async function loadFearGreed(){
     const d = data.data && data.data[0];
     if(!d) throw new Error("fng empty");
     const v = Math.max(0, Math.min(100, Math.round(Number(d.value))));
-    card.style.display = "block";
     const valEl = document.getElementById("fngVal");
     valEl.textContent = v;
     valEl.style.color = fngColor(v);
     const clsEl = document.getElementById("fngClass");
     clsEl.textContent = FNG_LABEL[d.value_classification] || d.value_classification || "-";
     clsEl.style.color = fngColor(v);
-    document.getElementById("fngMarker").style.left = v + "%";
+    box.style.display = "block";
   }catch(e){
-    if(card) card.style.display = "none";
+    if(box) box.style.display = "none";
   }
 }
 

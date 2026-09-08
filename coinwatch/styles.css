@@ -148,26 +148,10 @@ body.chart-open main{padding-bottom:60vh;}
 .src-note{font-size:11px; color:var(--muted); margin-top:8px;}
 #tvChartContainer{border-radius:8px; overflow:hidden;}
 
-/* Fear & Greed index */
-.fng-card{
-  border:1px solid var(--line); border-radius:12px; background:var(--panel);
-  padding:12px 14px; margin-bottom:10px;
-}
-.fng-top{display:flex; justify-content:space-between; align-items:baseline;}
-.fng-label{font-size:12px; color:var(--muted); font-weight:600;}
-.fng-val{font-family:var(--mono); font-size:20px; font-weight:800;}
-.fng-track{
-  position:relative; height:8px; border-radius:4px; margin:12px 0 6px;
-  background:linear-gradient(90deg,#F05464 0%,#E8833A 30%,#D9A441 50%,#7FC77E 70%,#3ECF8E 100%);
-}
-.fng-marker{
-  position:absolute; top:50%; left:50%; width:14px; height:14px; border-radius:50%;
-  background:var(--text); border:2px solid var(--panel); transform:translate(-50%,-50%);
-  box-shadow:0 1px 4px rgba(0,0,0,0.45); transition:left .4s ease;
-}
-.fng-bottom{display:flex; justify-content:space-between; align-items:baseline;}
-.fng-scale{font-size:10px; color:var(--muted);}
-.fng-class{font-size:12px; font-weight:700;}
+/* Fear & Greed index (header, compact) */
+.fng-mini{text-align:right; line-height:1.25; flex-shrink:0;}
+.fng-mini-cap{display:block; font-size:10px; color:var(--muted);}
+.fng-mini-body{font-family:var(--mono); font-size:13px; font-weight:800;}
 
 /* Settings */
 .setting-group{
