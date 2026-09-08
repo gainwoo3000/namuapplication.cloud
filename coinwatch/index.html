@@ -38,23 +38,23 @@
         <input type="text" id="addCoinSearch" placeholder="심볼 또는 이름 검색 (예: SOL, 솔라나)">
         <div id="addCoinResults"></div>
       </div>
+      <div class="pop-panel" id="myxPanel" style="display:none;">
+        <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
+        <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
+        <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
+      </div>
       <div class="grid-container">
         <div class="grid-wrap" id="gridWrap">
           <div class="grid-row grid-head">
             <div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">가격(USD)</div><div style="text-align:right">등락률</div>
           </div>
           <div class="loading">시세를 불러오는 중입니다…</div>
-        </div>
-        <div class="myx-panel" id="myxPanel" style="display:none;">
-          <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
-          <label><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
-          <label><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
-          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
-          <label><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
-          <label><input type="checkbox" class="myx-check" value="okx"> OKX</label>
-          <label><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
-          <label><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
-          <label><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
         </div>
       </div>
       <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>

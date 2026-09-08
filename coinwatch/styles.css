@@ -102,33 +102,33 @@ body.chart-open main{padding-bottom:60vh;}
 .myx-price{font-family:var(--mono); font-size:12px; text-align:right; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .chg{font-family:var(--mono); font-size:12px; text-align:right; font-weight:600;}
 .up{color:var(--up);} .down{color:var(--down);}
+/* 숫자 롤링(오도미터): 자릿수마다 따로 위/아래로 굴러가며 바뀜 */
 .roll-wrap{
-  display:inline-block; position:relative; overflow:hidden;
-  height:1.3em; line-height:1.3em; vertical-align:middle; width:100%;
+  display:inline-flex; justify-content:flex-end; overflow:hidden;
+  height:1.3em; line-height:1.3em; vertical-align:middle; max-width:100%;
 }
-.roll-wrap .roll-cur, .roll-wrap .roll-next{
-  position:absolute; left:0; right:0; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
-}
+.roll-col{position:relative; display:inline-block; overflow:hidden; height:1.3em; white-space:pre;}
+.roll-col > span{display:block; height:1.3em;}
+.roll-col > span.roll-anim{position:absolute; left:0; top:0; right:0; will-change:transform;}
+.roll-cur{display:block;}
 .more-btn{
   width:100%; padding:12px; background:var(--panel-2); color:var(--text);
   border:1px solid var(--line); border-top:none; font-size:13px; font-weight:600; cursor:pointer;
 }
 .grid-container{position:relative;}
-.myx-panel{
-  position:absolute; top:38px; left:34%; z-index:30; width:230px; max-height:280px; overflow-y:auto;
-  border:1px solid var(--line); border-radius:12px; background:var(--panel-2); padding:12px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.45);
+.myx-est{color:var(--muted); font-style:italic;}
+.pop-panel{
+  border:1px solid var(--line); border-radius:12px; background:var(--panel);
+  padding:10px 12px; margin-bottom:10px;
 }
-.myx-panel::before{
-  content:""; position:absolute; top:-7px; left:24px; width:12px; height:12px;
-  background:var(--panel-2); border-left:1px solid var(--line); border-top:1px solid var(--line);
-  transform:rotate(45deg);
-}
-.myx-panel label{
+#myxPanel .myx-opt{
   display:flex; align-items:center; gap:8px; padding:7px 2px; font-size:13px; cursor:pointer;
 }
-.myx-panel input{width:16px; height:16px;}
+#myxPanel .myx-check{width:16px; height:16px; flex-shrink:0;}
+.myx-divider{
+  font-size:11px; color:var(--muted); margin:8px 2px 2px;
+  padding-top:8px; border-top:1px solid var(--line);
+}
 
 /* Chart panel */
 .chart-panel{

@@ -47,36 +47,71 @@ const NAME_MAP = {
 
 // ---------- 유틸 ----------
 const prevValues = {}; // 숫자 롤링 애니메이션용 이전 값 저장소
+let rowAnimating = false; // 코인 행 삭제 애니메이션 중에는 목록 재렌더를 잠깐 멈춤
 
-// wrapEl 안의 텍스트를 위/아래로 슬라이드시키며 newText로 교체
+// wrapEl(.roll-wrap)을 자릿수(문자) 단위로 굴려서 newText로 교체.
+// 이전 텍스트와 길이/구두점 구조가 같을 때만 바뀐 자리만 위/아래로 슬라이드,
+// 구조가 다르면 애니메이션 없이 즉시 다시 그림.
 function rollUpdate(wrapEl, newText, up){
   if(!wrapEl) return;
-  const cur = wrapEl.querySelector(".roll-cur");
-  if(!cur){
-    wrapEl.innerHTML = '<span class="roll-cur">' + newText + '</span>';
+  newText = String(newText);
+  const structured = wrapEl.firstElementChild && wrapEl.firstElementChild.classList.contains("roll-col");
+  const prev = structured ? wrapEl.textContent : null;
+  if(structured && prev === newText) return;
+
+  if(!structured || prev.length !== newText.length){
+    wrapEl.innerHTML = "";
+    for(const ch of newText){
+      const col = document.createElement("span");
+      col.className = "roll-col";
+      const s = document.createElement("span");
+      s.textContent = ch;
+      col.appendChild(s);
+      wrapEl.appendChild(col);
+    }
     return;
   }
-  if(cur.textContent === newText) return;
-  wrapEl.querySelectorAll(".roll-next").forEach(n=>n.remove()); // 진행 중이던 애니메이션 정리
-  const next = document.createElement("span");
-  next.className = "roll-next";
-  next.textContent = newText;
-  next.style.transform = "translateY(" + (up ? "100%" : "-100%") + ")";
-  wrapEl.appendChild(next);
-  void next.offsetWidth; // 강제 리플로우로 초기 위치 적용
-  requestAnimationFrame(()=>{
-    cur.style.transition = "transform .35s ease";
-    next.style.transition = "transform .35s ease";
-    cur.style.transform = "translateY(" + (up ? "-100%" : "100%") + ")";
-    next.style.transform = "translateY(0)";
-  });
-  setTimeout(()=>{
-    cur.remove();
-    next.classList.remove("roll-next");
-    next.classList.add("roll-cur");
-    next.style.transition = "";
-    next.style.transform = "";
-  }, 360);
+
+  const cols = wrapEl.children;
+  for(let i = 0; i < newText.length; i++){
+    if(prev[i] === newText[i]) continue;
+    const col = cols[i];
+    while(col.children.length > 1) col.removeChild(col.firstElementChild); // 진행 중이던 애니메이션 정리
+    const cur = col.firstElementChild;
+    cur.className = ""; cur.style.cssText = "";
+    const nxt = document.createElement("span");
+    nxt.className = "roll-anim";
+    nxt.textContent = newText[i];
+    nxt.style.transform = "translateY(" + (up ? "100%" : "-100%") + ")";
+    col.appendChild(nxt);
+    void nxt.offsetWidth;
+    requestAnimationFrame(()=>{
+      cur.style.transition = "transform .3s cubic-bezier(.4,0,.2,1)";
+      nxt.style.transition = "transform .3s cubic-bezier(.4,0,.2,1)";
+      cur.style.transform = "translateY(" + (up ? "-100%" : "100%") + ")";
+      nxt.style.transform = "translateY(0)";
+    });
+    setTimeout(function(){
+      if(cur.parentNode === col) col.removeChild(cur);
+      nxt.className = ""; nxt.style.cssText = "";
+    }, 340);
+  }
+}
+
+// row를 부드럽게 접은 뒤(높이/투명도 트랜지션) done() 실행 — 목록 중간 삭제가 뚝 끊기지 않게
+function collapseRow(row, done){
+  const h = row.offsetHeight;
+  row.style.height = h + "px";
+  row.style.overflow = "hidden";
+  row.style.transition = "height .28s ease, opacity .28s ease, padding .28s ease, border-width .28s ease";
+  void row.offsetHeight;
+  row.style.height = "0px";
+  row.style.opacity = "0";
+  row.style.paddingTop = "0px";
+  row.style.paddingBottom = "0px";
+  row.style.borderWidth = "0px";
+  rowAnimating = true;
+  setTimeout(function(){ rowAnimating = false; done(); }, 300);
 }
 
 // 저장된 이전 값과 비교해 오른 방향(up=true)/내린 방향(up=false)을 판단하며 롤링 적용
@@ -447,6 +482,18 @@ function myExchangeAvg(c){
   return exchangeAvgFor(c, myExchanges);
 }
 
+// "나의 거래소" 표시값(KRW). 고른 거래소 중 어디에도 데이터가 없으면(업비트 미상장 등)
+// CoinGecko USD가를 실시간 환율로 환산한 추정치를 est:true로 돌려줘서 "-" 대신 채워 보여줌.
+// (CoinMarketCap API는 브라우저 CORS·키 제한으로 정적 페이지에서 직접 못 부름 → CoinGecko로 대체)
+function myExchangeValue(c){
+  const real = myExchangeAvg(c);
+  if(real !== null) return { krw: real, est: false };
+  if(c.current_price != null && !isNaN(c.current_price) && usdKrw){
+    return { krw: c.current_price * usdKrw, est: true };
+  }
+  return { krw: null, est: false };
+}
+
 // USD/KRW 환율을 최초 1회만 가져와 캐싱(프리미엄 계산, 나의 거래소 환산에 공용으로 사용)
 async function ensureUsdKrw(){
   if(usdKrw) return usdKrw;
@@ -533,6 +580,7 @@ function gridSignature(){
 }
 
 function renderGrid(){
+  if(rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
   const sig = gridSignature();
   if(sig === lastGridSignature){
     updateGridValues(); // 목록 구조는 그대로, 가격/등락률만 롤링 애니메이션으로 갱신
@@ -548,17 +596,18 @@ function renderGrid(){
     const chgCls = c.price_change_percentage_24h >= 0 ? "up":"down";
     const selCls = c.id === selectedCoinId ? "selected":"";
     const editCls = editMode ? "editing":"";
-    const myxVal = myExchangeAvg(c);
-    const myxText = fmtDisplayMyx(myxVal);
+    const myx = myExchangeValue(c);
+    const myxText = myx.krw === null ? "-" : (myx.est ? "≈ " : "") + fmtDisplayMyx(myx.krw);
+    const rankText = c.rank ? ` · ${c.rank}위` : "";
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
-      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}</div></div>
-      <div class="myx-price"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span></div>
+      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}${rankText}</div></div>
+      <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
     </div>`;
     const priceNum = displayPriceNum(c.current_price);
-    const myxNum = displayMyxNum(myxVal);
+    const myxNum = displayMyxNum(myx.krw);
     if(priceNum !== null) prevValues[c.id+":price"] = priceNum;
     prevValues[c.id+":chg"] = c.price_change_percentage_24h;
     if(myxNum !== null) prevValues[c.id+":myx"] = myxNum;
@@ -581,7 +630,7 @@ function renderGrid(){
   moreBtn.textContent = `10개 더 보기 (${Math.min(visibleCount, coinsList.length)}/${coinsList.length})`;
 }
 
-// 구조는 그대로 둔 채 각 행의 가격/등락률/나의거래소만 위아래로 슬라이드시키며 갱신
+// 구조는 그대로 둔 채 각 행의 가격/등락률/나의거래소만 자릿수 단위로 굴려서 갱신
 function updateGridValues(){
   const wrap = document.getElementById("gridWrap");
   coinsList.slice(0, visibleCount).forEach(c=>{
@@ -594,16 +643,17 @@ function updateGridValues(){
     if(priceNum !== null){
       rollNumberByKey(c.id+":price", priceEl, fmtDisplayPrice(c.current_price), priceNum);
     }else{
-      priceEl.innerHTML = '<span class="roll-cur">-</span>';
+      rollUpdate(priceEl, "-", true);
     }
     rollNumberByKey(c.id+":chg", chgEl, fmtChg(c.price_change_percentage_24h), c.price_change_percentage_24h);
-    const myxVal = myExchangeAvg(c);
-    const myxNum = displayMyxNum(myxVal);
+    const myx = myExchangeValue(c);
+    const myxNum = displayMyxNum(myx.krw);
     if(myxNum !== null){
-      rollNumberByKey(c.id+":myx", myxEl, fmtDisplayMyx(myxVal), myxNum);
+      rollNumberByKey(c.id+":myx", myxEl, (myx.est ? "≈ " : "") + fmtDisplayMyx(myx.krw), myxNum);
     }else{
-      myxEl.innerHTML = '<span class="roll-cur">-</span>';
+      rollUpdate(myxEl, "-", true);
     }
+    row.querySelector(".myx-price").classList.toggle("myx-est", myx.est);
     const chgDiv = row.querySelector(".chg");
     chgDiv.classList.toggle("up", c.price_change_percentage_24h >= 0);
     chgDiv.classList.toggle("down", c.price_change_percentage_24h < 0);
@@ -617,7 +667,12 @@ document.getElementById("gridWrap").addEventListener("click", (e)=>{
   if(e.target.closest(".myx-head")){
     e.stopPropagation();
     const panel = document.getElementById("myxPanel");
-    panel.style.display = panel.style.display === "none" ? "block" : "none";
+    const opening = panel.style.display === "none";
+    panel.style.display = opening ? "block" : "none";
+    if(opening){
+      document.getElementById("addCoinPanel").style.display = "none";
+      document.getElementById("addCoinBtn").classList.remove("active");
+    }
   }
 });
 
@@ -660,7 +715,10 @@ document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
   const showing = panel.style.display !== "none";
   panel.style.display = showing ? "none" : "block";
   e.target.classList.toggle("active", !showing);
-  if(!showing) renderAddResults("");
+  if(!showing){
+    document.getElementById("myxPanel").style.display = "none";
+    renderAddResults("");
+  }
 });
 
 document.getElementById("addCoinSearch").addEventListener("input", (e)=>{
@@ -781,11 +839,17 @@ function addVirtualCoin(tvItem){
 }
 
 function removeCoin(id){
-  watchlist = watchlist.filter(x=>x!==id);
-  coinsList = buildCoinsList();
-  if(selectedCoinId === id) closeChart();
-  renderGrid();
-  saveState();
+  const commit = ()=>{
+    watchlist = watchlist.filter(x=>x!==id);
+    coinsList = buildCoinsList();
+    if(selectedCoinId === id) closeChart();
+    lastGridSignature = null; // 구조가 바뀌었으니 강제로 다시 그림
+    renderGrid();
+    saveState();
+  };
+  const row = document.querySelector(`#gridWrap .grid-row[data-id="${id}"]`);
+  if(row) collapseRow(row, commit);
+  else commit();
 }
 
 // ---------- 차트 ----------
@@ -1133,6 +1197,7 @@ function pfCoinPriceUsd(c, exchangeSet){
 }
 
 function renderPortfolio(){
+  if(rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
   const list = document.getElementById("pfList");
   const totalLabel = displayCurrency === "krw" ? "₩0" : "$0.00";
   const holdings = currentPortfolio().holdings;
@@ -1170,9 +1235,11 @@ function renderPortfolio(){
   list.querySelectorAll(".del").forEach(d=>{
     d.addEventListener("click", (e)=>{
       e.stopPropagation();
-      holdings.splice(Number(d.dataset.idx),1);
-      renderPortfolio();
-      saveState();
+      const idx = Number(d.dataset.idx);
+      const go = ()=>{ holdings.splice(idx,1); renderPortfolio(); saveState(); };
+      const row = d.closest(".pf-row");
+      if(row) collapseRow(row, go);
+      else go();
     });
   });
   list.querySelectorAll(".pf-amt-edit").forEach(inp=>{
