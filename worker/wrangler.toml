@@ -1,0 +1,22 @@
+# Cloudflare Worker: CoinMarketCap KRW 시세 프록시
+# 배포: 이 디렉터리에서  npx wrangler deploy   (자세한 순서는 README.md)
+
+name = "coinwatch-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# api.namuapplication.cloud 로 서비스.
+# custom_domain = true 이면 wrangler가 배포할 때 DNS 레코드와 인증서를 자동으로 만든다.
+# (namuapplication.cloud 존이 wrangler login 하는 Cloudflare 계정에 있어야 함)
+routes = [
+  { pattern = "api.namuapplication.cloud", custom_domain = true }
+]
+
+[vars]
+# 이 오리진에서 오는 브라우저 요청만 허용 (CORS). 로컬 테스트가 필요하면 잠시 "*" 로.
+ALLOW_ORIGIN = "https://namuapplication.cloud"
+# CMC 응답을 엣지에 캐시할 시간(초). 크레딧을 아끼는 핵심 값. 600 = 10분.
+CMC_TTL_SECONDS = "600"
+
+# CMC_KEY 는 여기 두지 않는다 (비밀). 아래 명령으로 등록:
+#   npx wrangler secret put CMC_KEY
