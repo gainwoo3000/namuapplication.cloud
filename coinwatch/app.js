@@ -21,6 +21,8 @@ let krakenPairMap = null;    // 심볼 -> 크라켄 페어 키 (최초 1회 캐�
 let upbitMarketSet = null;   // 업비트에 상장된 심볼 집합 (최초 1회 캐싱)
 const enrichedCache = {};    // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
 const virtualCoins = {};     // id -> 트레이딩뷰 검색으로 추가한, 우리 가격 풀에 없는 코인(새로고침에도 유지)
+let cmcKrwMap = {};          // 심볼(대문자) -> KRW. CoinMarketCap(프록시 경유) — 국내 거래소에 없는 코인 메꿈용
+const CMC_PROXY = "https://api.namuapplication.cloud/cmc/krw";
 
 // watchlist + allTickers(기본 시세)에 마지막으로 보강된 데이터(있다면)를 합쳐 coinsList를 구성
 // id 하나를 allTickers(기본 정보) + enrichedCache(있다면 최신 보강값)를 합쳐 조회
@@ -483,11 +485,13 @@ function myExchangeAvg(c){
 }
 
 // "나의 거래소" 표시값(KRW). 고른 거래소 중 어디에도 데이터가 없으면(업비트 미상장 등)
-// CoinGecko USD가를 실시간 환율로 환산한 추정치를 est:true로 돌려줘서 "-" 대신 채워 보여줌.
-// (CoinMarketCap API는 브라우저 CORS·키 제한으로 정적 페이지에서 직접 못 부름 → CoinGecko로 대체)
+// 1순위: CoinMarketCap 원화가(프록시 경유), 2순위: CoinGecko USD가×환율 추정.
+// 둘 다 실제 "국내 거래소" 체결가는 아니라서 est:true로 표시(≈)한다.
 function myExchangeValue(c){
   const real = myExchangeAvg(c);
   if(real !== null) return { krw: real, est: false };
+  const sym = c.symbol.toUpperCase();
+  if(cmcKrwMap[sym] != null) return { krw: cmcKrwMap[sym], est: true };
   if(c.current_price != null && !isNaN(c.current_price) && usdKrw){
     return { krw: c.current_price * usdKrw, est: true };
   }
@@ -1485,9 +1489,29 @@ async function loadFearGreed(){
   }
 }
 
+// 국내 거래소에 없는 코인의 원화 시세를 CoinMarketCap(프록시 경유)에서 받아 메꿈용으로 보관.
+// 10분 단위 캐시 버킷을 쿼리에 붙여 브라우저/CDN 캐시가 그 주기로만 갱신되게 함(워커도 10분 캐시 → CMC 크레딧 절약).
+async function loadCmcKrw(){
+  try{
+    const res = await fetch(CMC_PROXY + "?t=" + Math.floor(Date.now() / 600000));
+    if(!res.ok) return;
+    const j = await res.json();
+    if(j && j.data){
+      const m = {};
+      for(const [sym, v] of Object.entries(j.data)){
+        if(v && typeof v.krw === "number") m[sym] = v.krw;
+      }
+      cmcKrwMap = m;
+      renderGrid();
+    }
+  }catch(e){ /* 프록시 실패해도 앱은 계속 (usd×환율 추정으로 폴백) */ }
+}
+
 // ---------- 초기화 ----------
 loadState();
 applyLoadedUIState();
 loadMarkets();
 loadFearGreed();
+loadCmcKrw();
+setInterval(loadCmcKrw, 600000);
 restartRefreshTimer();
