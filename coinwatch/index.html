@@ -26,10 +26,21 @@
   <main>
     <!-- 시세 탭 -->
     <section class="view active" id="view-ticker">
+      <div class="fng-card" id="fngCard" style="display:none;">
+        <div class="fng-top">
+          <span class="fng-label">공포·탐욕 지수</span>
+          <span class="fng-val" id="fngVal">-</span>
+        </div>
+        <div class="fng-track"><div class="fng-marker" id="fngMarker"></div></div>
+        <div class="fng-bottom">
+          <span class="fng-scale">공포</span>
+          <span class="fng-class" id="fngClass">-</span>
+          <span class="fng-scale">탐욕</span>
+        </div>
+      </div>
       <div class="watch-toolbar">
         <button class="wt-btn" id="editModeBtn">코인 편집</button>
         <button class="wt-btn" id="addCoinBtn">+ 코인 추가</button>
-        <button class="wt-btn" id="resetWatchBtn">기본값</button>
       </div>
       <div class="add-panel" id="addCoinPanel" style="display:none;">
         <input type="text" id="addCoinSearch" placeholder="심볼 또는 이름 검색 (예: SOL, 솔라나)">
@@ -55,21 +66,6 @@
         </div>
       </div>
       <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>
-
-      <div class="chart-panel" id="chartPanel" style="display:none;">
-        <div class="chart-head">
-          <div class="name" id="chartCoinName">-</div>
-          <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
-            <div>
-              <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
-              <div class="prem-badge" id="chartPremBadge"></div>
-            </div>
-            <div class="chart-close" id="chartCloseBtn">✕</div>
-          </div>
-        </div>
-        <div id="tvChartContainer" style="height:320px;"></div>
-        <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
-      </div>
     </section>
 
     <!-- 프리미엄 탭 -->
@@ -98,14 +94,17 @@
           <label><input type="checkbox" class="pfex-check" value="kraken"> 크라켄</label>
         </div>
       </div>
-      <div class="pf-pick-wrap">
-        <input type="text" id="pfCoinSearch" placeholder="코인 검색 (예: BTC, 리플)" autocomplete="off">
-        <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
-      </div>
       <div class="pf-add">
-        <div class="pf-selected" id="pfSelectedCoin">코인을 선택해주세요</div>
+        <div class="pf-pick-wrap">
+          <input type="text" id="pfCoinSearch" placeholder="코인 검색 후 선택 (예: BTC, 리플)" autocomplete="off">
+          <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
+        </div>
         <input type="number" id="pfAmount" placeholder="수량" step="any">
         <button id="pfAddBtn">추가</button>
+      </div>
+      <div class="pf-list-head">
+        <span>보유 코인</span>
+        <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
       </div>
       <div id="pfList"><div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div></div>
       <div class="pf-total">
@@ -154,6 +153,18 @@
       </div>
     </section>
   </main>
+
+  <div class="chart-panel" id="chartPanel" style="display:none;">
+    <div class="chart-head">
+      <div class="name" id="chartCoinName">-</div>
+      <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
+        <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
+        <div class="chart-close" id="chartCloseBtn">✕</div>
+      </div>
+    </div>
+    <div id="tvChartContainer" style="height:320px;"></div>
+    <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
+  </div>
 </div>
 <script src="app.js"></script>
 </body>

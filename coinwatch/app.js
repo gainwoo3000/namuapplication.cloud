@@ -517,10 +517,9 @@ async function loadMarkets(){
     if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   }
   if(selectedCoinId){
-    const c = coinsList.find(x=>x.id===selectedCoinId);
+    const c = coinsList.find(x=>x.id===selectedCoinId) || findCoinAnywhere(selectedCoinId);
     if(c){
       rollNumberByKey("chart:price", document.getElementById("chartCoinPrice"), fmtPrice(c.current_price), c.current_price);
-      updateInlinePremium(c);
     }
   }
   renderPortfolio();
@@ -649,15 +648,6 @@ document.getElementById("editModeBtn").addEventListener("click", (e)=>{
   editMode = !editMode;
   e.target.classList.toggle("active", editMode);
   renderGrid();
-});
-
-document.getElementById("resetWatchBtn").addEventListener("click", ()=>{
-  if(allTickers.length === 0) return;
-  watchlist = allTickers.slice(0,8).map(c=>c.id);
-  visibleCount = 8;
-  coinsList = buildCoinsList();
-  renderGrid();
-  saveState();
 });
 
 document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
@@ -794,18 +784,18 @@ function removeCoin(id){
 }
 
 // ---------- 차트 ----------
+// 시세/프리미엄/포트폴리오 어느 탭에서든 코인을 누르면 하단 차트 패널이 뜬다.
 async function selectCoin(id){
+  const c = coinsList.find(x=>x.id===id) || findCoinAnywhere(id);
+  if(!c) return;
   selectedCoinId = id;
   renderGrid();
   const panel = document.getElementById("chartPanel");
   panel.style.display = "block";
   document.body.classList.add("chart-open");
-  const c = coinsList.find(x=>x.id===id);
   document.getElementById("chartCoinName").textContent = `${c.name} (${c.symbol.toUpperCase()})`;
   document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtPrice(c.current_price) + '</span>';
   prevValues["chart:price"] = c.current_price;
-  document.getElementById("chartPremBadge").textContent = "프리미엄 계산 중…";
-  updateInlinePremium(c);
   renderTVChart(c, currentDays);
 }
 
@@ -817,30 +807,6 @@ function closeChart(){
   renderGrid();
 }
 document.getElementById("chartCloseBtn").addEventListener("click", closeChart);
-
-// 국내(업비트) vs 해외(바이낸스) 가격을 비교해 김치 프리미엄(%)을 계산
-async function computePremium(c){
-  await ensureUsdKrw();
-  const upRes = await fetch(`https://api.upbit.com/v1/ticker?markets=KRW-${c.symbol.toUpperCase()}`);
-  if(!upRes.ok) throw new Error("no upbit market");
-  const upData = await upRes.json();
-  const domesticKrw = upData[0].trade_price;
-  const intlKrw = c.current_price * usdKrw;
-  const premium = ((domesticKrw - intlKrw) / intlKrw) * 100;
-  return { premium, domesticKrw, intlKrw };
-}
-
-async function updateInlinePremium(c){
-  const badge = document.getElementById("chartPremBadge");
-  try{
-    const { premium } = await computePremium(c);
-    badge.textContent = "김프 " + (premium>=0?"+":"") + premium.toFixed(2) + "%";
-    badge.className = "prem-badge " + (premium>=0 ? "up":"down");
-  }catch(e){
-    badge.textContent = "김프 N/A (업비트 미상장)";
-    badge.className = "prem-badge";
-  }
-}
 
 // range 버튼 값(1/7/30/365) -> 트레이딩뷰 interval/range 매핑
 const TV_RANGE_MAP = {
@@ -1012,6 +978,9 @@ function renderPremiumGrid(){
     if(premPct !== null) prevValues["prem:"+c.id+":pct"] = premPct;
   });
   wrap.innerHTML = html;
+  wrap.querySelectorAll(".grid-row[data-id]").forEach(row=>{
+    row.addEventListener("click", ()=> selectCoin(row.dataset.id));
+  });
 }
 
 // 구성은 그대로 둔 채 나의거래소/가격/프리미엄 값만 위아래로 슬라이드시키며 갱신
@@ -1052,10 +1021,12 @@ function currentPortfolio(){ return portfolios[activePortfolioIdx]; }
 let pfSelectedCoin = null; // 포트폴리오에 담을 코인으로 현재 선택된 항목
 let pfCurrentResults = [];
 let pfSearchDebounce = null;
+let pfEditMode = false; // 보유 코인 수량 수정 + 삭제 모드
 
 document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
+  pfSelectedCoin = null; // 다시 타이핑하면 이전 선택은 해제
   const q = e.target.value.trim();
-  renderPfResults(q);
+  renderPfResults(q); // 로컬 풀 결과(빈 값이면 시총 순위)는 즉시 표시
   clearTimeout(pfSearchDebounce);
   if(q.length === 0) return;
   pfSearchDebounce = setTimeout(async ()=>{
@@ -1067,9 +1038,7 @@ document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
 });
 
 document.getElementById("pfCoinSearch").addEventListener("focus", ()=>{
-  if(document.getElementById("pfCoinSearch").value.trim()) {
-    document.getElementById("pfCoinResults").style.display = "block";
-  }
+  if(!pfSelectedCoin) renderPfResults(document.getElementById("pfCoinSearch").value.trim());
 });
 
 document.addEventListener("click", (e)=>{
@@ -1084,12 +1053,14 @@ document.addEventListener("click", (e)=>{
   }
 });
 
+// query가 비어 있으면 시세 탭 "+ 코인 추가"처럼 시총 순위대로 전체 목록을 보여준다.
 function renderPfResults(query, tvResults){
   tvResults = tvResults || [];
   const box = document.getElementById("pfCoinResults");
-  if(!query){ box.style.display = "none"; return; }
-  const q = query.toUpperCase();
-  const localMatches = allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q)).slice(0, 20);
+  const q = (query || "").toUpperCase();
+  const localMatches = q
+    ? allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q)).slice(0, 30)
+    : allTickers.slice(0, 50);
   const localSymbols = new Set(localMatches.map(c=>c.symbol.toUpperCase()));
   const tvOnly = tvResults.filter(t => t.symbol && !localSymbols.has(t.symbol.toUpperCase()));
   pfCurrentResults = [
@@ -1105,7 +1076,7 @@ function renderPfResults(query, tvResults){
     if(entry.kind === "local"){
       const c = entry.coin;
       return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
-        <div>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+        <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
       </div>`;
     }
     const t = entry.item;
@@ -1123,10 +1094,9 @@ function pickPfResult(idx){
   if(!entry) return;
   const coin = entry.kind === "local" ? entry.coin : resolveOrCreateVirtualCoin(entry.item);
   pfSelectedCoin = coin;
-  document.getElementById("pfSelectedCoin").textContent = `${coin.name} (${coin.symbol.toUpperCase()})`;
-  document.getElementById("pfSelectedCoin").style.color = "var(--text)";
-  document.getElementById("pfCoinSearch").value = "";
+  document.getElementById("pfCoinSearch").value = `${coin.name} (${coin.symbol.toUpperCase()})`;
   document.getElementById("pfCoinResults").style.display = "none";
+  document.getElementById("pfAmount").focus();
 }
 
 document.getElementById("pfAddBtn").addEventListener("click", ()=>{
@@ -1138,11 +1108,16 @@ document.getElementById("pfAddBtn").addEventListener("click", ()=>{
   if(existing) existing.amount += amount;
   else holdings.push({id, symbol:pfSelectedCoin.symbol.toUpperCase(), name:pfSelectedCoin.name, amount});
   document.getElementById("pfAmount").value = "";
+  document.getElementById("pfCoinSearch").value = "";
   pfSelectedCoin = null;
-  document.getElementById("pfSelectedCoin").textContent = "코인을 선택해주세요";
-  document.getElementById("pfSelectedCoin").style.color = "var(--muted)";
   renderPortfolio();
   saveState();
+});
+
+document.getElementById("pfEditBtn").addEventListener("click", (e)=>{
+  pfEditMode = !pfEditMode;
+  e.target.classList.toggle("active", pfEditMode);
+  renderPortfolio();
 });
 
 // 이 포트폴리오에서 고른 거래소 기준 가격을 USD로 반환(내부 계산은 USD 기준으로 통일). 데이터 없으면 null
@@ -1169,17 +1144,38 @@ function renderPortfolio(){
     const priceUsd = c ? pfCoinPriceUsd(c, exSet) : null;
     const value = priceUsd !== null ? priceUsd * p.amount : null;
     if(value !== null) total += value;
-    html += `<div class="pf-row">
+    const amtCell = pfEditMode
+      ? `<input class="pf-amt-edit" type="number" step="any" min="0" value="${p.amount}" data-idx="${idx}">`
+      : `${p.amount}`;
+    const delCell = pfEditMode ? `<div class="del" data-idx="${idx}">✕</div>` : `<div></div>`;
+    html += `<div class="pf-row" data-id="${p.id}">
       <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
-      <div>${p.amount}</div>
+      <div>${amtCell}</div>
       <div class="price">${value !== null ? fmtDisplayPrice(value) : "-"}</div>
-      <div class="del" data-idx="${idx}">✕</div>
+      ${delCell}
     </div>`;
   });
   list.innerHTML = html;
+  list.querySelectorAll(".pf-row").forEach(row=>{
+    row.addEventListener("click", (e)=>{
+      if(e.target.closest(".del") || e.target.closest(".pf-amt-edit")) return;
+      selectCoin(row.dataset.id);
+    });
+  });
   list.querySelectorAll(".del").forEach(d=>{
-    d.addEventListener("click", ()=>{
+    d.addEventListener("click", (e)=>{
+      e.stopPropagation();
       holdings.splice(Number(d.dataset.idx),1);
+      renderPortfolio();
+      saveState();
+    });
+  });
+  list.querySelectorAll(".pf-amt-edit").forEach(inp=>{
+    inp.addEventListener("click", (e)=> e.stopPropagation());
+    inp.addEventListener("change", ()=>{
+      const v = parseFloat(inp.value);
+      if(!isFinite(v) || v <= 0){ renderPortfolio(); return; }
+      holdings[Number(inp.dataset.idx)].amount = v;
       renderPortfolio();
       saveState();
     });
@@ -1378,8 +1374,49 @@ function applyLoadedUIState(){
   syncPfExCheckboxes();
 }
 
+// ---------- 공포·탐욕 지수 ----------
+// alternative.me의 크립토 Fear & Greed Index (0=극도의 공포 ~ 100=극도의 탐욕). 하루 1회 갱신.
+const FNG_LABEL = {
+  "Extreme Fear":"극도의 공포",
+  "Fear":"공포",
+  "Neutral":"중립",
+  "Greed":"탐욕",
+  "Extreme Greed":"극도의 탐욕"
+};
+
+function fngColor(v){
+  if(v < 25) return "#F05464";
+  if(v < 45) return "#E8833A";
+  if(v < 55) return "#D9A441";
+  if(v < 75) return "#7FC77E";
+  return "#3ECF8E";
+}
+
+async function loadFearGreed(){
+  const card = document.getElementById("fngCard");
+  try{
+    const res = await fetch("https://api.alternative.me/fng/?limit=1");
+    if(!res.ok) throw new Error("fng http " + res.status);
+    const data = await res.json();
+    const d = data.data && data.data[0];
+    if(!d) throw new Error("fng empty");
+    const v = Math.max(0, Math.min(100, Math.round(Number(d.value))));
+    card.style.display = "block";
+    const valEl = document.getElementById("fngVal");
+    valEl.textContent = v;
+    valEl.style.color = fngColor(v);
+    const clsEl = document.getElementById("fngClass");
+    clsEl.textContent = FNG_LABEL[d.value_classification] || d.value_classification || "-";
+    clsEl.style.color = fngColor(v);
+    document.getElementById("fngMarker").style.left = v + "%";
+  }catch(e){
+    if(card) card.style.display = "none";
+  }
+}
+
 // ---------- 초기화 ----------
 loadState();
 applyLoadedUIState();
 loadMarkets();
+loadFearGreed();
 restartRefreshTimer();
