@@ -602,10 +602,10 @@ function renderGrid(){
     const editCls = editMode ? "editing":"";
     const myx = myExchangeValue(c);
     const myxText = myx.krw === null ? "-" : (myx.est ? "≈ " : "") + fmtDisplayMyx(myx.krw);
-    const rankText = c.rank ? ` · ${c.rank}위` : "";
+    const rankText = c.rank ? `${c.rank}위 · ` : "";
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
-      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}${rankText}</div></div>
+      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div>
       <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
