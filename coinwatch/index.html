@@ -14,9 +14,15 @@
       <h1>코인워치</h1>
       <div class="sub" id="updatedAt">불러오는 중…</div>
     </div>
-    <div class="fng-mini" id="fngMini" style="display:none;">
-      <span class="fng-mini-cap">공포·탐욕 지수</span>
-      <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+    <div class="header-metrics">
+      <div class="fng-mini" id="fxMini" style="display:none;">
+        <span class="fng-mini-cap">원/달러 환율</span>
+        <span class="fng-mini-body">₩<span id="fxRate">-</span></span>
+      </div>
+      <div class="fng-mini" id="fngMini" style="display:none;">
+        <span class="fng-mini-cap">공포·탐욕 지수</span>
+        <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+      </div>
     </div>
   </header>
 
@@ -38,23 +44,27 @@
         <input type="text" id="addCoinSearch" placeholder="심볼 또는 이름 검색 (예: SOL, 솔라나)">
         <div id="addCoinResults"></div>
       </div>
-      <div class="pop-panel" id="myxPanel" style="display:none;">
-        <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
-        <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
-        <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
-      </div>
       <div class="grid-container">
         <div class="grid-wrap" id="gridWrap">
           <div class="grid-row grid-head">
             <div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">가격(USD)</div><div style="text-align:right">등락률</div>
           </div>
           <div class="loading">시세를 불러오는 중입니다…</div>
+        </div>
+        <div class="pop-panel" id="myxPanel" style="display:none;">
+          <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
+          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
+        </div>
+        <div class="pop-panel" id="priceHelpPop" style="display:none;">
+          <div class="desc" style="margin:0 0 8px;">이 열의 가격은 <b>설정 › 시세 기준 거래소</b>에서 고른 거래소 기준이에요. 여러 곳을 켜면 평균이 표시됩니다.</div>
+          <button class="wt-btn" id="priceHelpGoBtn">설정에서 바꾸기</button>
         </div>
       </div>
       <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>

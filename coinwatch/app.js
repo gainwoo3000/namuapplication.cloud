@@ -54,6 +54,17 @@ let rowAnimating = false; // 코인 행 삭제 애니메이션 중에는 목록 
 // wrapEl(.roll-wrap)을 자릿수(문자) 단위로 굴려서 newText로 교체.
 // 이전 텍스트와 길이/구두점 구조가 같을 때만 바뀐 자리만 위/아래로 슬라이드,
 // 구조가 다르면 애니메이션 없이 즉시 다시 그림.
+// 등락률 셀에 방향색(초록/빨강)을 잠깐 입혔다가 CSS 애니메이션으로 서서히 지운다
+function flashChg(cellEl, dir){
+  if(!cellEl || !dir) return;
+  const cls = dir > 0 ? "flash-up" : "flash-down";
+  cellEl.classList.remove("flash-up", "flash-down");
+  void cellEl.offsetWidth; // 리플로우로 애니메이션 재시작 보장
+  cellEl.classList.add(cls);
+  clearTimeout(cellEl._flashTimer);
+  cellEl._flashTimer = setTimeout(()=>cellEl.classList.remove("flash-up", "flash-down"), 1500);
+}
+
 function rollUpdate(wrapEl, newText, up){
   if(!wrapEl) return;
   newText = String(newText);
@@ -136,8 +147,15 @@ function fmtKrw(n){
 }
 function fmtChg(n){
   if(n === null || n === undefined || isNaN(n)) return "-";
-  const s = n>=0? "+":"";
+  if(Math.abs(n) < 0.005) return "0.00%"; // 0.00%로 표시되는 값엔 +/- 안 붙임
+  const s = n>0? "+":"";
   return s + n.toFixed(2) + "%";
+}
+// 등락률 색상 클래스: 0.00%로 표시되는 값(|n|<0.005)은 회색(flat), 그 외 초록/빨강
+function chgClass(n){
+  if(n === null || n === undefined || isNaN(n)) return "flat";
+  if(Math.abs(n) < 0.005) return "flat";
+  return n > 0 ? "up" : "down";
 }
 
 // "가격(USD)" 컬럼 표시값: displayCurrency에 따라 USD 그대로 또는 KRW로 환산해서 보여줌
@@ -170,6 +188,15 @@ function fmtDisplayMyx(krwVal){
 }
 function priceColumnLabel(){
   return "가격(" + (displayCurrency === "krw" ? "KRW" : "USD") + ")";
+}
+
+// 차트 패널 우상단 가격: "표시 통화" 설정(displayCurrency)에 맞춰 USD/KRW로 보여준다
+function updateChartPrice(){
+  if(!selectedCoinId) return;
+  const c = coinsList.find(x=>x.id===selectedCoinId) || findCoinAnywhere(selectedCoinId);
+  if(!c) return;
+  rollNumberByKey("chart:price", document.getElementById("chartCoinPrice"),
+    fmtDisplayPrice(c.current_price), displayPriceNum(c.current_price));
 }
 
 // ---------- 시세 그리드 ----------
@@ -392,12 +419,7 @@ function reapplyIntlFilter(){
   renderGrid();
   renderPortfolio();
   if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
-  if(selectedCoinId){
-    const c = coinsList.find(x=>x.id===selectedCoinId);
-    if(c){
-      rollNumberByKey("chart:price", document.getElementById("chartCoinPrice"), fmtPrice(c.current_price), c.current_price);
-    }
-  }
+  updateChartPrice();
 }
 
 // ---------- 국내 거래소(업비트/빗썸/코인원) ----------
@@ -499,14 +521,26 @@ function myExchangeValue(c){
 }
 
 // USD/KRW 환율을 최초 1회만 가져와 캐싱(프리미엄 계산, 나의 거래소 환산에 공용으로 사용)
-async function ensureUsdKrw(){
-  if(usdKrw) return usdKrw;
+async function fetchUsdKrw(){
   const sources = [
+    // 1) manana.kr — 야후 파이낸스 USD/KRW를 그대로 중계. 장중에는 분 단위로 갱신되는 (거의) 실시간가.
     async ()=>{
-      const r = await fetch("https://api.frankfurter.app/latest?from=USD&to=KRW");
+      const r = await fetch("https://api.manana.kr/exchange/rate/USD/KRW.json");
+      const d = await r.json();
+      const row = Array.isArray(d) ? d[0] : d;
+      if(!row || !(row.rate > 0)) return null;
+      // name이 "KRWUSD=X"면 rate가 1KRW당 USD값 → 뒤집어야 원/달러가 됨. "USDKRW=X"면 그대로.
+      if(/^KRWUSD/i.test(row.name || "")) return 1 / row.rate;
+      if(/^USDKRW/i.test(row.name || "")) return row.rate;
+      return row.rate < 0.1 ? 1 / row.rate : row.rate; // 이름을 못 읽으면 값 크기로 방향 추정
+    },
+    // 2) frankfurter (ECB 참고환율, 영업일 1회 고시) — 실시간보다 몇 원 벌어질 수 있는 폴백
+    async ()=>{
+      const r = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW");
       const d = await r.json();
       return d.rates && d.rates.KRW;
     },
+    // 3) open.er-api (일 1회 갱신) — 마지막 폴백
     async ()=>{
       const r = await fetch("https://open.er-api.com/v6/latest/USD");
       const d = await r.json();
@@ -516,10 +550,45 @@ async function ensureUsdKrw(){
   for(const src of sources){
     try{
       const rate = await src();
-      if(rate && isFinite(rate) && rate > 0){ usdKrw = rate; break; }
+      if(rate && isFinite(rate) && rate > 0) return rate;
     }catch(e){ /* 다음 소스로 시도 */ }
   }
+  return null;
+}
+
+async function ensureUsdKrw(){
+  if(usdKrw) return usdKrw;
+  const rate = await fetchUsdKrw();
+  if(rate) usdKrw = rate;
+  renderFxMini();
   return usdKrw;
+}
+
+// 헤더의 원/달러 환율 표시 갱신
+function renderFxMini(){
+  const box = document.getElementById("fxMini");
+  if(!box) return;
+  if(usdKrw){
+    document.getElementById("fxRate").textContent =
+      usdKrw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    box.style.display = "block";
+  }else{
+    box.style.display = "none";
+  }
+}
+
+// 주기적으로 환율을 다시 받아와 표시/원화 환산을 최신으로 유지 (실패 시 직전 값 유지)
+async function refreshUsdKrw(){
+  const rate = await fetchUsdKrw();
+  if(rate && rate !== usdKrw){
+    usdKrw = rate;
+    renderFxMini();
+    renderGrid();
+    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+    renderPortfolio();
+  }else{
+    renderFxMini();
+  }
 }
 
 async function loadMarkets(){
@@ -567,12 +636,7 @@ async function loadMarkets(){
     renderGrid();
     if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   }
-  if(selectedCoinId){
-    const c = coinsList.find(x=>x.id===selectedCoinId) || findCoinAnywhere(selectedCoinId);
-    if(c){
-      rollNumberByKey("chart:price", document.getElementById("chartCoinPrice"), fmtPrice(c.current_price), c.current_price);
-    }
-  }
+  updateChartPrice();
   renderPortfolio();
 }
 
@@ -592,12 +656,12 @@ function renderGrid(){
   }
   lastGridSignature = sig;
   const wrap = document.getElementById("gridWrap");
-  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">${priceColumnLabel()}</div><div style="text-align:right">등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">${priceColumnLabel()} <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">등락률</div></div>`;
   if(coinsList.length === 0){
     html += '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
   }
   coinsList.slice(0, visibleCount).forEach(c=>{
-    const chgCls = c.price_change_percentage_24h >= 0 ? "up":"down";
+    const chgCls = chgClass(c.price_change_percentage_24h);
     const selCls = c.id === selectedCoinId ? "selected":"";
     const editCls = editMode ? "editing":"";
     const myx = myExchangeValue(c);
@@ -649,7 +713,11 @@ function updateGridValues(){
     }else{
       rollUpdate(priceEl, "-", true);
     }
+    const prevChg = prevValues[c.id+":chg"];
     rollNumberByKey(c.id+":chg", chgEl, fmtChg(c.price_change_percentage_24h), c.price_change_percentage_24h);
+    if(prevChg !== undefined && c.price_change_percentage_24h != null && c.price_change_percentage_24h !== prevChg){
+      flashChg(row.querySelector(".chg"), c.price_change_percentage_24h - prevChg);
+    }
     const myx = myExchangeValue(c);
     const myxNum = displayMyxNum(myx.krw);
     if(myxNum !== null){
@@ -659,8 +727,10 @@ function updateGridValues(){
     }
     row.querySelector(".myx-price").classList.toggle("myx-est", myx.est);
     const chgDiv = row.querySelector(".chg");
-    chgDiv.classList.toggle("up", c.price_change_percentage_24h >= 0);
-    chgDiv.classList.toggle("down", c.price_change_percentage_24h < 0);
+    const cls = chgClass(c.price_change_percentage_24h);
+    chgDiv.classList.toggle("up", cls === "up");
+    chgDiv.classList.toggle("down", cls === "down");
+    chgDiv.classList.toggle("flat", cls === "flat");
   });
   const moreBtn = document.getElementById("moreBtn");
   moreBtn.style.display = visibleCount < coinsList.length ? "block":"none";
@@ -673,11 +743,24 @@ document.getElementById("gridWrap").addEventListener("click", (e)=>{
     const panel = document.getElementById("myxPanel");
     const opening = panel.style.display === "none";
     panel.style.display = opening ? "block" : "none";
+    document.getElementById("priceHelpPop").style.display = "none";
     if(opening){
       document.getElementById("addCoinPanel").style.display = "none";
       document.getElementById("addCoinBtn").classList.remove("active");
     }
   }
+  if(e.target.closest("#priceHelpBtn")){
+    e.stopPropagation();
+    const pop = document.getElementById("priceHelpPop");
+    pop.style.display = pop.style.display === "none" ? "block" : "none";
+    document.getElementById("myxPanel").style.display = "none";
+  }
+});
+
+document.getElementById("priceHelpGoBtn").addEventListener("click", ()=>{
+  document.getElementById("priceHelpPop").style.display = "none";
+  document.querySelector('.tab[data-tab="settings"]').click();
+  document.getElementById("exchangeOpts").scrollIntoView({behavior:"smooth", block:"center"});
 });
 
 // 위에 뜬 말풍선/패널 바깥을 아무 데나 탭하면 자동으로 닫힘
@@ -690,6 +773,10 @@ document.addEventListener("click", (e)=>{
   if(addPanel.style.display !== "none" && !e.target.closest("#addCoinPanel") && !e.target.closest("#addCoinBtn")){
     addPanel.style.display = "none";
     document.getElementById("addCoinBtn").classList.remove("active");
+  }
+  const priceHelp = document.getElementById("priceHelpPop");
+  if(priceHelp.style.display !== "none" && !e.target.closest("#priceHelpPop") && !e.target.closest("#priceHelpBtn")){
+    priceHelp.style.display = "none";
   }
 });
 
@@ -867,8 +954,9 @@ async function selectCoin(id){
   panel.style.display = "block";
   document.body.classList.add("chart-open");
   document.getElementById("chartCoinName").textContent = `${c.name} (${c.symbol.toUpperCase()})`;
-  document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtPrice(c.current_price) + '</span>';
-  prevValues["chart:price"] = c.current_price;
+  if(displayCurrency === "krw" && !usdKrw) await ensureUsdKrw();
+  document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtDisplayPrice(c.current_price) + '</span>';
+  prevValues["chart:price"] = displayPriceNum(c.current_price);
   renderTVChart(c, currentDays);
 }
 
@@ -889,11 +977,42 @@ const TV_RANGE_MAP = {
   365: { interval: "D",   range: "12M" }
 };
 
+// 차트가 의미 없는(항상 ≈$1) 스테이블코인들 — TradingView에 SYMUSDT 페어가 없어 "Invalid symbol"이 뜬다
+const STABLECOINS = new Set([
+  "USDT","USDC","DAI","USDE","USD1","FDUSD","TUSD","USDD","PYUSD","USDP","GUSD",
+  "USDS","BUSD","USDL","USDG","USD0","USDX","USR","LUSD","FRAX","USDB","USDTB","RLUSD","EURC","EURT"
+]);
+
+// 코인이 실제로 거래되는 거래소 데이터(c.exUsd / c.domestic)를 근거로 유효한 트레이딩뷰 심볼을 고른다.
+// 예전엔 무조건 "BINANCE:SYMUSDT"로 찍어서, 바이낸스에 없는 코인(래핑 토큰·코인베이스 전용·국내 상장 등)은 차트가 안 떴다.
+function guessTvSymbol(c){
+  if(c.tvSymbol) return c.tvSymbol;
+  const sym = c.symbol.toUpperCase();
+  const ex = c.exUsd || {};
+  if(ex.binance)  return "BINANCE:"  + sym + "USDT";
+  if(ex.okx)      return "OKX:"      + sym + "USDT";
+  if(ex.bybit)    return "BYBIT:"    + sym + "USDT";
+  if(ex.coinbase) return "COINBASE:" + sym + "USD";
+  if(ex.kraken)   return "KRAKEN:"   + sym + "USD";
+  if(c.domestic && c.domestic.upbit)   return "UPBIT:"   + sym + "KRW";
+  if(c.domestic && c.domestic.bithumb) return "BITHUMB:" + sym + "KRW";
+  return "BINANCE:" + (c.id || sym + "USDT"); // 최후의 추정
+}
+
 function renderTVChart(c, days){
   const container = document.getElementById("tvChartContainer");
   container.innerHTML = ""; // 이전 위젯 제거
   const cfg = TV_RANGE_MAP[days] || TV_RANGE_MAP[1];
-  const tvSymbol = c.tvSymbol || ("BINANCE:" + c.id);
+
+  // 스테이블코인은 차트 대신 안내만 (SYMUSDT 페어가 없어서 어차피 "Invalid symbol"이 뜸)
+  if(!c.tvSymbol && STABLECOINS.has(c.symbol.toUpperCase())){
+    container.innerHTML =
+      '<div class="loading" style="padding:40px 12px;">스테이블코인이라 가격이 항상 ≈ $1 — 시세 차트를 생략했어요.</div>';
+    document.getElementById("chartSrcNote").textContent = "가격 기준: 스테이블코인 (달러 페그)";
+    return;
+  }
+
+  const tvSymbol = guessTvSymbol(c);
   try{
     new TradingView.widget({
       autosize: true,
@@ -974,6 +1093,7 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   displayCurrency = opt.dataset.cur;
   if(!usdKrw) await ensureUsdKrw();
   renderGrid(); // gridSignature에 displayCurrency가 포함돼 있어 자동으로 헤더까지 다시 그려짐
+  updateChartPrice();
   if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   renderPortfolio();
   saveState();
@@ -1036,7 +1156,7 @@ function renderPremiumGrid(){
   coinsList.forEach(c=>{
     const myxVal = myExchangeAvg(c);
     const premPct = premiumPct(c, myxVal);
-    const premCls = premPct === null ? "" : (premPct >= 0 ? "up":"down");
+    const premCls = premPct === null ? "" : chgClass(premPct);
     const premText = premPct === null ? "-" : fmtChg(premPct);
     html += `<div class="grid-row" data-id="${c.id}">
       <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}</div></div>
@@ -1078,8 +1198,10 @@ function updatePremiumValues(){
     else pctEl.innerHTML = '<span class="roll-cur">-</span>';
     const chgDiv = row.querySelector(".chg");
     if(premPct !== null){
-      chgDiv.classList.toggle("up", premPct >= 0);
-      chgDiv.classList.toggle("down", premPct < 0);
+      const cls = chgClass(premPct);
+      chgDiv.classList.toggle("up", cls === "up");
+      chgDiv.classList.toggle("down", cls === "down");
+      chgDiv.classList.toggle("flat", cls === "flat");
     }
   });
 }
@@ -1512,6 +1634,8 @@ loadState();
 applyLoadedUIState();
 loadMarkets();
 loadFearGreed();
+ensureUsdKrw().then(renderFxMini);
+setInterval(refreshUsdKrw, 120000); // 2분마다 환율 갱신
 loadCmcKrw();
 setInterval(loadCmcKrw, 600000);
 restartRefreshTimer();
