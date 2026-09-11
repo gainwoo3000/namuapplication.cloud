@@ -22,12 +22,18 @@ let upbitMarketSet = null;   // 업비트에 상장된 심볼 집합 (최초 1�
 const enrichedCache = {};    // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
 const virtualCoins = {};     // id -> 트레이딩뷰 검색으로 추가한, 우리 가격 풀에 없는 코인(새로고침에도 유지)
 let cmcKrwMap = {};          // 심볼(대문자) -> KRW. CoinMarketCap(프록시 경유) — 국내 거래소에 없는 코인 메꿈용
-const CMC_PROXY = "https://api.namuapplication.cloud/cmc/krw";
+const API_BASE = "https://api.namuapplication.cloud"; // Cloudflare Worker 프록시 (CORS + 엣지 캐시)
+const CMC_PROXY = API_BASE + "/cmc/krw";
+const CG_MARKETS_PROXY = API_BASE + "/cg/markets"; // 시총 1~500위 (엣지 캐시 60초)
+const CG_SEARCH_PROXY = API_BASE + "/cg/search";   // 코인 검색 (순위 밖 포함, 엣지 캐시 120초)
+
+// 시세 탭 검색으로만 찾은(시총 500위 밖) 코인 임시 보관소 — 저장/영구 목록에는 넣지 않음
+const marketExtraCoins = new Map();
 
 // watchlist + allTickers(기본 시세)에 마지막으로 보강된 데이터(있다면)를 합쳐 coinsList를 구성
 // id 하나를 allTickers(기본 정보) + enrichedCache(있다면 최신 보강값)를 합쳐 조회
 function findCoinAnywhere(id){
-  const base = allTickers.find(c=>c.id===id);
+  const base = allTickers.find(c=>c.id===id) || marketExtraCoins.get(id);
   if(!base) return null;
   const cached = enrichedCache[id];
   return cached ? {...base, ...cached} : base;
@@ -86,8 +92,11 @@ function rollUpdate(wrapEl, newText, up){
   }
 
   const cols = wrapEl.children;
+  let k = 0; // 바뀌는 자릿수 순번 — 왼쪽부터 차례로 조금씩 늦게 굴러 "샤라락" 느낌을 낸다
   for(let i = 0; i < newText.length; i++){
     if(prev[i] === newText[i]) continue;
+    const delay = Math.min(k, 8) * 45;
+    k++;
     const col = cols[i];
     while(col.children.length > 1) col.removeChild(col.firstElementChild); // 진행 중이던 애니메이션 정리
     const cur = col.firstElementChild;
@@ -99,15 +108,18 @@ function rollUpdate(wrapEl, newText, up){
     col.appendChild(nxt);
     void nxt.offsetWidth;
     requestAnimationFrame(()=>{
-      cur.style.transition = "transform .3s cubic-bezier(.4,0,.2,1)";
-      nxt.style.transition = "transform .3s cubic-bezier(.4,0,.2,1)";
+      const tr = "transform .3s cubic-bezier(.4,0,.2,1) " + delay + "ms";
+      cur.style.transition = tr;
+      nxt.style.transition = tr;
       cur.style.transform = "translateY(" + (up ? "-100%" : "100%") + ")";
       nxt.style.transform = "translateY(0)";
     });
-    setTimeout(function(){
-      if(cur.parentNode === col) col.removeChild(cur);
-      nxt.className = ""; nxt.style.cssText = "";
-    }, 340);
+    (function(cur, nxt, col, delay){
+      setTimeout(function(){
+        if(cur.parentNode === col) col.removeChild(cur);
+        nxt.className = ""; nxt.style.cssText = "";
+      }, 340 + delay);
+    })(cur, nxt, col, delay);
   }
 }
 
@@ -172,6 +184,12 @@ function fmtDisplayPrice(usdVal){
   if(v === null) return "-";
   return displayCurrency === "krw" ? fmtKrw(v) : fmtPrice(v);
 }
+// 시세 탭 가격 셀의 보조(회색) 줄: 주 통화(설정) 반대편 통화를 함께 보여줌 (원화 병기용)
+function priceSubText(usdVal){
+  if(usdVal === null || usdVal === undefined || isNaN(usdVal)) return "";
+  if(displayCurrency === "krw") return fmtPrice(usdVal);
+  return usdKrw ? fmtKrw(usdVal * usdKrw) : "";
+}
 // "나의 거래소" 컬럼 표시값: displayCurrency에 따라 KRW 그대로 또는 USD로 환산해서 보여줌
 function displayMyxNum(krwVal){
   if(krwVal === null || krwVal === undefined || isNaN(krwVal)) return null;
@@ -186,8 +204,12 @@ function fmtDisplayMyx(krwVal){
   if(v === null) return "-";
   return displayCurrency === "usd" ? fmtPrice(v) : fmtKrw(v);
 }
-function priceColumnLabel(){
-  return "가격(" + (displayCurrency === "krw" ? "KRW" : "USD") + ")";
+// "나의 거래소" 셀 하단에 회색으로 붙는 김치 프리미엄 값. 실제 국내 체결가가 있을 때만(추정가 제외) 표시.
+function myxPremiumText(c, myx){
+  if(!myx || myx.krw === null || myx.est) return "";
+  const pct = premiumPct(c, myx.krw);
+  if(pct === null) return "";
+  return fmtChg(pct);
 }
 
 // 차트 패널 우상단 가격: "표시 통화" 설정(displayCurrency)에 맞춰 USD/KRW로 보여준다
@@ -201,21 +223,52 @@ function updateChartPrice(){
 
 // ---------- 시세 그리드 ----------
 // 순위는 시가총액 기준(CoinGecko)으로 매기고, 가격/등락률은 가능하면 바이낸스 실시간 값으로 덮어써서 사용
-async function loadFromGecko(){
-  const res = await fetch(`${GECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=200&page=1&price_change_percentage=24h`);
+async function fetchGeckoPage(page){
+  const res = await fetch(`${GECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`);
   if(!res.ok) throw new Error("gecko http " + res.status);
-  const data = await res.json();
-  return data.map(c=>{
-    const short = c.symbol.toUpperCase();
-    return {
-      id: short + "USDT",
+  return res.json();
+}
+
+// 시총 1~500위를 CoinGecko 원본 형식(우리가 쓰는 필드만) 배열로 반환.
+// 1순위: 워커 프록시(/cg/markets, 엣지 캐시라 429 거의 없음). 실패 시 CoinGecko 직접(250개씩 2페이지).
+async function fetchGeckoMarkets(){
+  try{
+    const r = await fetch(CG_MARKETS_PROXY);
+    if(r.ok){
+      const rows = await r.json();
+      if(Array.isArray(rows) && rows.length) return rows;
+    }
+  }catch(e){ /* 프록시 미배포/오류 → 직접 호출로 폴백 */ }
+  const [p1, p2] = await Promise.allSettled([fetchGeckoPage(1), fetchGeckoPage(2)]);
+  if(p1.status !== "fulfilled") throw (p1.reason instanceof Error ? p1.reason : new Error("gecko page1 실패"));
+  return p2.status === "fulfilled" ? p1.value.concat(p2.value) : p1.value;
+}
+
+// 갱신 주기가 짧아도 호출이 몰리지 않도록 GECKO_TTL 동안 직전 결과를 재사용(시세 목록은 몇 초 늦어도 무방).
+let geckoCache = { data: null, at: 0 };
+const GECKO_TTL = 60000;
+
+async function loadFromGecko(){
+  if(geckoCache.data && Date.now() - geckoCache.at < GECKO_TTL) return geckoCache.data.slice();
+  const rows = await fetchGeckoMarkets();
+  const seen = new Set();
+  const mapped = [];
+  for(const c of rows){
+    const short = (c.symbol || "").toUpperCase();
+    const id = short + "USDT";
+    if(!short || seen.has(id)) continue; // 심볼이 겹치는 마이너 코인은 시총 상위(먼저 나온) 것만
+    seen.add(id);
+    mapped.push({
+      id,
       symbol: c.symbol,
       name: NAME_MAP[short] || c.name,
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null
-    };
-  });
+    });
+  }
+  geckoCache = { data: mapped, at: Date.now() };
+  return mapped.slice();
 }
 
 async function loadFromBinance(){
@@ -228,7 +281,7 @@ async function loadFromBinance(){
     parseFloat(t.quoteVolume) > 0
   );
   usdt.sort((a,b)=> parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
-  return usdt.slice(0,200).map((t,idx)=>{
+  return usdt.slice(0,500).map((t,idx)=>{
     const short = t.symbol.replace("USDT","");
     return {
       id: t.symbol,
@@ -278,6 +331,18 @@ async function fetchBinanceMap(){
   const map = {};
   all.forEach(t=>{ if(t.symbol.endsWith("USDT")) map[t.symbol] = t; });
   return map;
+}
+
+// 바이낸스 24시간 티커 맵을 짧게 캐시해서 여러 곳(검색 가격 채우기 등)에서 재사용
+let binanceMapCache = { data: null, at: 0 };
+const BINANCE_MAP_TTL = 30000;
+async function getBinanceMap(){
+  if(binanceMapCache.data && Date.now() - binanceMapCache.at < BINANCE_MAP_TTL) return binanceMapCache.data;
+  try{
+    const m = await fetchBinanceMap();
+    binanceMapCache = { data: m, at: Date.now() };
+    return m;
+  }catch(e){ return binanceMapCache.data || {}; }
 }
 
 async function fetchCoinbaseRates(){
@@ -385,7 +450,7 @@ function intlPriceAvg(c){
 async function enrichIntlPrices(list){
   const symbolsUpper = list.map(c=>c.symbol.toUpperCase());
   const [binanceMap, coinbaseRates, krakenMap, okxMap, bybitMap] = await Promise.all([
-    fetchBinanceMap().catch(()=>({})),
+    getBinanceMap(),
     fetchCoinbaseRates(),
     fetchKrakenPricesFor(symbolsUpper),
     fetchOkxMap(),
@@ -418,7 +483,6 @@ function reapplyIntlFilter(){
   coinsList = buildCoinsList();
   renderGrid();
   renderPortfolio();
-  if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   updateChartPrice();
 }
 
@@ -584,7 +648,7 @@ async function refreshUsdKrw(){
     usdKrw = rate;
     renderFxMini();
     renderGrid();
-    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+    renderMarketGrid();
     renderPortfolio();
   }else{
     renderFxMini();
@@ -618,6 +682,7 @@ async function loadMarkets(){
   }
   coinsList = buildCoinsList(); // 우선 캐시된 값(있다면)으로 즉시 렌더
   renderGrid();
+  renderMarketGrid();
   document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (lastSource==="gecko" ? " (대체 소스)":"");
   if(coinsList.length > 0){
     let enriched = await enrichIntlPrices(coinsList);
@@ -634,7 +699,7 @@ async function loadMarkets(){
     });
     coinsList = buildCoinsList();
     renderGrid();
-    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
+    renderMarketGrid();
   }
   updateChartPrice();
   renderPortfolio();
@@ -656,7 +721,7 @@ function renderGrid(){
   }
   lastGridSignature = sig;
   const wrap = document.getElementById("gridWrap");
-  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">${priceColumnLabel()} <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소 <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">등락률</div></div>`;
   if(coinsList.length === 0){
     html += '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
   }
@@ -666,11 +731,12 @@ function renderGrid(){
     const editCls = editMode ? "editing":"";
     const myx = myExchangeValue(c);
     const myxText = myx.krw === null ? "-" : (myx.est ? "≈ " : "") + fmtDisplayMyx(myx.krw);
+    const premText = myxPremiumText(c, myx);
     const rankText = c.rank ? `${c.rank}위 · ` : "";
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
       <div><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div>
-      <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span></div>
+      <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span><span class="myx-prem${premText === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${premText}</span></span></span></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
     </div>`;
@@ -726,6 +792,17 @@ function updateGridValues(){
       rollUpdate(myxEl, "-", true);
     }
     row.querySelector(".myx-price").classList.toggle("myx-est", myx.est);
+    const premEl = row.querySelector(".myx-prem");
+    if(premEl){
+      const premTxt = myxPremiumText(c, myx);
+      premEl.classList.toggle("is-empty", premTxt === "");
+      const premWrap = premEl.querySelector(".roll-wrap");
+      if(premTxt === "") rollUpdate(premWrap, "", true);
+      else{
+        const pn = premiumPct(c, myx.krw);
+        rollNumberByKey(c.id+":prem", premWrap, premTxt, pn == null ? 0 : pn);
+      }
+    }
     const chgDiv = row.querySelector(".chg");
     const cls = chgClass(c.price_change_percentage_24h);
     chgDiv.classList.toggle("up", cls === "up");
@@ -738,22 +815,10 @@ function updateGridValues(){
 }
 
 document.getElementById("gridWrap").addEventListener("click", (e)=>{
-  if(e.target.closest(".myx-head")){
-    e.stopPropagation();
-    const panel = document.getElementById("myxPanel");
-    const opening = panel.style.display === "none";
-    panel.style.display = opening ? "block" : "none";
-    document.getElementById("priceHelpPop").style.display = "none";
-    if(opening){
-      document.getElementById("addCoinPanel").style.display = "none";
-      document.getElementById("addCoinBtn").classList.remove("active");
-    }
-  }
   if(e.target.closest("#priceHelpBtn")){
     e.stopPropagation();
     const pop = document.getElementById("priceHelpPop");
     pop.style.display = pop.style.display === "none" ? "block" : "none";
-    document.getElementById("myxPanel").style.display = "none";
   }
 });
 
@@ -765,10 +830,6 @@ document.getElementById("priceHelpGoBtn").addEventListener("click", ()=>{
 
 // 위에 뜬 말풍선/패널 바깥을 아무 데나 탭하면 자동으로 닫힘
 document.addEventListener("click", (e)=>{
-  const myx = document.getElementById("myxPanel");
-  if(myx.style.display !== "none" && !e.target.closest("#myxPanel") && !e.target.closest(".myx-head")){
-    myx.style.display = "none";
-  }
   const addPanel = document.getElementById("addCoinPanel");
   if(addPanel.style.display !== "none" && !e.target.closest("#addCoinPanel") && !e.target.closest("#addCoinBtn")){
     addPanel.style.display = "none";
@@ -784,7 +845,6 @@ document.querySelectorAll(".myx-check").forEach(cb=>{
   cb.addEventListener("change", ()=>{
     myExchanges = new Set([...document.querySelectorAll(".myx-check:checked")].map(el=>el.value));
     renderGrid();
-    if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
     saveState();
   });
 });
@@ -807,7 +867,6 @@ document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
   panel.style.display = showing ? "none" : "block";
   e.target.classList.toggle("active", !showing);
   if(!showing){
-    document.getElementById("myxPanel").style.display = "none";
     renderAddResults("");
   }
 });
@@ -944,12 +1003,13 @@ function removeCoin(id){
 }
 
 // ---------- 차트 ----------
-// 시세/프리미엄/포트폴리오 어느 탭에서든 코인을 누르면 하단 차트 패널이 뜬다.
+// 시세/포트폴리오 어느 탭에서든 코인을 누르면 하단 차트 패널이 뜬다.
 async function selectCoin(id){
   const c = coinsList.find(x=>x.id===id) || findCoinAnywhere(id);
   if(!c) return;
   selectedCoinId = id;
   renderGrid();
+  renderMarketGrid();
   const panel = document.getElementById("chartPanel");
   panel.style.display = "block";
   document.body.classList.add("chart-open");
@@ -966,6 +1026,7 @@ function closeChart(){
   document.getElementById("tvChartContainer").innerHTML = "";
   document.body.classList.remove("chart-open");
   renderGrid();
+  renderMarketGrid();
 }
 document.getElementById("chartCloseBtn").addEventListener("click", closeChart);
 
@@ -1039,6 +1100,281 @@ function renderTVChart(c, days){
 
 
 
+// ---------- 시세 탭 (시총 순위 + 페이지 + 검색) ----------
+const MARKET_PAGE_SIZE = 100; // 1페이지 = 1~100위, 2페이지 = 101~200위 …
+let marketQuery = "";
+let marketPage = 1;
+let marketExtResults = [];     // 검색어에 대한 외부(시총 500위 밖) 코인 결과 — CoinGecko 검색
+let marketSearchDebounce = null;
+let lastMarketSig = null;
+
+// 검색 결과 원소 하나 → 시세 목록에 끼워넣을 코인 형태
+function makeSearchCoin(o){
+  const short = (o.symbol || "").toUpperCase();
+  return {
+    id: short + "USDT",
+    symbol: (o.symbol || "").toLowerCase(),
+    name: o.name || short,
+    current_price: (o.price ?? o.current_price ?? null),
+    price_change_percentage_24h: (o.change24h ?? o.price_change_percentage_24h ?? null),
+    rank: (o.rank ?? o.market_cap_rank ?? null),
+    searchOnly: true
+  };
+}
+
+// 같은 티커(SYMBOL)로 여러 코인이 잡히면 시총 순위가 가장 높은 것만 남긴다.
+// (어차피 목록은 SYMBOL+USDT id로 한 줄만 그리므로, 대표 코인이 남도록)
+function dedupeSearchBySymbol(coins){
+  const best = new Map();
+  for(const c of coins){
+    const key = c.id;
+    const cur = best.get(key);
+    const r = c.rank == null ? Infinity : c.rank;
+    if(!cur || r < (cur.rank == null ? Infinity : cur.rank)) best.set(key, c);
+  }
+  // 관련도 순서를 유지하면서 티커별 대표만 남긴다
+  return coins.filter(c => best.get(c.id) === c);
+}
+
+// 바이낸스·바이빗 스팟 USDT 티커(심볼 -> {price, chg%})를 짧게 캐시.
+// 검색 결과 중 CoinGecko가 가격을 안 준 코인의 가격/등락률을 여기서 메꾼다.
+let exFillCache = { at: 0, map: {} };
+const EX_FILL_TTL = 30000;
+async function getExFillMap(){
+  if(Date.now() - exFillCache.at < EX_FILL_TTL && Object.keys(exFillCache.map).length) return exFillCache.map;
+  const map = {};
+  const put = (sym, price, chg) => {
+    if(!sym || !(price > 0) || map[sym]) return;
+    map[sym] = { price, chg: (chg == null || isNaN(chg)) ? null : chg };
+  };
+  await Promise.all([
+    getBinanceMap().then(b => { for(const k in b){ const t = b[k];
+      put(k.replace(/USDT$/, ""), parseFloat(t.lastPrice), parseFloat(t.priceChangePercent)); } }).catch(()=>{}),
+    fetch("https://api.bybit.com/v5/market/tickers?category=spot").then(r => r.ok ? r.json() : null).then(d => {
+      (d && d.result && d.result.list || []).forEach(t => { if(t.symbol && t.symbol.endsWith("USDT"))
+        put(t.symbol.replace(/USDT$/, ""), parseFloat(t.lastPrice), parseFloat(t.price24hPcnt) * 100); });
+    }).catch(()=>{})
+  ]);
+  if(Object.keys(map).length) exFillCache = { at: Date.now(), map };
+  return exFillCache.map;
+}
+
+// 가격/등락률이 비어 있는 검색 결과를 거래소 티커로 채운다.
+// 티커가 겹치는 무명 코인에 엉뚱한 가격이 붙지 않도록, 시총 순위가 어느 정도 있는 코인만 채운다.
+async function fillSearchPrices(coins){
+  const need = coins.filter(c => (c.current_price == null || c.price_change_percentage_24h == null)
+    && c.rank != null && c.rank <= 2500);
+  if(need.length === 0) return coins;
+  const ex = await getExFillMap();
+  for(const c of need){
+    const t = ex[(c.symbol || "").toUpperCase()];
+    if(!t) continue;
+    if(c.current_price == null) c.current_price = t.price;
+    if(c.price_change_percentage_24h == null && t.chg != null) c.price_change_percentage_24h = t.chg;
+  }
+  return coins;
+}
+
+// 시총 500위 밖 코인까지 이름/심볼로 검색.
+// 1순위: 워커 프록시(/cg/search — 엣지 캐시 + 항상 CORS + 가격·순위 포함).
+// 2순위: CoinGecko 직접(/search 1콜). 어느 쪽이든 가격이 비면 거래소(바이낸스·바이빗) 티커로 채운다.
+async function searchExternalCoins(query){
+  let coins = null;
+  try{
+    const r = await fetch(`${CG_SEARCH_PROXY}?q=${encodeURIComponent(query)}`);
+    if(r.ok){
+      const arr = (await r.json()).coins || [];
+      if(arr.length) coins = arr.map(makeSearchCoin);
+    }
+  }catch(e){ /* 프록시 미배포/오류 → 직접 호출로 폴백 */ }
+  if(!coins){
+    try{
+      const res = await fetch(`${GECKO}/search?query=${encodeURIComponent(query)}`);
+      if(res.ok) coins = ((await res.json()).coins || []).slice(0, 12).map(makeSearchCoin);
+    }catch(e){ /* 무시 */ }
+  }
+  if(!coins || !coins.length) return [];
+  return fillSearchPrices(dedupeSearchBySymbol(coins));
+}
+
+// 시총 순위대로 정렬된 코인 목록(순위가 없으면 원본 순서 그대로)
+function rankedTickers(){
+  const ranked = allTickers.filter(c => c.rank).sort((a,b)=> a.rank - b.rank);
+  return ranked.length ? ranked : allTickers;
+}
+function marketTotalPages(){
+  return Math.max(1, Math.ceil(rankedTickers().length / MARKET_PAGE_SIZE));
+}
+
+// 검색어가 있으면 일치하는 코인(최대 100개), 없으면 현재 페이지의 100개.
+// 관심 코인으로 담아 이미 보강된(거래소 평균가) 코인은 그 최신값을 함께 반영한다.
+function marketList(){
+  let picked;
+  if(marketQuery){
+    const q = marketQuery.toUpperCase();
+    const local = allTickers.filter(c => c.symbol.toUpperCase().includes(q) || (c.name || "").toUpperCase().includes(q));
+    const localSyms = new Set(local.map(c => c.symbol.toUpperCase()));
+    // 시총 500위 밖이라 우리 풀엔 없는 코인은 CoinGecko 검색 결과로 채운다
+    const seen = new Set(local.map(c => c.id));
+    const ext = [];
+    for(const c of marketExtResults){
+      if(localSyms.has(c.symbol.toUpperCase()) || seen.has(c.id)) continue;
+      seen.add(c.id);
+      marketExtraCoins.set(c.id, c); // 클릭 시 findCoinAnywhere로 찾을 수 있게
+      ext.push(c);
+    }
+    picked = [...local, ...ext].slice(0, 100);
+  }else{
+    const start = (marketPage - 1) * MARKET_PAGE_SIZE;
+    picked = rankedTickers().slice(start, start + MARKET_PAGE_SIZE);
+  }
+  return picked.map(c => findCoinAnywhere(c.id) || c);
+}
+
+function marketSignature(list){
+  return marketQuery + "|" + marketPage + "|" + displayCurrency + "|" + selectedCoinId + "|" + list.map(c=>c.id).join(",");
+}
+
+// 현재 페이지 기준으로 보여줄 번호들. 1·마지막·현재±1 은 항상, 사이가 벌어지면 "gap"(…)
+function marketPageItems(cur, total){
+  const items = [];
+  let last = 0;
+  for(let p = 1; p <= total; p++){
+    if(p === 1 || p === total || (p >= cur - 1 && p <= cur + 1)){
+      if(last && p - last > 1) items.push("gap");
+      items.push(p);
+      last = p;
+    }
+  }
+  return items;
+}
+
+// 그리드 아래 페이지 버튼: 이전 · 1 · 2 · … · 5 · 다음
+function renderMarketPager(){
+  const pager = document.getElementById("marketPager");
+  if(!pager) return;
+  const total = marketTotalPages();
+  if(marketQuery || total <= 1){ pager.style.display = "none"; pager.innerHTML = ""; return; }
+  marketPage = Math.min(Math.max(1, marketPage), total);
+  const parts = [`<button class="pg-btn pg-nav" data-page="${marketPage - 1}"${marketPage <= 1 ? " disabled" : ""}>이전</button>`];
+  for(const it of marketPageItems(marketPage, total)){
+    parts.push(it === "gap"
+      ? `<span class="pg-gap">…</span>`
+      : `<button class="pg-btn${it === marketPage ? " active" : ""}" data-page="${it}">${it}</button>`);
+  }
+  parts.push(`<button class="pg-btn pg-nav" data-page="${marketPage + 1}"${marketPage >= total ? " disabled" : ""}>다음</button>`);
+  pager.innerHTML = parts.join("");
+  pager.style.display = "flex";
+}
+
+function goMarketPage(p){
+  const total = marketTotalPages();
+  const next = Math.min(Math.max(1, p), total);
+  if(next === marketPage) return;
+  marketPage = next;
+  renderMarketGrid();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderMarketGrid(){
+  const wrap = document.getElementById("marketWrap");
+  if(!wrap) return;
+  marketPage = Math.min(Math.max(1, marketPage), marketTotalPages());
+  const list = marketList();
+  const sig = marketSignature(list);
+  if(sig === lastMarketSig){
+    updateMarketValues(list); // 구성은 그대로, 가격/등락률만 롤링으로 갱신
+    renderMarketPager();
+    return;
+  }
+  lastMarketSig = sig;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">등락률</div></div>`;
+  if(list.length === 0){
+    wrap.innerHTML = html + '<div class="loading">' + (marketQuery ? '일치하는 코인이 없습니다.' : '시세를 불러오는 중입니다…') + '</div>';
+    renderMarketPager();
+    return;
+  }
+  list.forEach(c=>{
+    const chgCls = chgClass(c.price_change_percentage_24h);
+    const selCls = c.id === selectedCoinId ? "selected" : "";
+    const rankText = c.rank ? `${c.rank}위 · ` : "";
+    const symLine = `${rankText}${c.symbol.toUpperCase()}`
+      + (c.searchOnly && c.current_price == null ? ` · <span class="mkt-tv">차트만</span>` : "");
+    const sub = priceSubText(c.current_price);
+    html += `<div class="grid-row market-row ${selCls}" data-id="${c.id}">
+      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${symLine}</div></div>
+      <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span><span class="price-sub${sub === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${sub}</span></span></span></div>
+      <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
+    </div>`;
+    const priceNum = displayPriceNum(c.current_price);
+    if(priceNum !== null) prevValues["mkt:"+c.id+":price"] = priceNum;
+    prevValues["mkt:"+c.id+":chg"] = c.price_change_percentage_24h;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll(".grid-row[data-id]").forEach(row=>{
+    row.addEventListener("click", ()=> selectCoin(row.dataset.id));
+  });
+  renderMarketPager();
+}
+
+function updateMarketValues(list){
+  const wrap = document.getElementById("marketWrap");
+  if(!wrap) return;
+  list.forEach(c=>{
+    const row = wrap.querySelector(`.grid-row[data-id="${c.id}"]`);
+    if(!row) return;
+    const priceEl = row.querySelector(".price .roll-wrap");
+    const chgEl = row.querySelector(".chg .roll-wrap");
+    const priceNum = displayPriceNum(c.current_price);
+    if(priceNum !== null) rollNumberByKey("mkt:"+c.id+":price", priceEl, fmtDisplayPrice(c.current_price), priceNum);
+    else rollUpdate(priceEl, "-", true);
+    const subEl = row.querySelector(".price-sub");
+    if(subEl){
+      const subTxt = priceSubText(c.current_price);
+      subEl.classList.toggle("is-empty", subTxt === "");
+      const subWrap = subEl.querySelector(".roll-wrap");
+      if(subTxt === "") rollUpdate(subWrap, "", true);
+      else{
+        const subNum = displayCurrency === "krw" ? c.current_price : (usdKrw ? c.current_price * usdKrw : 0);
+        rollNumberByKey("mkt:"+c.id+":sub", subWrap, subTxt, subNum);
+      }
+    }
+    const prevChg = prevValues["mkt:"+c.id+":chg"];
+    rollNumberByKey("mkt:"+c.id+":chg", chgEl, fmtChg(c.price_change_percentage_24h), c.price_change_percentage_24h);
+    if(prevChg !== undefined && c.price_change_percentage_24h != null && c.price_change_percentage_24h !== prevChg){
+      flashChg(row.querySelector(".chg"), c.price_change_percentage_24h - prevChg);
+    }
+    const chgDiv = row.querySelector(".chg");
+    const cls = chgClass(c.price_change_percentage_24h);
+    chgDiv.classList.toggle("up", cls === "up");
+    chgDiv.classList.toggle("down", cls === "down");
+    chgDiv.classList.toggle("flat", cls === "flat");
+  });
+}
+
+document.getElementById("marketSearch").addEventListener("input", (e)=>{
+  marketQuery = e.target.value.trim();
+  marketPage = 1;
+  marketExtResults = [];
+  renderMarketGrid(); // 우선 로컬(시총 500위) 결과를 즉시 표시
+  clearTimeout(marketSearchDebounce);
+  if(marketQuery.length < 2) return;
+  const q = marketQuery;
+  marketSearchDebounce = setTimeout(async ()=>{
+    const results = await searchExternalCoins(q);
+    if(document.getElementById("marketSearch").value.trim() !== q) return; // 그새 검색어가 바뀌면 버림
+    marketExtResults = results;
+    lastMarketSig = null; // 외부 검색 결과를 반영해 강제로 다시 그림
+    renderMarketGrid();
+  }, 350);
+});
+
+document.getElementById("marketPager").addEventListener("click", (e)=>{
+  const btn = e.target.closest(".pg-btn");
+  if(!btn || btn.disabled) return;
+  goMarketPage(Number(btn.dataset.page));
+});
+
 // ---------- 탭 전환 ----------
 document.querySelectorAll(".tab").forEach(tab=>{
   tab.addEventListener("click", async ()=>{
@@ -1046,13 +1382,7 @@ document.querySelectorAll(".tab").forEach(tab=>{
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     tab.classList.add("active");
     document.getElementById("view-"+tab.dataset.tab).classList.add("active");
-    if(tab.dataset.tab === "premium"){
-      if(!usdKrw){
-        document.getElementById("premGridWrap").innerHTML = '<div class="loading">환율 정보를 불러오는 중입니다…</div>';
-        await ensureUsdKrw();
-      }
-      renderPremiumGrid();
-    }
+    if(tab.dataset.tab === "market") renderMarketGrid();
   });
 });
 
@@ -1093,8 +1423,8 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   displayCurrency = opt.dataset.cur;
   if(!usdKrw) await ensureUsdKrw();
   renderGrid(); // gridSignature에 displayCurrency가 포함돼 있어 자동으로 헤더까지 다시 그려짐
+  renderMarketGrid();
   updateChartPrice();
-  if(document.getElementById("view-premium").classList.contains("active")) renderPremiumGrid();
   renderPortfolio();
   saveState();
 });
@@ -1123,87 +1453,14 @@ function restartRefreshTimer(){
   refreshTimer = setInterval(loadMarkets, refreshSec*1000);
 }
 
-// ---------- 프리미엄(김치 프리미엄) ----------
+// ---------- 김치 프리미엄 ----------
+// 프리미엄 = (나의 거래소 원화가 − 시세기준가×환율) / (시세기준가×환율) × 100.
+// 시세 탭 "나의 거래소" 셀 하단에 회색으로 함께 표시된다.
 function premiumPct(c, myxVal){
   if(myxVal === null || myxVal === undefined || !usdKrw) return null;
   const intlKrw = c.current_price * usdKrw;
   if(!intlKrw) return null;
   return ((myxVal - intlKrw) / intlKrw) * 100;
-}
-
-let lastPremSignature = null;
-
-function premSignature(){
-  const ids = coinsList.map(c=>c.id).join(",");
-  return displayCurrency + "|" + [...myExchanges].sort().join(",") + "|" + ids;
-}
-
-function renderPremiumGrid(){
-  const wrap = document.getElementById("premGridWrap");
-  if(!wrap) return;
-  if(coinsList.length === 0){
-    lastPremSignature = null;
-    wrap.innerHTML = '<div class="loading">관심 코인이 없습니다. 시세 탭에서 코인을 담아보세요.</div>';
-    return;
-  }
-  const sig = premSignature();
-  if(sig === lastPremSignature){
-    updatePremiumValues(); // 구성은 그대로, 값만 롤링 애니메이션으로 갱신
-    return;
-  }
-  lastPremSignature = sig;
-  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">나의 거래소</div><div style="text-align:right">${priceColumnLabel()}</div><div style="text-align:right">김치프리미엄</div></div>`;
-  coinsList.forEach(c=>{
-    const myxVal = myExchangeAvg(c);
-    const premPct = premiumPct(c, myxVal);
-    const premCls = premPct === null ? "" : chgClass(premPct);
-    const premText = premPct === null ? "-" : fmtChg(premPct);
-    html += `<div class="grid-row" data-id="${c.id}">
-      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol.toUpperCase()}</div></div>
-      <div class="myx-price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayMyx(myxVal)}</span></span></div>
-      <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
-      <div class="chg ${premCls}"><span class="roll-wrap"><span class="roll-cur">${premText}</span></span></div>
-    </div>`;
-    const myxNum = displayMyxNum(myxVal);
-    const priceNum = displayPriceNum(c.current_price);
-    if(myxNum !== null) prevValues["prem:"+c.id+":myx"] = myxNum;
-    if(priceNum !== null) prevValues["prem:"+c.id+":price"] = priceNum;
-    if(premPct !== null) prevValues["prem:"+c.id+":pct"] = premPct;
-  });
-  wrap.innerHTML = html;
-  wrap.querySelectorAll(".grid-row[data-id]").forEach(row=>{
-    row.addEventListener("click", ()=> selectCoin(row.dataset.id));
-  });
-}
-
-// 구성은 그대로 둔 채 나의거래소/가격/프리미엄 값만 위아래로 슬라이드시키며 갱신
-function updatePremiumValues(){
-  const wrap = document.getElementById("premGridWrap");
-  if(!wrap) return;
-  coinsList.forEach(c=>{
-    const row = wrap.querySelector(`.grid-row[data-id="${c.id}"]`);
-    if(!row) return;
-    const myxVal = myExchangeAvg(c);
-    const premPct = premiumPct(c, myxVal);
-    const myxEl = row.querySelector(".myx-price .roll-wrap");
-    const priceEl = row.querySelector(".price .roll-wrap");
-    const pctEl = row.querySelector(".chg .roll-wrap");
-    const myxNum = displayMyxNum(myxVal);
-    const priceNum = displayPriceNum(c.current_price);
-    if(myxNum !== null) rollNumberByKey("prem:"+c.id+":myx", myxEl, fmtDisplayMyx(myxVal), myxNum);
-    else myxEl.innerHTML = '<span class="roll-cur">-</span>';
-    if(priceNum !== null) rollNumberByKey("prem:"+c.id+":price", priceEl, fmtDisplayPrice(c.current_price), priceNum);
-    else priceEl.innerHTML = '<span class="roll-cur">-</span>';
-    if(premPct !== null) rollNumberByKey("prem:"+c.id+":pct", pctEl, fmtChg(premPct), premPct);
-    else pctEl.innerHTML = '<span class="roll-cur">-</span>';
-    const chgDiv = row.querySelector(".chg");
-    if(premPct !== null){
-      const cls = chgClass(premPct);
-      chgDiv.classList.toggle("up", cls === "up");
-      chgDiv.classList.toggle("down", cls === "down");
-      chgDiv.classList.toggle("flat", cls === "flat");
-    }
-  });
 }
 
 // ---------- 포트폴리오 ----------

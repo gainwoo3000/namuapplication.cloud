@@ -27,15 +27,26 @@
   </header>
 
   <div class="tabs">
-    <div class="tab active" data-tab="ticker">시세</div>
-    <div class="tab" data-tab="premium">프리미엄</div>
+    <div class="tab active" data-tab="market">시세</div>
+    <div class="tab" data-tab="ticker">관심 코인</div>
     <div class="tab" data-tab="portfolio">포트폴리오</div>
     <div class="tab" data-tab="settings">설정</div>
   </div>
 
   <main>
-    <!-- 시세 탭 -->
-    <section class="view active" id="view-ticker">
+    <!-- 시세 탭 (시총 순위 1~500위, 100위씩 페이지) -->
+    <section class="view active" id="view-market">
+      <div class="market-search">
+        <input type="text" id="marketSearch" placeholder="코인 검색 (심볼·이름, 순위 밖 코인도)" autocomplete="off">
+      </div>
+      <div class="grid-wrap market" id="marketWrap">
+        <div class="loading">시세를 불러오는 중입니다…</div>
+      </div>
+      <div class="market-pager" id="marketPager" style="display:none;"></div>
+    </section>
+
+    <!-- 관심 코인 탭 -->
+    <section class="view" id="view-ticker">
       <div class="watch-toolbar">
         <button class="wt-btn" id="editModeBtn">코인 편집</button>
         <button class="wt-btn" id="addCoinBtn">+ 코인 추가</button>
@@ -47,20 +58,9 @@
       <div class="grid-container">
         <div class="grid-wrap" id="gridWrap">
           <div class="grid-row grid-head">
-            <div>코인</div><div class="myx-head" id="myxHeadBtn">나의 거래소 ▾</div><div style="text-align:right">가격(USD)</div><div style="text-align:right">등락률</div>
+            <div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소</div><div style="text-align:right">등락률</div>
           </div>
           <div class="loading">시세를 불러오는 중입니다…</div>
-        </div>
-        <div class="pop-panel" id="myxPanel" style="display:none;">
-          <div class="desc" style="margin-top:0; margin-bottom:6px;">볼 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
-          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
         </div>
         <div class="pop-panel" id="priceHelpPop" style="display:none;">
           <div class="desc" style="margin:0 0 8px;">이 열의 가격은 <b>설정 › 시세 기준 거래소</b>에서 고른 거래소 기준이에요. 여러 곳을 켜면 평균이 표시됩니다.</div>
@@ -68,14 +68,6 @@
         </div>
       </div>
       <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>
-    </section>
-
-    <!-- 프리미엄 탭 -->
-    <section class="view" id="view-premium">
-      <div class="grid-wrap" id="premGridWrap">
-        <div class="loading">시세 탭에서 먼저 시세를 불러와주세요…</div>
-      </div>
-      <div class="desc">프리미엄 = (나의 거래소 가격 − 가격×환율) / (가격×환율) × 100. "나의 거래소" 구성은 시세 탭에서 바꿀 수 있어요. 값이 양수이면 국내가 더 비싼(김치 프리미엄) 상태입니다.</div>
     </section>
 
     <!-- 포트폴리오 탭 -->
@@ -129,6 +121,20 @@
           <div class="opt" data-ex="kraken">크라켄</div>
         </div>
         <div class="desc">시총 순위는 CoinGecko 기준입니다. "가격(USD)"에 반영할 거래소를 켜고 끌 수 있어요 — 2개만 켜면 그 2개로만 평균 내고, "평균"을 누르면 다시 5개 전체 평균으로 돌아가요.</div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title">나의 거래소 (프리미엄 계산 기준)</div>
+        <div class="myx-opt-list">
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
+          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
+        </div>
+        <div class="desc">관심 코인 탭의 "나의 거래소" 가격과 프리미엄(김프)을 계산할 거래소예요. 2개 이상 고르면 평균이 표시됩니다.</div>
       </div>
       <div class="setting-group">
         <div class="setting-title">표시 통화</div>

@@ -78,6 +78,28 @@ body.chart-open main{padding-bottom:60vh;}
 #addCoinResults{max-height:340px; overflow-y:auto;}
 .add-empty{color:var(--muted); font-size:12px; padding:6px 4px;}
 
+/* 시세(시총 순위) 탭 */
+.market-search{margin-bottom:10px;}
+.market-search input{
+  width:100%; background:var(--panel); border:1px solid var(--line); color:var(--text);
+  border-radius:10px; padding:11px 12px; font-size:13px;
+}
+.market-search input::placeholder{color:var(--muted);}
+.grid-wrap.market .grid-row{grid-template-columns:1.5fr 1fr 0.8fr;}
+.mkt-tv{color:var(--gold); font-weight:600;}
+.market-pager{
+  display:flex; align-items:center; justify-content:center; gap:4px; margin-top:12px; flex-wrap:wrap;
+}
+.pg-btn{
+  min-width:32px; padding:7px 9px; border-radius:8px;
+  border:1px solid var(--line); background:var(--panel); color:var(--text);
+  font-size:12px; font-weight:600; cursor:pointer; font-family:var(--mono);
+}
+.pg-btn.pg-nav{font-family:var(--sans);}
+.pg-btn.active{background:var(--gold); color:#1a1400; border-color:var(--gold);}
+.pg-btn:disabled{opacity:0.35; cursor:default;}
+.pg-gap{color:var(--muted); padding:0 2px; font-size:12px;}
+
 /* Ticker grid */
 .grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel);}
 .grid-row{
@@ -94,7 +116,8 @@ body.chart-open main{padding-bottom:60vh;}
 .grid-row:active{background:var(--panel-2);}
 .grid-row.selected{background:#1E2A22; border-left:3px solid var(--up);}
 .grid-head{color:var(--muted); font-size:11px; font-weight:600;}
-.grid-head .myx-head{cursor:pointer; text-decoration:underline dotted; text-align:right;}
+.grid-head .myx-head{text-align:right;}
+.myx-head-sub{display:block; font-size:10px; font-weight:400; color:var(--muted); margin-top:1px;}
 .coin-name{font-size:13px; font-weight:600;}
 .coin-sym{font-size:11px; color:var(--muted);}
 .grid-row > div{min-width:0;} /* 그리드 셀 기본 min-width:auto로 인한 옆 칸 침범(겹침) 방지 */
@@ -126,20 +149,23 @@ body.chart-open main{padding-bottom:60vh;}
 }
 .grid-container{position:relative;}
 .myx-est{color:var(--muted); font-style:italic;}
+/* "나의 거래소" 셀 하단, 회색으로 붙는 김치 프리미엄 */
+.myx-prem{
+  display:block; font-family:var(--mono); font-size:10px; font-weight:600;
+  color:var(--muted); line-height:1.3; margin-top:1px;
+}
+.myx-prem.is-empty{display:none;}
+/* 시세 탭 가격 셀에 함께 표시되는 반대 통화(원화 병기) */
+.price-sub{
+  display:block; font-family:var(--mono); font-size:10px; font-weight:500;
+  color:var(--muted); line-height:1.3; margin-top:1px;
+}
+.price-sub.is-empty{display:none;}
+.myx-prem .roll-wrap, .price-sub .roll-wrap{height:1.3em; line-height:1.3em;}
 .pop-panel{
   border:1px solid var(--line); border-radius:12px; background:var(--panel-2);
   padding:10px 12px;
 }
-/* "나의 거래소" 선택 패널: 포트폴리오 거래소 설정처럼 그리드 위에 오버레이로 겹쳐 뜬다 */
-#myxPanel{
-  position:absolute; top:36px; left:12px; z-index:30;
-  width:230px; max-width:calc(100% - 24px);
-  max-height:min(340px, 68vh); overflow-y:auto;
-  padding:8px 10px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.45);
-}
-#myxPanel .myx-opt{padding:5px 2px; font-size:12px;}
-#myxPanel .desc{font-size:10px;}
 
 /* 가격 열 도움말 물음표 + 팝오버 */
 .col-help{
@@ -157,10 +183,11 @@ body.chart-open main{padding-bottom:60vh;}
 }
 #priceHelpPop .desc{line-height:1.6;}
 #priceHelpPop .wt-btn{width:100%;}
-#myxPanel .myx-opt{
+/* 설정 탭 "나의 거래소" 체크박스 목록 */
+.myx-opt{
   display:flex; align-items:center; gap:8px; padding:7px 2px; font-size:13px; cursor:pointer;
 }
-#myxPanel .myx-check{width:16px; height:16px; flex-shrink:0;}
+.myx-check{width:16px; height:16px; flex-shrink:0;}
 .myx-divider{
   font-size:11px; color:var(--muted); margin:8px 2px 2px;
   padding-top:8px; border-top:1px solid var(--line);
@@ -259,3 +286,23 @@ body.chart-open main{padding-bottom:60vh;}
 .pf-total .val{font-family:var(--mono); font-size:20px; font-weight:800;}
 .empty{color:var(--muted); font-size:13px; text-align:center; padding:30px 0;}
 .loading{color:var(--muted); font-size:12px; text-align:center; padding:20px;}
+
+/* 좁은 화면(휴대폰): 가격·등락률 숫자가 끝에서 잘리지 않도록 열 너비를 고정하고 글씨를 줄인다.
+   .grid-row 는 행마다 개별 grid 라서 fr 대신 고정 px 를 써야 행 사이 열이 어긋나지 않는다. */
+@media (max-width: 500px){
+  main{padding-left:8px; padding-right:8px;}
+  .grid-row{
+    grid-template-columns: minmax(0,1fr) 86px 86px 52px;
+    gap:6px; padding:10px 8px;
+  }
+  .grid-wrap.market .grid-row{
+    grid-template-columns: minmax(0,1fr) 92px 56px;
+  }
+  .grid-head > div{white-space:normal; line-height:1.25;}
+  .coin-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .price, .myx-price, .chg{font-size:10.5px;}
+  .chg{padding:6px 6px; margin:-6px -6px -6px 0;}
+  .myx-prem, .price-sub{font-size:9px;}
+  .grid-head{font-size:9.5px;}
+  .coin-sym, .myx-head-sub{font-size:9px;}
+}
