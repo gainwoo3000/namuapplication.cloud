@@ -20,7 +20,7 @@ let displayCurrency = "usd"; // "usd" | "krw" - 나의 거래소/가격 컬럼 �
 let krakenPairMap = null;    // 심볼 -> 크라켄 페어 키 (최초 1회 캐싱)
 let upbitMarketSet = null;   // 업비트에 상장된 심볼 집합 (최초 1회 캐싱)
 const enrichedCache = {};    // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
-const virtualCoins = {};     // id -> 트레이딩뷰 검색으로 추가한, 우리 가격 풀에 없는 코인(새로고침에도 유지)
+const virtualCoins = {};     // id -> 검색으로 추가한, 시총 500위 밖이라 기본 풀에 없는 코인(새로고침에도 유지)
 let cmcKrwMap = {};          // 심볼(대문자) -> KRW. CoinMarketCap(프록시 경유) — 국내 거래소에 없는 코인 메꿈용
 const API_BASE = "https://api.namuapplication.cloud"; // Cloudflare Worker 프록시 (CORS + 엣지 캐시)
 const CMC_PROXY = API_BASE + "/cmc/krw";
@@ -295,35 +295,6 @@ async function loadFromBinance(){
 }
 
 // ---------- 해외 거래소(코인베이스/크라켄/바이낸스) ----------
-// 트레이딩뷰의 (비공식) 심볼 검색 엔드포인트로 우리 자체 시세 풀에 없는 코인까지 폭넓게 검색.
-// 비공식 API라 응답 형식이 바뀌거나 막힐 수 있어, 실패하면 조용히 빈 배열을 반환해 로컬 검색만 쓰게 함.
-async function searchTradingViewSymbols(query){
-  if(!query || !query.trim()) return [];
-  try{
-    const url = `https://symbol-search.tradingview.com/symbol_search/v3/?text=${encodeURIComponent(query)}&hl=1&lang=en&search_type=crypto&domain=production`;
-    const res = await fetch(url);
-    if(!res.ok) return [];
-    const data = await res.json();
-    const raw = data.symbols || data.data || (Array.isArray(data) ? data : []);
-    const strip = s => (s || "").replace(/<\/?em>/g, "");
-    return raw
-      .filter(s => s && s.symbol && (!s.type || s.type === "crypto" || s.type === "spot"))
-      .map(s => {
-        const sym = strip(s.symbol);
-        const exch = s.exchange || s.exchange_name || "";
-        return {
-          tvSymbol: exch ? `${exch}:${sym}` : sym,
-          symbol: sym,
-          exchange: exch,
-          description: strip(s.description || s.name || sym)
-        };
-      })
-      .slice(0, 15);
-  }catch(e){
-    return [];
-  }
-}
-
 async function fetchBinanceMap(){
   const res = await fetch(`${BINANCE}/ticker/24hr`);
   if(!res.ok) throw new Error("binance http " + res.status);
@@ -672,7 +643,7 @@ async function loadMarkets(){
       return;
     }
   }
-  // allTickers는 매번 새로 받아오므로, 검색으로 추가한 가상(트레이딩뷰 전용) 코인은 여기서 다시 합쳐줌
+  // allTickers는 매번 새로 받아오므로, 검색으로 추가한 시총 500위 밖 코인은 여기서 다시 합쳐줌
   Object.values(virtualCoins).forEach(v=>{
     if(!allTickers.find(c=>c.id===v.id)) allTickers.push(v);
   });
@@ -873,56 +844,47 @@ document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
 
 document.getElementById("addCoinSearch").addEventListener("input", (e)=>{
   const q = e.target.value.trim();
-  renderAddResults(q); // 로컬 풀 결과는 즉시 표시
+  renderAddResults(q); // 로컬 풀(시총 500위) 결과는 즉시 표시
   clearTimeout(addSearchDebounce);
-  if(q.length === 0) return;
+  if(q.length < 2) return;
   addSearchDebounce = setTimeout(async ()=>{
-    const tvResults = await searchTradingViewSymbols(q);
+    const extResults = await searchExternalCoins(q);
     if(document.getElementById("addCoinSearch").value.trim() === q){
-      renderAddResults(q, tvResults); // 트레이딩뷰 결과를 합쳐서 다시 렌더
+      renderAddResults(q, extResults); // 시총 500위 밖 코인 결과를 합쳐서 다시 렌더
     }
   }, 350);
 });
 
 let addSearchDebounce = null;
-let currentAddResults = []; // renderAddResults가 만든 목록(로컬+TV 혼합), 클릭 시 이 배열로 조회
+let currentAddResults = []; // renderAddResults가 만든 목록(로컬+외부 혼합), 클릭 시 이 배열로 조회
 
-function renderAddResults(query, tvResults){
-  tvResults = tvResults || [];
+function renderAddResults(query, extResults){
+  extResults = extResults || [];
   const box = document.getElementById("addCoinResults");
   const q = query.toUpperCase();
   const localMatches = query
     ? allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q))
     : allTickers;
-  const localSymbols = new Set(localMatches.map(c=>c.symbol.toUpperCase()));
-  const tvOnly = tvResults.filter(t => t.symbol && !localSymbols.has(t.symbol.toUpperCase()));
+  const localIds = new Set(localMatches.map(c=>c.id));
+  const extOnly = extResults.filter(c => !localIds.has(c.id));
   currentAddResults = [
     ...localMatches.map(c=>({kind:"local", coin:c})),
-    ...tvOnly.map(t=>({kind:"tv", item:t}))
+    ...extOnly.map(c=>({kind:"ext", coin:c}))
   ];
   if(currentAddResults.length === 0){
     box.innerHTML = '<div class="add-empty">일치하는 코인이 없습니다.</div>';
     return;
   }
   box.innerHTML = currentAddResults.map((entry, idx)=>{
-    if(entry.kind === "local"){
-      const c = entry.coin;
-      const already = watchlist.includes(c.id);
-      return `
-      <div class="add-result-row" data-pick="${idx}" style="${already ? 'opacity:0.45;' : 'cursor:pointer;'}">
-        <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
-        ${already
-          ? '<span style="font-size:11px; color:var(--muted);">담김</span>'
-          : `<button class="add-plus" data-pick="${idx}">+ 담기</button>`}
-      </div>`;
-    }else{
-      const t = entry.item;
-      return `
-      <div class="add-result-row" data-pick="${idx}" style="cursor:pointer;">
-        <div><span class="rank" style="color:var(--gold);">TV</span>${t.description} <span style="color:var(--muted)">${t.tvSymbol}</span></div>
-        <button class="add-plus" data-pick="${idx}">+ 담기</button>
-      </div>`;
-    }
+    const c = entry.coin;
+    const already = watchlist.includes(c.id);
+    return `
+    <div class="add-result-row" data-pick="${idx}" style="${already ? 'opacity:0.45;' : 'cursor:pointer;'}">
+      <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+      ${already
+        ? '<span style="font-size:11px; color:var(--muted);">담김</span>'
+        : `<button class="add-plus" data-pick="${idx}">+ 담기</button>`}
+    </div>`;
   }).join("");
   box.querySelectorAll("[data-pick]").forEach(el=>{
     el.addEventListener("click", (e)=>{
@@ -935,11 +897,8 @@ function renderAddResults(query, tvResults){
 function pickAddResult(idx){
   const entry = currentAddResults[idx];
   if(!entry) return;
-  if(entry.kind === "local"){
-    if(!watchlist.includes(entry.coin.id)) addCoin(entry.coin.id);
-  }else{
-    addVirtualCoin(entry.item);
-  }
+  const coin = entry.kind === "local" ? entry.coin : resolveOrCreateSearchCoin(entry.coin);
+  if(!watchlist.includes(coin.id)) addCoin(coin.id);
 }
 
 function addCoin(id){
@@ -956,35 +915,22 @@ function addCoin(id){
   saveState();
 }
 
-// 트레이딩뷰 검색 결과(로컬 가격 데이터가 없는 코인)를 담기 목록에 추가.
-// 심볼이 우리 가격 소스(바이낸스 등)와 우연히 일치하면 자동으로 가격도 붙고,
-// 아니면 차트는 트레이딩뷰로 보이되 가격/등락률은 "-"로 표시됨.
-function resolveOrCreateVirtualCoin(tvItem){
-  let base = tvItem.symbol.replace(/(USDT|USDC|BUSD|FDUSD|USD|KRW)$/i, "");
-  if(!base) base = tvItem.symbol;
-  const guessId = base.toUpperCase() + "USDT";
-  let coin = allTickers.find(c => c.id === guessId || c.symbol.toUpperCase() === base.toUpperCase());
-  if(coin){
-    coin.tvSymbol = tvItem.tvSymbol;
-  }else{
+// 검색 결과(시총 500위 밖이라 기본 풀에 없는 코인)를 가격 풀에 등록해 관심 코인/포트폴리오에 담을 수 있게 한다.
+// 이미 같은 심볼로 등록된 코인이 있으면(예: 이전에 다른 화면에서 추가한 적 있음) 그 항목을 재사용.
+function resolveOrCreateSearchCoin(sc){
+  let coin = allTickers.find(c => c.id === sc.id || c.symbol.toUpperCase() === sc.symbol.toUpperCase());
+  if(!coin){
     coin = {
-      id: guessId,
-      symbol: base.toLowerCase(),
-      name: tvItem.description || base,
-      current_price: null,
-      price_change_percentage_24h: null,
-      rank: null,
-      tvSymbol: tvItem.tvSymbol
+      id: sc.id,
+      symbol: sc.symbol,
+      name: sc.name,
+      current_price: sc.current_price,
+      price_change_percentage_24h: sc.price_change_percentage_24h,
+      rank: sc.rank || null
     };
     allTickers.push(coin);
     virtualCoins[coin.id] = coin;
   }
-  return coin;
-}
-
-function addVirtualCoin(tvItem){
-  const coin = resolveOrCreateVirtualCoin(tvItem);
-  addCoin(coin.id);
   return coin;
 }
 
@@ -1478,13 +1424,13 @@ let pfEditMode = false; // 보유 코인 수량 수정 + 삭제 모드
 document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
   pfSelectedCoin = null; // 다시 타이핑하면 이전 선택은 해제
   const q = e.target.value.trim();
-  renderPfResults(q); // 로컬 풀 결과(빈 값이면 시총 순위)는 즉시 표시
+  renderPfResults(q); // 로컬 풀(시총 500위) 결과(빈 값이면 시총 순위)는 즉시 표시
   clearTimeout(pfSearchDebounce);
-  if(q.length === 0) return;
+  if(q.length < 2) return;
   pfSearchDebounce = setTimeout(async ()=>{
-    const tvResults = await searchTradingViewSymbols(q);
+    const extResults = await searchExternalCoins(q);
     if(document.getElementById("pfCoinSearch").value.trim() === q){
-      renderPfResults(q, tvResults);
+      renderPfResults(q, extResults); // 시총 500위 밖 코인 결과를 합쳐서 다시 렌더
     }
   }, 350);
 });
@@ -1505,19 +1451,19 @@ document.addEventListener("click", (e)=>{
   }
 });
 
-// query가 비어 있으면 시세 탭 "+ 코인 추가"처럼 시총 순위대로 전체 목록을 보여준다.
-function renderPfResults(query, tvResults){
-  tvResults = tvResults || [];
+// query가 비어 있으면 시세 탭 "+ 코인 추가"처럼 시총 순위대로 전체(500위) 목록을 보여준다.
+function renderPfResults(query, extResults){
+  extResults = extResults || [];
   const box = document.getElementById("pfCoinResults");
   const q = (query || "").toUpperCase();
   const localMatches = q
-    ? allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q)).slice(0, 30)
-    : allTickers.slice(0, 50);
-  const localSymbols = new Set(localMatches.map(c=>c.symbol.toUpperCase()));
-  const tvOnly = tvResults.filter(t => t.symbol && !localSymbols.has(t.symbol.toUpperCase()));
+    ? allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q))
+    : allTickers;
+  const localIds = new Set(localMatches.map(c=>c.id));
+  const extOnly = extResults.filter(c => !localIds.has(c.id));
   pfCurrentResults = [
     ...localMatches.map(c=>({kind:"local", coin:c})),
-    ...tvOnly.map(t=>({kind:"tv", item:t}))
+    ...extOnly.map(c=>({kind:"ext", coin:c}))
   ];
   box.style.display = "block";
   if(pfCurrentResults.length === 0){
@@ -1525,15 +1471,9 @@ function renderPfResults(query, tvResults){
     return;
   }
   box.innerHTML = pfCurrentResults.map((entry, idx)=>{
-    if(entry.kind === "local"){
-      const c = entry.coin;
-      return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
-        <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
-      </div>`;
-    }
-    const t = entry.item;
+    const c = entry.coin;
     return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
-      <div><span class="rank" style="color:var(--gold);">TV</span>${t.description} <span style="color:var(--muted)">${t.tvSymbol}</span></div>
+      <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
     </div>`;
   }).join("");
   box.querySelectorAll("[data-pfpick]").forEach(el=>{
@@ -1544,7 +1484,7 @@ function renderPfResults(query, tvResults){
 function pickPfResult(idx){
   const entry = pfCurrentResults[idx];
   if(!entry) return;
-  const coin = entry.kind === "local" ? entry.coin : resolveOrCreateVirtualCoin(entry.item);
+  const coin = entry.kind === "local" ? entry.coin : resolveOrCreateSearchCoin(entry.coin);
   pfSelectedCoin = coin;
   document.getElementById("pfCoinSearch").value = `${coin.name} (${coin.symbol.toUpperCase()})`;
   document.getElementById("pfCoinResults").style.display = "none";
