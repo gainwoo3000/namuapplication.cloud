@@ -9,7 +9,7 @@
 //
 //   GET /cg/search?q=<검색어>
 //     -> { coins:[ {id,symbol,name,rank,price,change24h}, ... ] }
-//        CoinGecko 코인 검색(순위 밖 코인 포함). 엣지 캐시 120초.
+//        CoinGecko 코인 검색(순위 밖 코인 포함). 엣지 캐시 CG_SEARCH_TTL(기본 3600초).
 //
 // 왜 필요한가:
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
@@ -166,8 +166,12 @@ async function handleCgSearch(url, env, ctx, cors) {
         change24h: m ? m.price_change_percentage_24h : null,
       };
     });
+    // 검색 결과는 코인 이름·순위라 사실상 변하지 않고, 가격이 조금 낡아도 클라이언트가
+    // 거래소 티커로 메꾼다(fillSearchPrices). 같은 검색어의 재검색이 업스트림을 다시
+    // 때리지 않도록 넉넉히 캐시한다 — 무료 한도(월 1만 콜)를 지키는 핵심.
+    const ttl = Number(env.CG_SEARCH_TTL || "3600");
     const resp = new Response(JSON.stringify({ coins: out }), {
-      headers: { "content-type": "application/json", "cache-control": "public, max-age=120" },
+      headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
     });
     ctx.waitUntil(cache.put(key, resp.clone()));
     return withHeaders(resp, { ...cors, "x-cache": "MISS" });

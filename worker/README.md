@@ -6,7 +6,7 @@
 |---|---|---|
 | `GET /cmc/krw` | CoinMarketCap KRW 시세(시총 상위 200) | `CMC_TTL_SECONDS`(기본 600초) |
 | `GET /cg/markets` | CoinGecko 시총 1~500위 | `CG_MARKETS_TTL`(기본 60초) |
-| `GET /cg/search?q=<검색어>` | CoinGecko 코인 검색(순위 밖 포함) | 120초 |
+| `GET /cg/search?q=<검색어>` | CoinGecko 코인 검색(순위 밖 포함) | `CG_SEARCH_TTL`(기본 3600초) |
 
 `/cg/*` 가 필요한 이유: CoinGecko 키 없는 공개 API는 공유 IP 기준 분당 몇 콜만 허용 → 브라우저에서 직접 부르면 조금만 몰려도 429가 나고, **429 응답엔 CORS 헤더가 없어 `fetch` 자체가 실패**한다. 워커가 대신 부르고 엣지에 캐시하면 사용자가 몰려도 업스트림 콜은 캐시 주기당 1회.
 
