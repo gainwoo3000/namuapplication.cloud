@@ -37,7 +37,7 @@
     <!-- 시세 탭 (시총 순위 1~500위, 100위씩 페이지) -->
     <section class="view active" id="view-market">
       <div class="market-search">
-        <input type="text" id="marketSearch" placeholder="코인 검색 (심볼·이름, 순위 밖 코인도)" autocomplete="off">
+        <input type="text" id="marketSearch" placeholder="코인 검색" autocomplete="off">
       </div>
       <div class="grid-wrap market" id="marketWrap">
         <div class="loading">시세를 불러오는 중입니다…</div>
@@ -52,7 +52,7 @@
         <button class="wt-btn" id="addCoinBtn">+ 코인 추가</button>
       </div>
       <div class="add-panel" id="addCoinPanel" style="display:none;">
-        <input type="text" id="addCoinSearch" placeholder="심볼 또는 이름 검색 (예: SOL, 솔라나)">
+        <input type="text" id="addCoinSearch" placeholder="코인 검색">
         <div id="addCoinResults"></div>
       </div>
       <div class="grid-container">
@@ -90,12 +90,13 @@
       </div>
       <div class="pf-add">
         <div class="pf-pick-wrap">
-          <input type="text" id="pfCoinSearch" placeholder="코인 검색 후 선택 (예: BTC, 리플)" autocomplete="off">
+          <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
           <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
         </div>
         <input type="number" id="pfAmount" placeholder="수량" step="any">
         <button id="pfAddBtn">추가</button>
       </div>
+      <hr style="height: 1px; background-color: rgb(90, 90, 90); border: none;">
       <div class="pf-list-head">
         <span>보유 코인</span>
         <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
@@ -105,7 +106,7 @@
         <div class="label">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>
       </div>
-      <div class="desc">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다. (파일을 다운로드해서 직접 연 경우에만 저장되며, 미리보기 화면에서는 저장되지 않아요.)</div>
+      <div class="desc">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다.</div>
     </section>
 
     <!-- 설정 탭 -->
