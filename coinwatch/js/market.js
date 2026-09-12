@@ -5,6 +5,7 @@ import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, priceSubText } from
 import { findCoinAnywhere } from "./watchlist.js";
 import { selectCoin } from "./chart.js";
 import { searchExternalCoins, matchesLocalQuery } from "./search.js";
+import { rangeBarHtml, syncRangeBar } from "./rangebar.js";
 
 // ---------- 시세 탭 (시총 순위 + 페이지 + 검색) ----------
 let marketQuery = "";
@@ -120,7 +121,7 @@ export function renderMarketGrid(){
     html += `<div class="grid-row market-row ${selCls}" data-id="${c.id}">
       <div><div class="coin-name">${c.name}</div><div class="coin-sym">${symLine}</div></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span><span class="price-sub${sub === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${sub}</span></span></span></div>
-      <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
+      <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span>${rangeBarHtml(c)}</div>
     </div>`;
     const priceNum = displayPriceNum(c.current_price);
     if(priceNum !== null) prevValues["mkt:"+c.id+":price"] = priceNum;
@@ -165,6 +166,7 @@ function updateMarketValues(list){
     chgDiv.classList.toggle("up", cls === "up");
     chgDiv.classList.toggle("down", cls === "down");
     chgDiv.classList.toggle("flat", cls === "flat");
+    syncRangeBar(row, c);
   });
 }
 

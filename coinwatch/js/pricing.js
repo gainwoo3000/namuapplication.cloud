@@ -105,11 +105,33 @@ export async function enrichIntlPrices(list){
     const okx = okxMap[sym] || null;
     const bybit = bybitMap[sym] || null;
     const chg = binanceMap[c.id] ? parseFloat(binanceMap[c.id].priceChangePercent) : c.price_change_percentage_24h;
+    // 등락률 아래 범위 바용 24시간 고저가. 가격을 거래소에서 가져오므로 고저가도 바이낸스 값을 우선.
+    const t = binanceMap[c.id];
+    const binHi = t ? parseFloat(t.highPrice) : null;
+    const binLo = t ? parseFloat(t.lowPrice) : null;
+    const useBin = binHi > binLo;
     const withEx = {...c, baseUsdPrice: c.current_price, price_change_percentage_24h: chg,
+      high_24h: useBin ? binHi : c.high_24h, low_24h: useBin ? binLo : c.low_24h,
       exUsd:{ coinbase: cb, kraken: kr, binance: bin, okx, bybit }};
     withEx.current_price = intlPriceAvg(withEx);
     return withEx;
   });
+}
+
+// 시세 탭 목록(allTickers)에 24시간 고저가가 비어 있으면(워커 프록시 구버전) 바이낸스 티커로 메꾼다.
+// 바뀐 게 있으면 true — 호출부에서 그때만 다시 그리도록.
+export async function fillRange24h(list){
+  const need = list.filter(c => !(c.high_24h > c.low_24h));
+  if(need.length === 0) return false;
+  const map = await getBinanceMap();
+  let filled = 0;
+  for(const c of need){
+    const t = map[c.id];
+    if(!t) continue;
+    const hi = parseFloat(t.highPrice), lo = parseFloat(t.lowPrice);
+    if(hi > lo){ c.high_24h = hi; c.low_24h = lo; filled++; }
+  }
+  return filled > 0;
 }
 
 // 필터가 바뀌었을 때 새로 API를 호출하지 않고 캐시된 거래소별 시세로 즉시 재계산

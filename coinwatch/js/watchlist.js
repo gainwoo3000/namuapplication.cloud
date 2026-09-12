@@ -3,6 +3,7 @@ import { prevValues, rollUpdate, rollNumberByKey, flashChg, collapseRow } from "
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, fmtDisplayMyx, displayMyxNum } from "./format.js";
 import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
 import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
+import { rangeBarHtml, syncRangeBar } from "./rangebar.js";
 import { selectCoin, closeChart } from "./chart.js";
 import { saveState } from "./persist.js";
 import { showAlert } from "./dialog.js";
@@ -53,7 +54,7 @@ export function renderGrid(){
       <div><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div>
       <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span><span class="myx-prem${premText === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${premText}</span></span></span></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
-      <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span></div>
+      <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span>${rangeBarHtml(c)}</div>
     </div>`;
     const priceNum = displayPriceNum(c.current_price);
     const myxNum = displayMyxNum(myx.krw);
@@ -123,6 +124,7 @@ function updateGridValues(){
     chgDiv.classList.toggle("up", cls === "up");
     chgDiv.classList.toggle("down", cls === "down");
     chgDiv.classList.toggle("flat", cls === "flat");
+    syncRangeBar(row, c);
   });
   const moreBtn = document.getElementById("moreBtn");
   moreBtn.style.display = state.visibleCount < state.coinsList.length ? "block":"none";

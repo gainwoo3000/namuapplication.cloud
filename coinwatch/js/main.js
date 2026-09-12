@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { loadFromGecko, loadFromBinance, fetchCmcKrw } from "./api.js";
-import { enrichIntlPrices, enrichDomesticPrices } from "./pricing.js";
+import { enrichIntlPrices, enrichDomesticPrices, fillRange24h } from "./pricing.js";
 import { buildCoinsList, renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
@@ -49,6 +49,8 @@ export async function loadMarkets(){
   renderGrid();
   renderMarketGrid();
   document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (state.lastSource==="binance" ? " (대체 소스)":"");
+  // 등락률 아래 범위 바용 24시간 고저가가 비어 있으면 바이낸스 티커로 메꾼 뒤 다시 그림
+  if(await fillRange24h(state.allTickers)) renderMarketGrid();
   if(state.coinsList.length > 0){
     let enriched = await enrichIntlPrices(state.coinsList);
     await ensureUsdKrw();
@@ -59,7 +61,9 @@ export async function loadMarkets(){
         price_change_percentage_24h: c.price_change_percentage_24h,
         exUsd: c.exUsd,
         baseUsdPrice: c.baseUsdPrice,
-        domestic: c.domestic
+        domestic: c.domestic,
+        high_24h: c.high_24h,
+        low_24h: c.low_24h
       };
     });
     state.coinsList = buildCoinsList();

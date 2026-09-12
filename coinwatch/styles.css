@@ -135,6 +135,17 @@ body.chart-open main{padding-bottom:60vh;}
 @keyframes chgFlashDown{from{background-color:rgba(240,84,100,0.42);}to{background-color:transparent;}}
 .up{color:var(--up);} .down{color:var(--down);}
 .chg.flat{color:var(--muted);}
+/* 등락률 아래 24시간 최저~최고가 범위 바 (점 = 현재가 위치, 색은 등락률 색을 따라감) */
+.range-bar{
+  display:block; position:relative; height:3px; margin-top:5px;
+  border-radius:2px; background:var(--line);
+}
+.range-bar.is-empty{visibility:hidden;} /* 자리는 남겨 행 높이를 맞춘다 */
+.range-dot{
+  position:absolute; top:50%; left:50%; width:6px; height:6px; border-radius:50%;
+  background:currentColor; transform:translate(-50%,-50%);
+  transition:left .35s cubic-bezier(.4,0,.2,1);
+}
 /* 숫자 롤링(오도미터): 자릿수마다 따로 위/아래로 굴러가며 바뀜 */
 .roll-wrap{
   display:inline-flex; justify-content:flex-end; overflow:hidden;

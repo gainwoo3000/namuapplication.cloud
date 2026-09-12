@@ -45,7 +45,11 @@ export async function loadFromGecko(){
       enName: c.name, // 한글 이름(NAME_MAP)으로 name을 덮어써도 영문 이름으로 검색할 수 있게 따로 보관
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
-      rank: c.market_cap_rank || null
+      rank: c.market_cap_rank || null,
+      // 등락률 아래 24시간 범위 바에 사용. 워커 프록시 구버전은 이 필드를 안 주는데,
+      // 그 경우 fillRange24h()가 바이낸스 티커로 메꾼다.
+      high_24h: c.high_24h ?? null,
+      low_24h: c.low_24h ?? null
     });
   }
   geckoCache = { data: mapped, at: Date.now() };
@@ -70,7 +74,9 @@ export async function loadFromBinance(){
       name: NAME_MAP[short] || short,
       current_price: parseFloat(t.lastPrice),
       price_change_percentage_24h: parseFloat(t.priceChangePercent),
-      rank: idx+1 // 시총 데이터를 못 가져왔을 때의 임시 순위(거래대금 기준)
+      rank: idx+1, // 시총 데이터를 못 가져왔을 때의 임시 순위(거래대금 기준)
+      high_24h: parseFloat(t.highPrice),
+      low_24h: parseFloat(t.lowPrice)
     };
   });
 }

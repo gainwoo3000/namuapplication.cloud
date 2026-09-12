@@ -4,7 +4,7 @@
 //     -> { updated:<ms>, data:{ "BTC":{krw,rank}, ... } }        시총 상위 200개, CoinMarketCap
 //
 //   GET /cg/markets
-//     -> [ {symbol,name,current_price,price_change_percentage_24h,market_cap_rank}, ... ]
+//     -> [ {symbol,name,current_price,price_change_percentage_24h,market_cap_rank,high_24h,low_24h}, ... ]
 //        시총 1~500위, CoinGecko. 엣지 캐시 CG_MARKETS_TTL(기본 60초).
 //
 //   GET /cg/search?q=<검색어>
@@ -111,6 +111,8 @@ async function handleCgMarkets(env, ctx, cors) {
         current_price: c.current_price,
         price_change_percentage_24h: c.price_change_percentage_24h,
         market_cap_rank: c.market_cap_rank ?? null,
+        high_24h: c.high_24h ?? null, // 등락률 아래 24시간 범위 바에 사용
+        low_24h: c.low_24h ?? null,
       });
     }
     const body = JSON.stringify(out);
