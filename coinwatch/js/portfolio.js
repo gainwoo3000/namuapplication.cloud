@@ -107,9 +107,15 @@ document.getElementById("pfEditBtn").addEventListener("click", (e)=>{
   renderPortfolio();
 });
 
-export function renderPortfolio(){
+// force=true 면 수량 입력 중이어도 다시 그린다 (입력을 막 끝낸 change 핸들러용).
+export function renderPortfolio(force){
   if(state.rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
   const list = document.getElementById("pfList");
+  // 수량을 입력하는 중에는 다시 그리지 않는다. 아래에서 innerHTML로 목록을 통째로
+  // 갈아끼우기 때문에, 30초마다 오는 시세 갱신이 포커스된 입력창을 지워버린다
+  // (모바일에선 키보드가 닫히고 입력하던 값도 날아감).
+  const focused = document.activeElement;
+  if(!force && focused && focused.classList.contains("pf-amt-edit") && list.contains(focused)) return;
   const totalLabel = state.displayCurrency === "krw" ? "₩0" : "$0.00";
   const holdings = currentPortfolio().holdings;
   const exSet = new Set(currentPortfolio().exchanges);
@@ -157,9 +163,10 @@ export function renderPortfolio(){
     inp.addEventListener("click", (e)=> e.stopPropagation());
     inp.addEventListener("change", ()=>{
       const v = parseFloat(inp.value);
-      if(!isFinite(v) || v <= 0){ renderPortfolio(); return; }
+      // 입력을 끝낸 시점이라 포커스가 아직 남아 있어도 강제로 다시 그린다(가치·총합 갱신)
+      if(!isFinite(v) || v <= 0){ renderPortfolio(true); return; }
       holdings[Number(inp.dataset.idx)].amount = v;
-      renderPortfolio();
+      renderPortfolio(true);
       saveState();
     });
   });
