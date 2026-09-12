@@ -13,7 +13,10 @@ async function fetchGeckoPage(page){
 // 1순위: 워커 프록시(/cg/markets, 엣지 캐시라 429 거의 없음). 실패 시 CoinGecko 직접(250개씩 2페이지).
 async function fetchGeckoMarkets(){
   try{
-    const r = await fetch(CG_MARKETS_PROXY);
+    // 60초 단위 캐시 버킷을 쿼리에 붙인다. 클라우드플레어가 엣지 캐시에서 나간 응답의
+    // cache-control을 존 설정값(max-age=14400)으로 덮어쓰기 때문에, 버킷이 없으면
+    // 브라우저가 그 응답을 최대 4시간 재사용해 시세가 멈춘다. (/cmc/krw도 같은 이유로 버킷 사용)
+    const r = await fetch(CG_MARKETS_PROXY + "?t=" + Math.floor(Date.now() / 60000));
     if(r.ok){
       const rows = await r.json();
       if(Array.isArray(rows) && rows.length) return rows;
