@@ -107,18 +107,47 @@ document.getElementById("pfEditBtn").addEventListener("click", (e)=>{
   renderPortfolio();
 });
 
-// force=true 면 수량 입력 중이어도 다시 그린다 (입력을 막 끝낸 change 핸들러용).
+// 목록 구성이 바뀌었는지 판단하는 서명. 이게 그대로면 행을 다시 만들지 않고 값만 갱신한다.
+let lastPfSignature = null;
+function pfSignature(holdings){
+  return state.activePortfolioIdx + "|" + pfEditMode + "|" + state.displayCurrency + "|"
+    + holdings.map(p => p.id + ":" + p.amount).join(",");
+}
+
+// 구성은 그대로 둔 채 가치·총합만 제자리에서 갱신 (관심 코인 탭의 updateGridValues와 같은 방식)
+function updatePortfolioValues(holdings, exSet){
+  const list = document.getElementById("pfList");
+  let total = 0;
+  holdings.forEach(p=>{
+    const c = findCoinAnywhere(p.id);
+    const priceUsd = c ? pfCoinPriceUsd(c, exSet) : null;
+    const value = priceUsd !== null ? priceUsd * p.amount : null;
+    if(value !== null) total += value;
+    const cell = list.querySelector(`.pf-row[data-id="${p.id}"] .price`);
+    if(!cell) return;
+    const txt = value !== null ? fmtDisplayPrice(value) : "-";
+    if(cell.textContent !== txt) cell.textContent = txt;
+  });
+  document.getElementById("pfTotal").textContent = fmtDisplayPrice(total);
+}
+
+// force=true 면 수량 입력 중이어도 행을 다시 만든다 (입력을 막 끝낸 change 핸들러용).
 export function renderPortfolio(force){
   if(state.rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
   const list = document.getElementById("pfList");
-  // 수량을 입력하는 중에는 다시 그리지 않는다. 아래에서 innerHTML로 목록을 통째로
-  // 갈아끼우기 때문에, 30초마다 오는 시세 갱신이 포커스된 입력창을 지워버린다
-  // (모바일에선 키보드가 닫히고 입력하던 값도 날아감).
-  const focused = document.activeElement;
-  if(!force && focused && focused.classList.contains("pf-amt-edit") && list.contains(focused)) return;
   const totalLabel = state.displayCurrency === "krw" ? "₩0" : "$0.00";
   const holdings = currentPortfolio().holdings;
   const exSet = new Set(currentPortfolio().exchanges);
+
+  // 코인·수량·편집모드·표시통화가 그대로면 행을 새로 만들지 않는다.
+  // innerHTML로 목록을 갈아끼우면 입력 중이던 수량 입력창이 사라져서,
+  // 모바일에서는 갱신 주기마다 키보드가 닫히고 입력하던 값도 날아간다.
+  const sig = pfSignature(holdings);
+  if(!force && sig === lastPfSignature && list.querySelector(".pf-row")){
+    updatePortfolioValues(holdings, exSet);
+    return;
+  }
+  lastPfSignature = sig;
   if(holdings.length === 0){
     list.innerHTML = '<div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>';
     document.getElementById("pfTotal").textContent = totalLabel;
