@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { loadFromGecko, loadFromBinance, fetchCmcKrw } from "./api.js";
-import { enrichIntlPrices, enrichDomesticPrices, fillRange24h } from "./pricing.js";
+import { enrichIntlPrices, enrichDomesticPrices, applyExchangeTickers } from "./pricing.js";
 import { buildCoinsList, renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
@@ -49,8 +49,9 @@ export async function loadMarkets(){
   renderGrid();
   renderMarketGrid();
   document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (state.lastSource==="binance" ? " (대체 소스)":"");
-  // 등락률 아래 범위 바용 24시간 고저가가 비어 있으면 바이낸스 티커로 메꾼 뒤 다시 그림
-  if(await fillRange24h(state.allTickers)) renderMarketGrid();
+  // 시세 목록의 가격·등락률·고저가를 거래소 실시간 값으로 덮어쓴 뒤 다시 그림
+  // (CoinGecko는 순위·이름만 담당 → 워커 캐시를 길게 잡아도 가격은 실시간)
+  if(await applyExchangeTickers(state.allTickers)) renderMarketGrid();
   if(state.coinsList.length > 0){
     let enriched = await enrichIntlPrices(state.coinsList);
     await ensureUsdKrw();

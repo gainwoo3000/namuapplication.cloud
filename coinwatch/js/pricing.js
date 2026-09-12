@@ -102,8 +102,8 @@ export async function enrichIntlPrices(list){
     const cbRate = coinbaseRates[sym] ? parseFloat(coinbaseRates[sym]) : null;
     const cb = (cbRate && cbRate > 0) ? 1/cbRate : null;
     const kr = krakenMap[sym] || null;
-    const okx = okxMap[sym] || null;
-    const bybit = bybitMap[sym] || null;
+    const okx = okxMap[sym] ? okxMap[sym].price : null;
+    const bybit = bybitMap[sym] ? bybitMap[sym].price : null;
     const chg = binanceMap[c.id] ? parseFloat(binanceMap[c.id].priceChangePercent) : c.price_change_percentage_24h;
     // 등락률 아래 범위 바용 24시간 고저가. 가격을 거래소에서 가져오므로 고저가도 바이낸스 값을 우선.
     const t = binanceMap[c.id];
@@ -118,20 +118,31 @@ export async function enrichIntlPrices(list){
   });
 }
 
-// 시세 탭 목록(allTickers)에 24시간 고저가가 비어 있으면(워커 프록시 구버전) 바이낸스 티커로 메꾼다.
-// 바뀐 게 있으면 true — 호출부에서 그때만 다시 그리도록.
-export async function fillRange24h(list){
-  const need = list.filter(c => !(c.high_24h > c.low_24h));
-  if(need.length === 0) return false;
-  const map = await getBinanceMap();
-  let filled = 0;
-  for(const c of need){
-    const t = map[c.id];
-    if(!t) continue;
-    const hi = parseFloat(t.highPrice), lo = parseFloat(t.lowPrice);
-    if(hi > lo){ c.high_24h = hi; c.low_24h = lo; filled++; }
+// 시세 탭 목록(allTickers)의 가격·등락률·24시간 고저가를 거래소 실시간 티커로 덮어쓴다.
+// 이렇게 하면 CoinGecko는 "시총 순위와 이름" 용도로만 남아서 워커 캐시(CG_MARKETS_TTL)를
+// 길게 잡아도 화면 가격은 실시간으로 유지된다 — 무료 한도(월 1만 콜)를 지키는 핵심.
+// 세 거래소 맵은 관심 코인 보강(enrichIntlPrices)에서 이미 받아오는 것이라 추가 호출은 없다.
+// 우선순위는 거래량이 큰 순서(바이낸스 > 바이빗 > OKX). 셋 다 없으면 CoinGecko 값을 그대로 둔다.
+export async function applyExchangeTickers(list){
+  const [binanceMap, bybitMap, okxMap] = await Promise.all([
+    getBinanceMap(), fetchBybitMap(), fetchOkxMap()
+  ]);
+  let changed = 0;
+  for(const c of list){
+    const sym = (c.symbol || "").toUpperCase();
+    const b = binanceMap[c.id];
+    // 바이낸스 원본 티커는 필드명이 달라 공통 형식으로 맞춰준다
+    const t = b
+      ? { price: parseFloat(b.lastPrice), chg: parseFloat(b.priceChangePercent),
+          high: parseFloat(b.highPrice), low: parseFloat(b.lowPrice) }
+      : (bybitMap[sym] || okxMap[sym]);
+    if(!t || !(t.price > 0)) continue;
+    c.current_price = t.price;
+    if(t.chg != null && !isNaN(t.chg)) c.price_change_percentage_24h = t.chg;
+    if(t.high > t.low){ c.high_24h = t.high; c.low_24h = t.low; }
+    changed++;
   }
-  return filled > 0;
+  return changed > 0;
 }
 
 // 필터가 바뀌었을 때 새로 API를 호출하지 않고 캐시된 거래소별 시세로 즉시 재계산

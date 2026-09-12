@@ -18,7 +18,12 @@ ALLOW_ORIGIN = "https://namuapplication.cloud"
 # CMC 응답을 엣지에 캐시할 시간(초). 크레딧을 아끼는 핵심 값. 600 = 10분.
 CMC_TTL_SECONDS = "600"
 # CoinGecko 시총 500위 목록(/cg/markets)을 엣지에 캐시할 시간(초).
-CG_MARKETS_TTL = "60"
+# 무료(Demo) 한도가 월 1만 콜이고 갱신 1회당 2콜(250개씩 2페이지)을 쓴다.
+#   60초  -> 월 86,400콜 (한도 8.6배 초과)
+#   900초 -> 월  5,760콜 (POP 1곳 기준. 접속 지역이 늘면 그만큼 곱해진다)
+# 가격·등락률은 클라이언트가 거래소 티커로 덮어쓰므로(applyExchangeTickers),
+# 이 캐시가 길어도 화면 숫자는 실시간이다. 낡는 건 순위·이름과 거래소 미상장 코인 가격뿐.
+CG_MARKETS_TTL = "900"
 
 # 비밀값은 여기 두지 않는다. 아래 명령으로 등록:
 #   npx wrangler secret put CMC_KEY

@@ -49,8 +49,8 @@ export async function loadFromGecko(){
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null,
-      // 등락률 아래 24시간 범위 바에 사용. 워커 프록시 구버전은 이 필드를 안 주는데,
-      // 그 경우 fillRange24h()가 바이낸스 티커로 메꾼다.
+      // 등락률 아래 24시간 범위 바에 사용. 거래소에 상장된 코인은 곧바로
+      // applyExchangeTickers()가 실시간 값으로 덮어쓰고, 여기 값은 그 외 코인용.
       high_24h: c.high_24h ?? null,
       low_24h: c.low_24h ?? null
     });
@@ -158,6 +158,9 @@ export async function fetchKrakenPricesFor(symbolsUpper){
 }
 
 // 코인베이스/크라켄/바이낸스 3사 평균을 "가격(USD)"으로 사용
+// OKX/Bybit 맵의 값 형식: { price, chg, high, low } — 심볼(대문자) 기준.
+// 가격 평균 계산에는 price만 쓰고, 나머지는 시세 탭 목록을 거래소 실시간 값으로
+// 덮어쓸 때(applyExchangeTickers) 함께 사용한다.
 // OKX: 스팟 전체 티커를 한 번에 반환 (instId 형식 예: BTC-USDT)
 export async function fetchOkxMap(){
   try{
@@ -167,7 +170,14 @@ export async function fetchOkxMap(){
     const out = {};
     (data.data || []).forEach(t=>{
       if(t.instId && t.instId.endsWith("-USDT") && t.last){
-        out[t.instId.replace("-USDT","")] = parseFloat(t.last);
+        const price = parseFloat(t.last);
+        const open = parseFloat(t.open24h);
+        out[t.instId.replace("-USDT","")] = {
+          price,
+          chg: open > 0 ? ((price - open) / open) * 100 : null, // OKX는 등락률 대신 24시간 시가를 준다
+          high: parseFloat(t.high24h),
+          low: parseFloat(t.low24h)
+        };
       }
     });
     return out;
@@ -183,7 +193,13 @@ export async function fetchBybitMap(){
     const out = {};
     (data.result && data.result.list || []).forEach(t=>{
       if(t.symbol && t.symbol.endsWith("USDT") && t.lastPrice){
-        out[t.symbol.replace("USDT","")] = parseFloat(t.lastPrice);
+        const pcnt = parseFloat(t.price24hPcnt); // 비율(0.0123 = +1.23%)
+        out[t.symbol.replace("USDT","")] = {
+          price: parseFloat(t.lastPrice),
+          chg: isNaN(pcnt) ? null : pcnt * 100,
+          high: parseFloat(t.highPrice24h),
+          low: parseFloat(t.lowPrice24h)
+        };
       }
     });
     return out;
