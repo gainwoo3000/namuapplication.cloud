@@ -5,6 +5,7 @@ import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
 import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { selectCoin, closeChart } from "./chart.js";
 import { saveState } from "./persist.js";
+import { showAlert } from "./dialog.js";
 
 // watchlist + allTickers(기본 시세)에 마지막으로 보강된 데이터(있다면)를 합쳐 coinsList를 구성
 // id 하나를 allTickers(기본 정보) + enrichedCache(있다면 최신 보강값)를 합쳐 조회
@@ -247,7 +248,7 @@ function pickAddResult(idx){
 export function addCoin(id){
   if(state.watchlist.includes(id)) return;
   if(state.watchlist.length >= 30){
-    alert("관심 코인은 최대 30개까지 담을 수 있어요.");
+    showAlert("관심 코인은 최대 30개까지 담을 수 있어요.");
     return;
   }
   state.watchlist.push(id);

@@ -306,3 +306,22 @@ body.chart-open main{padding-bottom:60vh;}
   .grid-head{font-size:9.5px;}
   .coin-sym, .myx-head-sub{font-size:9px;}
 }
+
+/* alert()/confirm()/prompt() 대체 다이얼로그 */
+.dialog-overlay{
+  display:none; position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,0.55);
+  align-items:center; justify-content:center; padding:24px;
+}
+.dialog-overlay.open{display:flex;}
+.dialog-box{
+  width:100%; max-width:300px; background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,0.45);
+}
+.dialog-msg{font-size:13.5px; line-height:1.55; white-space:pre-line;}
+.dialog-input{
+  width:100%; margin-top:12px; background:var(--panel-2); border:1px solid var(--line);
+  color:var(--text); border-radius:8px; padding:9px; font-size:13px;
+}
+.dialog-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:16px;}
+.dialog-actions .wt-btn{flex:none; padding:8px 16px;}

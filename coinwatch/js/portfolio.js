@@ -7,6 +7,7 @@ import { pfCoinPriceUsd } from "./pricing.js";
 import { selectCoin } from "./chart.js";
 import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { saveState } from "./persist.js";
+import { showAlert, showPrompt, showConfirm } from "./dialog.js";
 
 export function currentPortfolio(){ return state.portfolios[state.activePortfolioIdx]; }
 
@@ -214,7 +215,7 @@ function switchPortfolio(idx){
 
 function addPortfolio(){
   if(state.portfolios.length >= MAX_PORTFOLIOS){
-    alert("포트폴리오는 최대 " + MAX_PORTFOLIOS + "개까지 만들 수 있어요.");
+    showAlert("포트폴리오는 최대 " + MAX_PORTFOLIOS + "개까지 만들 수 있어요.");
     return;
   }
   state.portfolios.push({ name: "포트폴리오 " + (state.portfolios.length+1), holdings:[], exchanges:["upbit"] });
@@ -227,9 +228,9 @@ function addPortfolio(){
   saveState();
 }
 
-function renamePortfolio(idx){
+async function renamePortfolio(idx){
   const p = state.portfolios[idx];
-  const newName = prompt("포트폴리오 이름을 입력해주세요", p.name);
+  const newName = await showPrompt("포트폴리오 이름을 입력해주세요", p.name);
   if(newName === null) return; // 취소
   const trimmed = newName.trim();
   if(!trimmed) return;
@@ -239,11 +240,11 @@ function renamePortfolio(idx){
   saveState();
 }
 
-function deletePortfolio(idx){
+async function deletePortfolio(idx){
   if(state.portfolios.length <= 1) return; // 최소 1개는 유지
   const p = state.portfolios[idx];
   if(p.holdings.length > 0){
-    const ok = confirm(`"${p.name}"에 담긴 코인 ${p.holdings.length}개가 함께 삭제됩니다. 정말 삭제하시겠어요?`);
+    const ok = await showConfirm(`"${p.name}"에 담긴 코인 ${p.holdings.length}개가 함께 삭제됩니다. 정말 삭제하시겠어요?`);
     if(!ok) return;
   }
   state.portfolios.splice(idx, 1);
