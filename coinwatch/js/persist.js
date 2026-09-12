@@ -1,7 +1,7 @@
 import { STORAGE_KEY, MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
 import { renderExchangeOpts } from "./settings.js";
-import { renderPortfolioHeaderBtn, syncPfExCheckboxes } from "./portfolio.js";
+import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel } from "./portfolio.js";
 
 // ---------- 로컬 저장 ----------
 export function saveState(){
@@ -15,6 +15,7 @@ export function saveState(){
       displayCurrency: state.displayCurrency,
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
       refreshSec: state.refreshSec,
+      pfSortMode: state.pfSortMode,
       virtualCoins: Object.fromEntries(
         Object.entries(state.virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
       )
@@ -46,6 +47,7 @@ export function loadState(){
     if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(saved.intlExchangeFilter);
     if(saved.displayCurrency) state.displayCurrency = saved.displayCurrency;
     if(saved.refreshSec) state.refreshSec = saved.refreshSec;
+    if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(saved.virtualCoins){
       Object.entries(saved.virtualCoins).forEach(([id,c])=>{
         state.virtualCoins[id] = {...c, current_price:null, price_change_percentage_24h:null, rank:null};
@@ -71,4 +73,5 @@ export function applyLoadedUIState(){
   });
   renderPortfolioHeaderBtn();
   syncPfExCheckboxes();
+  renderSortLabel();
 }

@@ -107,25 +107,60 @@ document.getElementById("pfEditBtn").addEventListener("click", (e)=>{
   renderPortfolio();
 });
 
+// ---------- 보유 코인 정렬 ----------
+// "보유 코인" 헤더를 누를 때마다 추가순 → 금액 오름차순 → 내림차순 순으로 돌아간다.
+const SORT_CYCLE = ["added", "asc", "desc"];
+const SORT_LABEL = { added: "추가순", asc: "금액 ↑", desc: "금액 ↓" };
+
+// 표시할 순서대로 { p, idx, value, est } 목록을 만든다.
+// idx는 holdings 배열의 원래 위치 — 삭제·수량수정이 이 값을 쓰므로 정렬해도 함께 들고 다녀야 한다.
+function sortedRows(holdings, exSet){
+  const rows = holdings.map((p, idx)=>{
+    const c = findCoinAnywhere(p.id);
+    const pr = c ? pfCoinPriceUsd(c, exSet) : null;
+    return { p, idx, value: pr && pr.usd !== null ? pr.usd * p.amount : null, est: !!(pr && pr.est) };
+  });
+  if(state.pfSortMode === "added") return rows;
+  const dir = state.pfSortMode === "asc" ? 1 : -1;
+  return rows.sort((a, b)=>{
+    // 가격을 못 구한 코인은 정렬 방향과 무관하게 맨 뒤로
+    if(a.value === null || b.value === null){
+      if(a.value === b.value) return a.idx - b.idx;
+      return a.value === null ? 1 : -1;
+    }
+    return (a.value - b.value) * dir;
+  });
+}
+
+export function renderSortLabel(){
+  const el = document.getElementById("pfSortMode");
+  if(el) el.textContent = SORT_LABEL[state.pfSortMode] || SORT_LABEL.added;
+}
+
+document.getElementById("pfSortBtn").addEventListener("click", ()=>{
+  const next = (SORT_CYCLE.indexOf(state.pfSortMode) + 1) % SORT_CYCLE.length;
+  state.pfSortMode = SORT_CYCLE[next];
+  renderSortLabel();
+  renderPortfolio(true);
+  saveState();
+});
+
 // 목록 구성이 바뀌었는지 판단하는 서명. 이게 그대로면 행을 다시 만들지 않고 값만 갱신한다.
+// 정렬 결과 순서까지 포함하므로, 금액 순 정렬에서 순위가 바뀌면 자동으로 다시 그려진다.
 let lastPfSignature = null;
-function pfSignature(holdings){
-  return state.activePortfolioIdx + "|" + pfEditMode + "|" + state.displayCurrency + "|"
-    + holdings.map(p => p.id + ":" + p.amount).join(",");
+function pfSignature(rows){
+  return state.activePortfolioIdx + "|" + pfEditMode + "|" + state.displayCurrency + "|" + state.pfSortMode + "|"
+    + rows.map(r => r.p.id + ":" + r.p.amount).join(",");
 }
 
 // 구성은 그대로 둔 채 가치·총합만 제자리에서 갱신 (관심 코인 탭의 updateGridValues와 같은 방식)
-function updatePortfolioValues(holdings, exSet){
+function updatePortfolioValues(rows){
   const list = document.getElementById("pfList");
   let total = 0;
-  holdings.forEach(p=>{
-    const c = findCoinAnywhere(p.id);
-    const pr = c ? pfCoinPriceUsd(c, exSet) : null;
-    const value = pr && pr.usd !== null ? pr.usd * p.amount : null;
+  rows.forEach(({ p, value, est })=>{
     if(value !== null) total += value;
     const cell = list.querySelector(`.pf-row[data-id="${p.id}"] .price`);
     if(!cell) return;
-    const est = !!(pr && pr.est);
     const txt = value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-";
     // 자릿수 단위로 굴려서 갱신 (관심 코인·시세 탭과 같은 방식)
     rollNumberByKey("pf:" + p.id, cell.querySelector(".roll-wrap"), txt, displayPriceNum(value) ?? 0);
@@ -143,12 +178,20 @@ export function renderPortfolio(force){
   const holdings = currentPortfolio().holdings;
   const exSet = new Set(currentPortfolio().exchanges);
 
-  // 코인·수량·편집모드·표시통화가 그대로면 행을 새로 만들지 않는다.
+  // 코인·수량·편집모드·표시통화·정렬순서가 그대로면 행을 새로 만들지 않는다.
   // innerHTML로 목록을 갈아끼우면 입력 중이던 수량 입력창이 사라져서,
   // 모바일에서는 갱신 주기마다 키보드가 닫히고 입력하던 값도 날아간다.
-  const sig = pfSignature(holdings);
+  const rows = sortedRows(holdings, exSet);
+  const sig = pfSignature(rows);
   if(!force && sig === lastPfSignature && list.querySelector(".pf-row")){
-    updatePortfolioValues(holdings, exSet);
+    updatePortfolioValues(rows);
+    return;
+  }
+  // 금액 순 정렬에서는 시세가 움직이면 순서가 바뀌어 행을 다시 만들어야 하는데,
+  // 하필 수량을 입력하는 중이면 입력창이 사라진다. 그때는 값만 갱신하고 재정렬은 미룬다.
+  const focused = document.activeElement;
+  if(!force && focused && focused.classList.contains("pf-amt-edit") && list.contains(focused)){
+    updatePortfolioValues(rows);
     return;
   }
   lastPfSignature = sig;
@@ -159,11 +202,7 @@ export function renderPortfolio(force){
   }
   let total = 0;
   let html = "";
-  holdings.forEach((p, idx)=>{
-    const c = findCoinAnywhere(p.id);
-    const pr = c ? pfCoinPriceUsd(c, exSet) : null;
-    const value = pr && pr.usd !== null ? pr.usd * p.amount : null;
-    const est = !!(pr && pr.est);
+  rows.forEach(({ p, idx, value, est })=>{
     if(value !== null) total += value;
     const amtCell = pfEditMode
       ? `<input class="pf-amt-edit" type="number" step="any" min="0" value="${p.amount}" data-idx="${idx}">`

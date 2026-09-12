@@ -24,5 +24,6 @@ export const state = {
   marketExtraCoins: new Map(), // 시세 탭 검색으로만 찾은(시총 500위 밖) 코인 임시 보관소 — 저장/영구 목록에는 넣지 않음
   rowAnimating: false,    // 코인 행 삭제 애니메이션 중에는 목록 재렌더를 잠깐 멈춤
   portfolios: [ { name:"포트폴리오 1", holdings:[], exchanges:["upbit"] } ], // {name, holdings:[{id,symbol,name,amount}], exchanges:[...]}
-  activePortfolioIdx: 0
+  activePortfolioIdx: 0,
+  pfSortMode: "added" // 보유 코인 표시 순서: "added"(추가순) | "asc"(금액 오름차순) | "desc"(내림차순)
 };

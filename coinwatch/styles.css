@@ -279,6 +279,13 @@ body.chart-open main{padding-bottom:60vh;}
   display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;
 }
 .pf-list-head span{font-size:12px; color:var(--muted); font-weight:600;}
+/* 보유 코인 헤더 = 정렬 전환 버튼. 음수 마진으로 보이는 위치는 그대로 두고 탭 영역만 넓힌다 */
+.pf-sort{
+  cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:5px;
+  padding:8px 6px; margin:-8px -6px;
+}
+.pf-sort:active{opacity:0.6;}
+.pf-list-head .pf-sort-mode{color:var(--gold); font-weight:700;}
 .pf-edit-btn{flex:0 0 auto; width:auto; padding:6px 14px; font-size:12px;}
 .pf-row{
   display:grid; grid-template-columns:1.4fr 1fr 1fr 30px; gap:6px; align-items:center;
