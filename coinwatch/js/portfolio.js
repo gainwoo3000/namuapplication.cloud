@@ -1,7 +1,7 @@
 import { MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
-import { collapseRow } from "./animate.js";
-import { fmtDisplayPrice } from "./format.js";
+import { collapseRow, prevValues, rollNumberByKey } from "./animate.js";
+import { fmtDisplayPrice, displayPriceNum } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
 import { pfCoinPriceUsd } from "./pricing.js";
 import { selectCoin } from "./chart.js";
@@ -127,10 +127,12 @@ function updatePortfolioValues(holdings, exSet){
     if(!cell) return;
     const est = !!(pr && pr.est);
     const txt = value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-";
-    if(cell.textContent !== txt) cell.textContent = txt;
+    // 자릿수 단위로 굴려서 갱신 (관심 코인·시세 탭과 같은 방식)
+    rollNumberByKey("pf:" + p.id, cell.querySelector(".roll-wrap"), txt, displayPriceNum(value) ?? 0);
     cell.classList.toggle("myx-est", est); // 고른 거래소 밖 시세로 대체한 값은 흐리게
   });
-  document.getElementById("pfTotal").textContent = fmtDisplayPrice(total);
+  rollNumberByKey("pf:total", document.querySelector("#pfTotal .roll-wrap"),
+    fmtDisplayPrice(total), displayPriceNum(total) ?? 0);
 }
 
 // force=true 면 수량 입력 중이어도 행을 다시 만든다 (입력을 막 끝낸 change 핸들러용).
@@ -167,12 +169,14 @@ export function renderPortfolio(force){
       ? `<input class="pf-amt-edit" type="number" step="any" min="0" value="${p.amount}" data-idx="${idx}">`
       : `${p.amount}`;
     const delCell = pfEditMode ? `<div class="del" data-idx="${idx}">✕</div>` : `<div></div>`;
+    const valText = value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-";
     html += `<div class="pf-row" data-id="${p.id}">
       <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
       <div>${amtCell}</div>
-      <div class="price${est ? " myx-est" : ""}">${value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-"}</div>
+      <div class="price${est ? " myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${valText}</span></span></div>
       ${delCell}
     </div>`;
+    prevValues["pf:" + p.id] = displayPriceNum(value) ?? 0; // 다음 갱신 때 굴러갈 방향 기준
   });
   list.innerHTML = html;
   list.querySelectorAll(".pf-row").forEach(row=>{
@@ -202,7 +206,9 @@ export function renderPortfolio(force){
       saveState();
     });
   });
-  document.getElementById("pfTotal").textContent = fmtDisplayPrice(total);
+  document.getElementById("pfTotal").innerHTML =
+    `<span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(total)}</span></span>`;
+  prevValues["pf:total"] = displayPriceNum(total) ?? 0;
 }
 
 // ---------- 포트폴리오 전환 / 추가 / 삭제 ----------
