@@ -48,7 +48,7 @@ export async function loadMarkets(){
   state.coinsList = buildCoinsList(); // 우선 캐시된 값(있다면)으로 즉시 렌더
   renderGrid();
   renderMarketGrid();
-  document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (state.lastSource==="gecko" ? " (대체 소스)":"");
+  document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (state.lastSource==="binance" ? " (대체 소스)":"");
   if(state.coinsList.length > 0){
     let enriched = await enrichIntlPrices(state.coinsList);
     await ensureUsdKrw();
