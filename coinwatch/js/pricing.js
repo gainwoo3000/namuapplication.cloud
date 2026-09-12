@@ -62,11 +62,15 @@ export function myxPremiumText(c, myx){
   return fmtChg(pct);
 }
 
-// 이 포트폴리오에서 고른 거래소 기준 가격을 USD로 반환(내부 계산은 USD 기준으로 통일). 데이터 없으면 null
+// 이 포트폴리오에서 고른 거래소 기준 가격을 { usd, est } 로 반환(내부 계산은 USD 기준으로 통일).
+// 고른 거래소에 그 코인이 없으면 시세 탭 기준가로 대체하고 est:true로 알린다. 대표적인 경우가 테더인데,
+// USDT를 USDT로 사는 페어는 없어서 바이낸스·OKX·바이빗에서는 값이 아예 안 나온다.
+// 값을 못 구한 코인을 빼고 합계를 내면 총 가치가 조용히 틀리므로, 대체값이라도 쓰고 화면에 ≈로 표시한다.
 export function pfCoinPriceUsd(c, exchangeSet){
   const krw = exchangeAvgFor(c, exchangeSet);
-  if(krw !== null && state.usdKrw) return krw / state.usdKrw;
-  return null;
+  if(krw !== null && state.usdKrw) return { usd: krw / state.usdKrw, est: false };
+  if(c.current_price != null && !isNaN(c.current_price)) return { usd: c.current_price, est: true };
+  return { usd: null, est: false };
 }
 
 // 바이낸스/OKX/바이빗/코인베이스/크라켄 5사 평균을 "가격(USD)"으로 사용

@@ -120,13 +120,15 @@ function updatePortfolioValues(holdings, exSet){
   let total = 0;
   holdings.forEach(p=>{
     const c = findCoinAnywhere(p.id);
-    const priceUsd = c ? pfCoinPriceUsd(c, exSet) : null;
-    const value = priceUsd !== null ? priceUsd * p.amount : null;
+    const pr = c ? pfCoinPriceUsd(c, exSet) : null;
+    const value = pr && pr.usd !== null ? pr.usd * p.amount : null;
     if(value !== null) total += value;
     const cell = list.querySelector(`.pf-row[data-id="${p.id}"] .price`);
     if(!cell) return;
-    const txt = value !== null ? fmtDisplayPrice(value) : "-";
+    const est = !!(pr && pr.est);
+    const txt = value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-";
     if(cell.textContent !== txt) cell.textContent = txt;
+    cell.classList.toggle("myx-est", est); // 고른 거래소 밖 시세로 대체한 값은 흐리게
   });
   document.getElementById("pfTotal").textContent = fmtDisplayPrice(total);
 }
@@ -157,8 +159,9 @@ export function renderPortfolio(force){
   let html = "";
   holdings.forEach((p, idx)=>{
     const c = findCoinAnywhere(p.id);
-    const priceUsd = c ? pfCoinPriceUsd(c, exSet) : null;
-    const value = priceUsd !== null ? priceUsd * p.amount : null;
+    const pr = c ? pfCoinPriceUsd(c, exSet) : null;
+    const value = pr && pr.usd !== null ? pr.usd * p.amount : null;
+    const est = !!(pr && pr.est);
     if(value !== null) total += value;
     const amtCell = pfEditMode
       ? `<input class="pf-amt-edit" type="number" step="any" min="0" value="${p.amount}" data-idx="${idx}">`
@@ -167,7 +170,7 @@ export function renderPortfolio(force){
     html += `<div class="pf-row" data-id="${p.id}">
       <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
       <div>${amtCell}</div>
-      <div class="price">${value !== null ? fmtDisplayPrice(value) : "-"}</div>
+      <div class="price${est ? " myx-est" : ""}">${value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-"}</div>
       ${delCell}
     </div>`;
   });

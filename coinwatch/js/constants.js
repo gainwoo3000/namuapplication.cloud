@@ -22,9 +22,12 @@ export const NAME_MAP = {
 // 코인게코 공식 영문 이름(name 필드)이 실제로 널리 통용되는 영문 이름과 달라서
 // enName만으로는 검색이 안 되는 경우의 보충 별칭 (심볼 -> 별칭 배열).
 // 예: XRP의 코인게코 name은 "XRP"라서 "ripple"로 검색하면 로컬에서 안 잡힘.
+// 한글 통용명도 여기에 넣으면 표시 이름(name)은 그대로 둔 채 검색만 걸린다.
 export const ALIAS_MAP = {
   XRP: ["Ripple"],
-  BNB: ["Binance Coin", "Binance"]
+  BNB: ["Binance Coin", "Binance"],
+  USDT: ["테더"],
+  USDC: ["유에스디코인", "USD코인"]
 };
 
 // range 버튼 값(1/7/30/365) -> 트레이딩뷰 interval/range 매핑
