@@ -21,6 +21,11 @@ export async function loadMarkets(){
     state.allTickers = list;
     state.lastSource = "gecko";
   }catch(e1){
+    // 이미 시총 순위 기준 목록을 갖고 있는데 이번 갱신만 실패한 거라면,
+    // 순위 산정 기준이 완전히 다른 바이낸스 거래대금 순위로 화면이 바뀌지 않도록
+    // (예: 스테이블코인 간 차익거래로 거래대금이 늘 최상위인 USDC가 잠깐 1위로 보임)
+    // 이번 갱신은 건너뛰고 기존 목록을 유지한 채 다음 주기에 다시 시도한다.
+    if(state.allTickers.length > 0) return;
     try{
       state.allTickers = await loadFromBinance();
       state.lastSource = "binance";
