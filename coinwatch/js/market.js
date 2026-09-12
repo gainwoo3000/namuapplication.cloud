@@ -4,7 +4,7 @@ import { prevValues, rollUpdate, rollNumberByKey, flashChg } from "./animate.js"
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, priceSubText } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
 import { selectCoin } from "./chart.js";
-import { searchExternalCoins } from "./search.js";
+import { searchExternalCoins, matchesLocalQuery } from "./search.js";
 
 // ---------- 시세 탭 (시총 순위 + 페이지 + 검색) ----------
 let marketQuery = "";
@@ -28,7 +28,7 @@ function marketList(){
   let picked;
   if(marketQuery){
     const q = marketQuery.toUpperCase();
-    const local = state.allTickers.filter(c => c.symbol.toUpperCase().includes(q) || (c.name || "").toUpperCase().includes(q));
+    const local = state.allTickers.filter(c => matchesLocalQuery(c, q));
     const localSyms = new Set(local.map(c => c.symbol.toUpperCase()));
     // 시총 500위 밖이라 우리 풀엔 없는 코인은 CoinGecko 검색 결과로 채운다
     const seen = new Set(local.map(c => c.id));

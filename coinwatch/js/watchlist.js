@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { prevValues, rollUpdate, rollNumberByKey, flashChg, collapseRow } from "./animate.js";
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, fmtDisplayMyx, displayMyxNum } from "./format.js";
 import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
-import { resolveOrCreateSearchCoin, searchExternalCoins } from "./search.js";
+import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { selectCoin, closeChart } from "./chart.js";
 import { saveState } from "./persist.js";
 
@@ -206,7 +206,7 @@ function renderAddResults(query, extResults){
   const box = document.getElementById("addCoinResults");
   const q = query.toUpperCase();
   const localMatches = query
-    ? state.allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q))
+    ? state.allTickers.filter(c => matchesLocalQuery(c, q))
     : state.allTickers;
   const localIds = new Set(localMatches.map(c=>c.id));
   const extOnly = extResults.filter(c => !localIds.has(c.id));

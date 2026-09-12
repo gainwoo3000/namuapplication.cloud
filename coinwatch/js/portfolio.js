@@ -5,7 +5,7 @@ import { fmtDisplayPrice } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
 import { pfCoinPriceUsd } from "./pricing.js";
 import { selectCoin } from "./chart.js";
-import { resolveOrCreateSearchCoin, searchExternalCoins } from "./search.js";
+import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { saveState } from "./persist.js";
 
 export function currentPortfolio(){ return state.portfolios[state.activePortfolioIdx]; }
@@ -51,7 +51,7 @@ function renderPfResults(query, extResults){
   const box = document.getElementById("pfCoinResults");
   const q = (query || "").toUpperCase();
   const localMatches = q
-    ? state.allTickers.filter(c => c.symbol.toUpperCase().includes(q) || c.name.toUpperCase().includes(q))
+    ? state.allTickers.filter(c => matchesLocalQuery(c, q))
     : state.allTickers;
   const localIds = new Set(localMatches.map(c=>c.id));
   const extOnly = extResults.filter(c => !localIds.has(c.id));

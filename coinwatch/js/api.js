@@ -42,6 +42,7 @@ export async function loadFromGecko(){
       id,
       symbol: c.symbol,
       name: NAME_MAP[short] || c.name,
+      enName: c.name, // 한글 이름(NAME_MAP)으로 name을 덮어써도 영문 이름으로 검색할 수 있게 따로 보관
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null

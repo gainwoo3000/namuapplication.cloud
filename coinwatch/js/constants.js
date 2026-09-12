@@ -19,6 +19,14 @@ export const NAME_MAP = {
   SUI:"수이", INJ:"인젝티브", RNDR:"렌더", HBAR:"헤데라", VET:"비체인", ICP:"인터넷컴퓨터"
 };
 
+// 코인게코 공식 영문 이름(name 필드)이 실제로 널리 통용되는 영문 이름과 달라서
+// enName만으로는 검색이 안 되는 경우의 보충 별칭 (심볼 -> 별칭 배열).
+// 예: XRP의 코인게코 name은 "XRP"라서 "ripple"로 검색하면 로컬에서 안 잡힘.
+export const ALIAS_MAP = {
+  XRP: ["Ripple"],
+  BNB: ["Binance Coin", "Binance"]
+};
+
 // range 버튼 값(1/7/30/365) -> 트레이딩뷰 interval/range 매핑
 export const TV_RANGE_MAP = {
   1:   { interval: "15",  range: "1D"  },

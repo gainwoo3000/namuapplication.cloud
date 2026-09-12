@@ -1,6 +1,16 @@
-import { GECKO, CG_SEARCH_PROXY } from "./constants.js";
+import { GECKO, CG_SEARCH_PROXY, ALIAS_MAP } from "./constants.js";
 import { state } from "./state.js";
 import { getBinanceMap } from "./api.js";
+
+// 로컬 풀(state.allTickers) 코인 하나가 대문자 검색어 q(예: "SOLANA")와 일치하는지.
+// 심볼/이름(한글로 덮어썼을 수 있음)/영문 원본 이름(enName)/수동 별칭(ALIAS_MAP) 순으로 확인.
+export function matchesLocalQuery(c, q){
+  if(c.symbol.toUpperCase().includes(q)) return true;
+  if((c.name || "").toUpperCase().includes(q)) return true;
+  if((c.enName || "").toUpperCase().includes(q)) return true;
+  const aliases = ALIAS_MAP[c.symbol.toUpperCase()];
+  return !!aliases && aliases.some(a => a.toUpperCase().includes(q));
+}
 
 // 검색 결과 원소 하나 → 시세 목록에 끼워넣을 코인 형태
 function makeSearchCoin(o){
