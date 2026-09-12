@@ -1,7 +1,7 @@
 import { state } from "./state.js";
 import { loadFromGecko, loadFromBinance, fetchCmcKrw } from "./api.js";
 import { enrichIntlPrices, enrichDomesticPrices, applyExchangeTickers } from "./pricing.js";
-import { buildCoinsList, renderGrid } from "./watchlist.js";
+import { buildCoinsList, renderGrid, findCoinAnywhere } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
 import { updateChartPrice } from "./chart.js";
@@ -14,6 +14,15 @@ import { restartRefreshTimer } from "./settings.js";
 // import만으로 화면 배선이 끝난다. 서로 순환 참조하지만 실제 호출은
 // 전부 함수 본문 안(이벤트 콜백 등)에서 일어나므로 로드 순서 문제는 없다.
 import "./chart.js";
+
+// 거래소별 시세(exUsd/domestic)를 보강할 대상. 관심 코인뿐 아니라 모든 포트폴리오의
+// 보유 코인도 포함해야 한다 — 이 값이 없으면 포트폴리오 가치가 "-"로 나온다.
+// 거래소 API는 전체 티커를 한 번에 받아오는 방식이라 대상이 늘어도 요청 수는 그대로다.
+function coinsToEnrich(){
+  const ids = new Set(state.watchlist);
+  state.portfolios.forEach(p => p.holdings.forEach(h => ids.add(h.id)));
+  return [...ids].map(id => findCoinAnywhere(id)).filter(Boolean);
+}
 
 export async function loadMarkets(){
   try{
@@ -52,8 +61,9 @@ export async function loadMarkets(){
   // 시세 목록의 가격·등락률·고저가를 거래소 실시간 값으로 덮어쓴 뒤 다시 그림
   // (CoinGecko는 순위·이름만 담당 → 워커 캐시를 길게 잡아도 가격은 실시간)
   if(await applyExchangeTickers(state.allTickers)) renderMarketGrid();
-  if(state.coinsList.length > 0){
-    let enriched = await enrichIntlPrices(state.coinsList);
+  const targets = coinsToEnrich();
+  if(targets.length > 0){
+    let enriched = await enrichIntlPrices(targets);
     await ensureUsdKrw();
     enriched = await enrichDomesticPrices(enriched);
     enriched.forEach(c=>{
