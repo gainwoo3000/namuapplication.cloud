@@ -161,8 +161,16 @@ export async function fetchKrakenPricesFor(symbolsUpper){
 // OKX/Bybit 맵의 값 형식: { price, chg, high, low } — 심볼(대문자) 기준.
 // 가격 평균 계산에는 price만 쓰고, 나머지는 시세 탭 목록을 거래소 실시간 값으로
 // 덮어쓸 때(applyExchangeTickers) 함께 사용한다.
+// OKX/바이빗 맵도 바이낸스처럼 짧게 캐시한다. 한 갱신 주기 안에서
+// applyExchangeTickers(시세 목록)와 enrichIntlPrices(관심 코인)가 각각 부르기 때문에,
+// 캐시가 없으면 같은 데이터를 주기마다 두 번씩 받아오게 된다.
+const EX_MAP_TTL = 30000;
+let okxMapCache = { data: null, at: 0 };
+let bybitMapCache = { data: null, at: 0 };
+
 // OKX: 스팟 전체 티커를 한 번에 반환 (instId 형식 예: BTC-USDT)
 export async function fetchOkxMap(){
+  if(okxMapCache.data && Date.now() - okxMapCache.at < EX_MAP_TTL) return okxMapCache.data;
   try{
     const res = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
     if(!res.ok) return {};
@@ -180,12 +188,14 @@ export async function fetchOkxMap(){
         };
       }
     });
+    okxMapCache = { data: out, at: Date.now() };
     return out;
-  }catch(e){ return {}; }
+  }catch(e){ return okxMapCache.data || {}; }
 }
 
 // Bybit: 스팟 전체 티커를 한 번에 반환 (symbol 형식 예: BTCUSDT)
 export async function fetchBybitMap(){
+  if(bybitMapCache.data && Date.now() - bybitMapCache.at < EX_MAP_TTL) return bybitMapCache.data;
   try{
     const res = await fetch("https://api.bybit.com/v5/market/tickers?category=spot");
     if(!res.ok) return {};
@@ -202,8 +212,9 @@ export async function fetchBybitMap(){
         };
       }
     });
+    bybitMapCache = { data: out, at: Date.now() };
     return out;
-  }catch(e){ return {}; }
+  }catch(e){ return bybitMapCache.data || {}; }
 }
 
 // ---------- 국내 거래소(업비트/빗썸/코인원) ----------
