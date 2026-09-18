@@ -18,19 +18,23 @@ export function currentTabName(){
   return t ? t.dataset.tab : TAB_ORDER[0];
 }
 
+// 탭마다 마지막으로 보던 스크롤 위치. 탭을 떠날 때 적어두고 돌아오면 그 자리로 되돌린다.
+// (탭마다 길이가 크게 달라서 스크롤을 그냥 이어받으면 짧은 탭에서 엉뚱한 곳이 보인다)
+const scrollByTab = {};
+
 // 새 탭은 눌린(또는 밀린) 방향에서 미끄러져 들어온다.
 export function activateTab(name){
   const tab = document.querySelector(`.tab[data-tab="${name}"]`);
   const view = document.getElementById("view-" + name);
   if(!tab || !view || tab.classList.contains("active")) return;
   const dir = TAB_ORDER.indexOf(name) > TAB_ORDER.indexOf(currentTabName()) ? 1 : -1;
+  scrollByTab[currentTabName()] = window.scrollY;
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active", "slide-left", "slide-right"));
   tab.classList.add("active");
   view.classList.add("active", dir > 0 ? "slide-left" : "slide-right");
-  // 탭마다 길이가 크게 달라서, 스크롤을 유지하면 짧은 탭에서 엉뚱한 위치(맨 아래)로 잘린다
-  window.scrollTo(0, 0);
-  if(name === "market") renderMarketGrid();
+  if(name === "market") renderMarketGrid(); // 높이가 확정된 뒤에 스크롤을 되돌려야 한다
+  window.scrollTo(0, scrollByTab[name] || 0);
 }
 
 document.querySelectorAll(".tab").forEach(tab=>{
