@@ -86,7 +86,8 @@ async function handleCmc(env, ctx, cors) {
 // ---------- CoinGecko: 시총 1~500위 ----------
 async function handleCgMarkets(env, ctx, cors) {
   const cache = caches.default;
-  const key = new Request("https://cache.internal/cg-markets/v1");
+  // 응답에 담는 필드가 바뀌면 v를 올린다 — 안 올리면 옛 모양의 캐시가 만료될 때까지 그대로 나간다
+  const key = new Request("https://cache.internal/cg-markets/v2");
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
@@ -139,7 +140,7 @@ async function handleCgSearch(url, env, ctx, cors) {
   if (q.length < 2) return json({ coins: [] }, 200, cors);
 
   const cache = caches.default;
-  const key = new Request("https://cache.internal/cg-search/" + encodeURIComponent(q));
+  const key = new Request("https://cache.internal/cg-search/v2/" + encodeURIComponent(q));
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
