@@ -84,6 +84,21 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   saveState();
 });
 
+// ---------- 글자 크기 ----------
+export function applyFontScale(){
+  document.documentElement.style.setProperty("--fs", state.fontScale);
+}
+
+document.getElementById("fontOpts").addEventListener("click", (e)=>{
+  const opt = e.target.closest(".opt");
+  if(!opt) return;
+  document.querySelectorAll("#fontOpts .opt").forEach(o=>o.classList.remove("active"));
+  opt.classList.add("active");
+  state.fontScale = Number(opt.dataset.fs);
+  applyFontScale(); // 헤더 높이가 바뀌면 layout.js가 --topbar-h를 알아서 다시 잰다
+  saveState();
+});
+
 document.getElementById("themeOpts").addEventListener("click", (e)=>{
   const opt = e.target.closest(".opt");
   if(!opt) return;

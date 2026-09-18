@@ -1,6 +1,6 @@
 import { STORAGE_KEY, MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
-import { renderExchangeOpts } from "./settings.js";
+import { renderExchangeOpts, applyFontScale } from "./settings.js";
 import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel } from "./portfolio.js";
 
 // ---------- 로컬 저장 ----------
@@ -13,6 +13,7 @@ export function saveState(){
       myExchanges: [...state.myExchanges],
       intlExchangeFilter: [...state.intlExchangeFilter],
       displayCurrency: state.displayCurrency,
+      fontScale: state.fontScale,
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
       refreshSec: state.refreshSec,
       pfSortMode: state.pfSortMode,
@@ -46,6 +47,7 @@ export function loadState(){
     if(Array.isArray(saved.myExchanges)) state.myExchanges = new Set(saved.myExchanges);
     if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(saved.intlExchangeFilter);
     if(saved.displayCurrency) state.displayCurrency = saved.displayCurrency;
+    if(saved.fontScale > 0) state.fontScale = saved.fontScale;
     if(saved.refreshSec) state.refreshSec = saved.refreshSec;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(saved.virtualCoins){
@@ -70,6 +72,10 @@ export function applyLoadedUIState(){
   });
   document.querySelectorAll("#refreshOpts .opt").forEach(o=>{
     o.classList.toggle("active", Number(o.dataset.sec) === state.refreshSec);
+  });
+  applyFontScale();
+  document.querySelectorAll("#fontOpts .opt").forEach(o=>{
+    o.classList.toggle("active", Number(o.dataset.fs) === state.fontScale);
   });
   renderPortfolioHeaderBtn();
   syncPfExCheckboxes();

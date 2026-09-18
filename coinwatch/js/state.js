@@ -16,6 +16,7 @@ export const state = {
   lastSource: "binance",
   myExchanges: new Set(["upbit","bithumb"]), // "나의 거래소" 평균에 포함할 국내 거래소
   displayCurrency: "usd", // "usd" | "krw" - 나의 거래소/가격 컬럼 표시 통화
+  fontScale: 1,           // 글자 크기 배율 (CSS --fs). 1 | 1.12 | 1.24
   krakenPairMap: null,    // 심볼 -> 크라켄 페어 키 (최초 1회 캐싱)
   upbitMarketSet: null,   // 업비트에 상장된 심볼 집합 (최초 1회 캐싱)
   enrichedCache: {},      // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
