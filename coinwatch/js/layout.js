@@ -9,7 +9,11 @@ if(topbar){
     const h = Math.floor(topbar.getBoundingClientRect().height);
     document.documentElement.style.setProperty("--topbar-h", h + "px");
   };
-  new ResizeObserver(sync).observe(topbar);
+  // border-box로 봐야 한다 — 노치 여백(padding-top)만 바뀌는 경우(기기 회전 등)
+  // content-box 기준으로는 크기가 안 바뀐 것으로 보여 갱신이 안 된다.
+  new ResizeObserver(sync).observe(topbar, { box: "border-box" });
+  window.addEventListener("resize", sync);
+  window.addEventListener("orientationchange", ()=> setTimeout(sync, 200));
   sync();
 }
 

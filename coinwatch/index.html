@@ -2,12 +2,16 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- viewport-fit=cover: 아이폰 노치/다이나믹 아일랜드 영역까지 화면으로 쓰고,
+     그 높이를 env(safe-area-inset-top)으로 받아 가림막·헤더 여백에 반영한다 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>코인워치 — 실시간 시세</title>
 <script src="https://s3.tradingview.com/tv.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
+<div class="safe-top" aria-hidden="true"></div>
 <div class="app">
   <div class="topbar">
     <header>

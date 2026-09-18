@@ -15,6 +15,8 @@
   /* 숫자 칸 너비용 배율. 등폭 숫자는 칸에 여유가 조금 있어서 글자 배율보다 덜 키운다 —
      그래야 좁은 화면에서 가격은 안 잘리면서 코인 이름 칸도 남는다 */
   --fsw: calc(1 + (var(--fs) - 1) * 0.6);
+  /* 노치·다이나믹 아일랜드가 가리는 높이 (+15% 여유). 인셋이 없는 기기에서는 0이라 아무 영향 없음 */
+  --safe-top: calc(env(safe-area-inset-top, 0px) * 1.15);
 }
 body.light-theme{
   --bg:#F4F5F7;
@@ -39,10 +41,20 @@ body{
    아래로 내리는 중에는 --topbar-shift 만큼 위로 밀어 숨기고, 위로 올리면 다시 0으로 돌아온다. */
 .topbar{
   position:sticky; top:0; z-index:50; background:var(--panel);
+  padding-top:var(--safe-top); /* 제목이 다이나믹 아일랜드에 가리지 않게 그만큼 내려서 시작 */
   transform:translateY(var(--topbar-shift, 0px));
   transition:transform .22s cubic-bezier(.4,0,.2,1);
 }
-body.topbar-hidden{--topbar-shift:calc(-1 * var(--topbar-h, 96px));}
+/* 헤더는 완전히, 검색창은 노치 자리(--safe-top)까지만 올라간다 — 검색창이 아일랜드 밑으로 들어가지 않게 */
+body.topbar-hidden{
+  --topbar-shift:calc(-1 * var(--topbar-h, 96px));
+  --search-shift:calc(-1 * (var(--topbar-h, 96px) - var(--safe-top)));
+}
+/* 헤더가 숨은 동안에도 노치 자리를 계속 덮고 있는 고정 막 (헤더와 같은 배경색이라 이어져 보인다) */
+.safe-top{
+  position:fixed; top:0; left:0; right:0; z-index:55;
+  height:var(--safe-top); background:var(--panel); pointer-events:none;
+}
 header{
   padding:16px 16px 8px;
   display:flex; align-items:center; justify-content:space-between;
@@ -60,7 +72,11 @@ header .sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:2px
 .tab.active{background:var(--panel-2); color:var(--text);}
 /* overflow-x:clip — 탭이 미끄러져 들어올 때 잠깐 옆으로 삐져나간 부분 때문에
    가로 스크롤이 생기지 않게. (hidden과 달리 스크롤 컨테이너를 만들지 않아 안쪽 sticky가 그대로 동작) */
-main{flex:1; padding:12px 12px 40px; transition:padding-bottom .2s ease; overflow-x:clip;}
+/* 아래쪽도 viewport-fit=cover로 홈 인디케이터 영역까지 늘어나므로 그만큼 여백을 더 준다 */
+main{
+  flex:1; padding:12px 12px calc(40px + env(safe-area-inset-bottom, 0px));
+  transition:padding-bottom .2s ease; overflow-x:clip;
+}
 body.chart-open main{padding-bottom:60vh;}
 .view{display:none;}
 .view.active{display:block;}
@@ -113,7 +129,7 @@ body.chart-open main{padding-bottom:60vh;}
 .market-search{
   position:sticky; top:var(--topbar-h, 96px); z-index:40;
   background:var(--bg); margin:0 0 10px; padding-top:10px; margin-top:-10px;
-  transform:translateY(var(--topbar-shift, 0px));
+  transform:translateY(var(--search-shift, 0px));
   transition:transform .22s cubic-bezier(.4,0,.2,1);
 }
 .market-search input{
