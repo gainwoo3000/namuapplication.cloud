@@ -35,8 +35,14 @@ body{
 }
 .app{max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
 /* 헤더(코인 검색 포함)를 스크롤해도 화면 맨 위에 고정.
-   헤더+탭을 한 덩어리(같은 배경, 중간 경계선 없음)로 둬서 사이가 갈라져 보이지 않게 한다 */
-.topbar{position:sticky; top:0; z-index:50; background:var(--panel);}
+   헤더+탭을 한 덩어리(같은 배경, 중간 경계선 없음)로 둬서 사이가 갈라져 보이지 않게 한다.
+   아래로 내리는 중에는 --topbar-shift 만큼 위로 밀어 숨기고, 위로 올리면 다시 0으로 돌아온다. */
+.topbar{
+  position:sticky; top:0; z-index:50; background:var(--panel);
+  transform:translateY(var(--topbar-shift, 0px));
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+}
+body.topbar-hidden{--topbar-shift:calc(-1 * var(--topbar-h, 96px));}
 header{
   padding:16px 16px 8px;
   display:flex; align-items:center; justify-content:space-between;
@@ -70,6 +76,7 @@ body.chart-open main{padding-bottom:60vh;}
 @keyframes edgeBounceRight{30%{transform:translateX(14px);} to{transform:none;}}
 @media (prefers-reduced-motion: reduce){
   .view.slide-left, .view.slide-right, .edge-bounce-left, .edge-bounce-right{animation:none;}
+  .topbar, .market-search{transition:none;}
 }
 
 /* Watchlist toolbar */
@@ -101,10 +108,13 @@ body.chart-open main{padding-bottom:60vh;}
 #addCoinResults{max-height:340px; overflow-y:auto;}
 .add-empty{color:var(--muted); font-size:calc(12px * var(--fs)); padding:6px 4px;}
 
-/* 시세(시총 순위) 탭 — 코인 검색창도 헤더 바로 아래에 고정 */
+/* 시세(시총 순위) 탭 — 코인 검색창도 헤더 바로 아래에 고정.
+   헤더가 숨을 때 같은 값만큼 따라 올라가 화면 맨 위에 붙는다 (검색은 계속 쓸 수 있게) */
 .market-search{
   position:sticky; top:var(--topbar-h, 96px); z-index:40;
   background:var(--bg); margin:0 0 10px; padding-top:10px; margin-top:-10px;
+  transform:translateY(var(--topbar-shift, 0px));
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
 }
 .market-search input{
   width:100%; background:var(--panel); border:1px solid var(--line); color:var(--text);

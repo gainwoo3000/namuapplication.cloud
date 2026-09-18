@@ -8,6 +8,7 @@ import { updateChartPrice } from "./chart.js";
 import { ensureUsdKrw } from "./fx.js";
 import { saveState } from "./persist.js";
 import { loadMarkets } from "./main.js";
+import { revealTopbar } from "./layout.js";
 
 // ---------- 탭 전환 ----------
 // 탭 순서는 마크업 순서를 그대로 따른다 (좌우 스와이프도 이 순서로 넘어감)
@@ -35,6 +36,7 @@ export function activateTab(name){
   view.classList.add("active", dir > 0 ? "slide-left" : "slide-right");
   if(name === "market") renderMarketGrid(); // 높이가 확정된 뒤에 스크롤을 되돌려야 한다
   window.scrollTo(0, scrollByTab[name] || 0);
+  revealTopbar(); // 위치를 건너뛴 것이지 아래로 내린 게 아니므로 헤더는 보인 채로 둔다
 }
 
 document.querySelectorAll(".tab").forEach(tab=>{
