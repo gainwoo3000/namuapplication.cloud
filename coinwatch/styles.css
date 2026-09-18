@@ -51,6 +51,19 @@ main{flex:1; padding:12px 12px 40px; transition:padding-bottom .2s ease;}
 body.chart-open main{padding-bottom:60vh;}
 .view{display:none;}
 .view.active{display:block;}
+/* 탭 전환(탭 클릭·좌우 스와이프): 새 탭이 진행 방향에서 미끄러져 들어온다 */
+.view.slide-left{animation:viewSlideLeft .2s cubic-bezier(.4,0,.2,1);}
+.view.slide-right{animation:viewSlideRight .2s cubic-bezier(.4,0,.2,1);}
+@keyframes viewSlideLeft{from{transform:translateX(16%); opacity:0.3;} to{transform:none; opacity:1;}}
+@keyframes viewSlideRight{from{transform:translateX(-16%); opacity:0.3;} to{transform:none; opacity:1;}}
+/* 첫/마지막 탭에서 더 밀었을 때의 짧은 반동 */
+.edge-bounce-left{animation:edgeBounceLeft .26s ease-out;}
+.edge-bounce-right{animation:edgeBounceRight .26s ease-out;}
+@keyframes edgeBounceLeft{30%{transform:translateX(-14px);} to{transform:none;}}
+@keyframes edgeBounceRight{30%{transform:translateX(14px);} to{transform:none;}}
+@media (prefers-reduced-motion: reduce){
+  .view.slide-left, .view.slide-right, .edge-bounce-left, .edge-bounce-right{animation:none;}
+}
 
 /* Watchlist toolbar */
 .watch-toolbar{display:flex; gap:6px; margin-bottom:10px;}

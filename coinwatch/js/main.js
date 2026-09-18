@@ -10,6 +10,7 @@ import { loadFearGreed } from "./fng.js";
 import { loadState, applyLoadedUIState } from "./persist.js";
 import { restartRefreshTimer } from "./settings.js";
 import "./layout.js";
+import "./swipe.js"; // 좌우 스와이프로 탭 넘기기
 
 // 이 모듈들은 자기 파일 안에서 이벤트 리스너를 등록하는 부수효과를 가지므로
 // import만으로 화면 배선이 끝난다. 서로 순환 참조하지만 실제 호출은
