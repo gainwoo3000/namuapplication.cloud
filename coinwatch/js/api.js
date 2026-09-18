@@ -49,6 +49,7 @@ export async function loadFromGecko(){
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null,
+      image: c.image || null, // 표 왼쪽 로고. 워커가 image를 안 내려주면 심볼 기준 아이콘으로 대체된다.
       // 등락률 아래 24시간 범위 바에 사용. 거래소에 상장된 코인은 곧바로
       // applyExchangeTickers()가 실시간 값으로 덮어쓰고, 여기 값은 그 외 코인용.
       high_24h: c.high_24h ?? null,

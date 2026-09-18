@@ -9,28 +9,30 @@
 </head>
 <body>
 <div class="app">
-  <header>
-    <div>
-      <h1>코인워치</h1>
-      <div class="sub" id="updatedAt">불러오는 중…</div>
-    </div>
-    <div class="header-metrics">
-      <div class="fng-mini" id="fxMini" style="display:none;">
-        <span class="fng-mini-cap">원/달러 환율</span>
-        <span class="fng-mini-body">₩<span id="fxRate">-</span></span>
+  <div class="topbar">
+    <header>
+      <div>
+        <h1>코인워치</h1>
+        <div class="sub" id="updatedAt">불러오는 중…</div>
       </div>
-      <div class="fng-mini" id="fngMini" style="display:none;">
-        <span class="fng-mini-cap">공포·탐욕 지수</span>
-        <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+      <div class="header-metrics">
+        <div class="fng-mini" id="fxMini" style="display:none;">
+          <span class="fng-mini-cap">원/달러 환율</span>
+          <span class="fng-mini-body">₩<span id="fxRate">-</span></span>
+        </div>
+        <div class="fng-mini" id="fngMini" style="display:none;">
+          <span class="fng-mini-cap">공포·탐욕 지수</span>
+          <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+        </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="market">시세</div>
-    <div class="tab" data-tab="ticker">관심 코인</div>
-    <div class="tab" data-tab="portfolio">포트폴리오</div>
-    <div class="tab" data-tab="settings">설정</div>
+    <div class="tabs">
+      <div class="tab active" data-tab="market">시세</div>
+      <div class="tab" data-tab="ticker">관심 코인</div>
+      <div class="tab" data-tab="portfolio">포트폴리오</div>
+      <div class="tab" data-tab="settings">설정</div>
+    </div>
   </div>
 
   <main>
@@ -101,7 +103,12 @@
         <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기">보유 코인 <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
         <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
       </div>
-      <div id="pfList"><div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div></div>
+      <div class="grid-wrap portfolio" id="pfList">
+        <div class="grid-row grid-head">
+          <div>코인</div><div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div>
+        </div>
+        <div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>
+      </div>
       <div class="pf-total">
         <div class="label">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>

@@ -4,6 +4,7 @@ import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, fmtDisplayMyx, disp
 import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
 import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { rangeBarHtml, syncRangeBar } from "./rangebar.js";
+import { coinLogoHtml } from "./logo.js";
 import { selectCoin, closeChart } from "./chart.js";
 import { saveState } from "./persist.js";
 import { showAlert } from "./dialog.js";
@@ -51,7 +52,7 @@ export function renderGrid(){
     const rankText = c.rank ? `${c.rank}위 · ` : "";
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${state.editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
-      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div>
+      <div class="coin-cell">${coinLogoHtml(c)}<div class="coin-text"><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div></div>
       <div class="myx-price ${myx.est ? "myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${myxText}</span></span><span class="myx-prem${premText === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${premText}</span></span></span></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span>${rangeBarHtml(c)}</div>

@@ -8,6 +8,8 @@ export function fmtPrice(n){
 }
 export function fmtKrw(n){
   if(n === null || n === undefined || isNaN(n)) return "-";
+  // 시바이누 등 원화 기준 1원 미만인 코인은 반올림하면 0원이 되어버리니 소수로 표시
+  if(n > 0 && n < 1) return "₩" + n.toLocaleString(undefined,{maximumFractionDigits:6});
   return "₩" + Math.round(n).toLocaleString();
 }
 export function fmtChg(n){

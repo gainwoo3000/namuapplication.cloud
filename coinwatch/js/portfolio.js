@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import { collapseRow, prevValues, rollNumberByKey } from "./animate.js";
 import { fmtDisplayPrice, displayPriceNum } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
+import { coinLogoHtml } from "./logo.js";
 import { pfCoinPriceUsd } from "./pricing.js";
 import { selectCoin } from "./chart.js";
 import { resolveOrCreateSearchCoin, searchExternalCoins, matchesLocalQuery } from "./search.js";
@@ -118,7 +119,8 @@ function sortedRows(holdings, exSet){
   const rows = holdings.map((p, idx)=>{
     const c = findCoinAnywhere(p.id);
     const pr = c ? pfCoinPriceUsd(c, exSet) : null;
-    return { p, idx, value: pr && pr.usd !== null ? pr.usd * p.amount : null, est: !!(pr && pr.est) };
+    // coin: 로고용. 시세 풀에 없는 코인이면 보유 항목의 심볼만으로 아이콘을 찾는다.
+    return { p, idx, coin: c || { symbol: p.symbol }, value: pr && pr.usd !== null ? pr.usd * p.amount : null, est: !!(pr && pr.est) };
   });
   if(state.pfSortMode === "added") return rows;
   const dir = state.pfSortMode === "asc" ? 1 : -1;
@@ -171,6 +173,10 @@ function updatePortfolioValues(rows){
 }
 
 // force=true 면 수량 입력 중이어도 행을 다시 만든다 (입력을 막 끝낸 change 핸들러용).
+// 시세·관심 코인 탭과 같은 표 머리글 (한 줄로 두고 본문만 갈아끼운다)
+const PF_HEAD = `<div class="grid-row grid-head"><div>코인</div>`
+  + `<div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div></div>`;
+
 export function renderPortfolio(force){
   if(state.rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
   const list = document.getElementById("pfList");
@@ -196,35 +202,35 @@ export function renderPortfolio(force){
   }
   lastPfSignature = sig;
   if(holdings.length === 0){
-    list.innerHTML = '<div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>';
+    list.innerHTML = PF_HEAD + '<div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>';
     document.getElementById("pfTotal").textContent = totalLabel;
     return;
   }
   let total = 0;
-  let html = "";
-  rows.forEach(({ p, idx, value, est })=>{
+  let html = PF_HEAD;
+  rows.forEach(({ p, idx, coin, value, est })=>{
     if(value !== null) total += value;
     const amtCell = pfEditMode
       ? `<input class="pf-amt-edit" type="number" step="any" min="0" value="${p.amount}" data-idx="${idx}">`
       : `${p.amount}`;
-    const delCell = pfEditMode ? `<div class="del" data-idx="${idx}">✕</div>` : `<div></div>`;
     const valText = value !== null ? (est ? "≈ " : "") + fmtDisplayPrice(value) : "-";
-    html += `<div class="pf-row" data-id="${p.id}">
-      <div>${p.name}<div class="coin-sym">${p.symbol}</div></div>
-      <div>${amtCell}</div>
+    // 관심 코인 탭과 같은 방식: 편집 모드에서는 행이 오른쪽으로 밀리고 왼쪽에 ✕가 나온다
+    html += `<div class="grid-row pf-row ${pfEditMode ? "editing" : ""}" data-id="${p.id}">
+      ${pfEditMode ? `<div class="row-del" data-idx="${idx}">✕</div>` : ""}
+      <div class="coin-cell">${coinLogoHtml(coin)}<div class="coin-text"><div class="coin-name">${p.name}</div><div class="coin-sym">${p.symbol}</div></div></div>
+      <div class="pf-amt">${amtCell}</div>
       <div class="price${est ? " myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${valText}</span></span></div>
-      ${delCell}
     </div>`;
     prevValues["pf:" + p.id] = displayPriceNum(value) ?? 0; // 다음 갱신 때 굴러갈 방향 기준
   });
   list.innerHTML = html;
   list.querySelectorAll(".pf-row").forEach(row=>{
     row.addEventListener("click", (e)=>{
-      if(e.target.closest(".del") || e.target.closest(".pf-amt-edit")) return;
+      if(e.target.closest(".row-del") || e.target.closest(".pf-amt-edit")) return;
       selectCoin(row.dataset.id);
     });
   });
-  list.querySelectorAll(".del").forEach(d=>{
+  list.querySelectorAll(".row-del").forEach(d=>{
     d.addEventListener("click", (e)=>{
       e.stopPropagation();
       const idx = Number(d.dataset.idx);

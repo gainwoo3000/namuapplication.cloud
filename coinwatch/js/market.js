@@ -6,6 +6,7 @@ import { findCoinAnywhere } from "./watchlist.js";
 import { selectCoin } from "./chart.js";
 import { searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { rangeBarHtml, syncRangeBar } from "./rangebar.js";
+import { coinLogoHtml } from "./logo.js";
 
 // ---------- 시세 탭 (시총 순위 + 페이지 + 검색) ----------
 let marketQuery = "";
@@ -119,7 +120,7 @@ export function renderMarketGrid(){
       + (c.searchOnly && c.current_price == null ? ` · <span class="mkt-tv">차트만</span>` : "");
     const sub = priceSubText(c.current_price);
     html += `<div class="grid-row market-row ${selCls}" data-id="${c.id}">
-      <div><div class="coin-name">${c.name}</div><div class="coin-sym">${symLine}</div></div>
+      <div class="coin-cell">${coinLogoHtml(c)}<div class="coin-text"><div class="coin-name">${c.name}</div><div class="coin-sym">${symLine}</div></div></div>
       <div class="price"><span class="roll-wrap"><span class="roll-cur">${fmtDisplayPrice(c.current_price)}</span></span><span class="price-sub${sub === "" ? " is-empty" : ""}"><span class="roll-wrap"><span class="roll-cur">${sub}</span></span></span></div>
       <div class="chg ${chgCls}"><span class="roll-wrap"><span class="roll-cur">${fmtChg(c.price_change_percentage_24h)}</span></span>${rangeBarHtml(c)}</div>
     </div>`;

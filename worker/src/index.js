@@ -111,6 +111,7 @@ async function handleCgMarkets(env, ctx, cors) {
         current_price: c.current_price,
         price_change_percentage_24h: c.price_change_percentage_24h,
         market_cap_rank: c.market_cap_rank ?? null,
+        image: c.image ?? null, // 표 왼쪽 코인 로고
         high_24h: c.high_24h ?? null, // 등락률 아래 24시간 범위 바에 사용
         low_24h: c.low_24h ?? null,
       });
@@ -162,6 +163,7 @@ async function handleCgSearch(url, env, ctx, cors) {
         symbol: (c.symbol || "").toLowerCase(),
         name: c.name || c.symbol || "",
         rank: c.market_cap_rank ?? (m && m.market_cap_rank) ?? null,
+        image: c.large || c.thumb || (m && m.image) || null, // 표 왼쪽 코인 로고
         price: m ? m.current_price : null,
         change24h: m ? m.price_change_percentage_24h : null,
       };

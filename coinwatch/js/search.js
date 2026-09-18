@@ -22,6 +22,7 @@ function makeSearchCoin(o){
     current_price: (o.price ?? o.current_price ?? null),
     price_change_percentage_24h: (o.change24h ?? o.price_change_percentage_24h ?? null),
     rank: (o.rank ?? o.market_cap_rank ?? null),
+    image: (o.image || o.thumb || o.large || null),
     searchOnly: true
   };
 }
@@ -112,7 +113,8 @@ export function resolveOrCreateSearchCoin(sc){
       name: sc.name,
       current_price: sc.current_price,
       price_change_percentage_24h: sc.price_change_percentage_24h,
-      rank: sc.rank || null
+      rank: sc.rank || null,
+      image: sc.image || null
     };
     state.allTickers.push(coin);
     state.virtualCoins[coin.id] = coin;

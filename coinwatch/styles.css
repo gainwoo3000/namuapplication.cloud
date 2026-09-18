@@ -29,15 +29,18 @@ body{
   font-family:var(--sans); -webkit-font-smoothing:antialiased;
 }
 .app{max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
+/* 헤더(코인 검색 포함)를 스크롤해도 화면 맨 위에 고정.
+   헤더+탭을 한 덩어리(같은 배경, 중간 경계선 없음)로 둬서 사이가 갈라져 보이지 않게 한다 */
+.topbar{position:sticky; top:0; z-index:50; background:var(--panel);}
 header{
-  padding:16px 16px 12px; border-bottom:1px solid var(--line);
+  padding:16px 16px 8px;
   display:flex; align-items:center; justify-content:space-between;
 }
 header h1{font-size:17px; font-weight:700; margin:0; letter-spacing:-0.2px;}
 header .sub{font-size:11px; color:var(--muted); margin-top:2px;}
 .tabs{
-  display:flex; gap:2px; padding:8px 12px; border-bottom:1px solid var(--line);
-  background:var(--panel);
+  display:flex; gap:2px; padding:6px 12px; border-bottom:1px solid var(--line);
+  background:transparent;
 }
 .tab{
   flex:1; text-align:center; padding:9px 4px; font-size:13px; color:var(--muted);
@@ -78,8 +81,11 @@ body.chart-open main{padding-bottom:60vh;}
 #addCoinResults{max-height:340px; overflow-y:auto;}
 .add-empty{color:var(--muted); font-size:12px; padding:6px 4px;}
 
-/* 시세(시총 순위) 탭 */
-.market-search{margin-bottom:10px;}
+/* 시세(시총 순위) 탭 — 코인 검색창도 헤더 바로 아래에 고정 */
+.market-search{
+  position:sticky; top:var(--topbar-h, 96px); z-index:40;
+  background:var(--bg); margin:0 0 10px; padding-top:10px; margin-top:-10px;
+}
 .market-search input{
   width:100%; background:var(--panel); border:1px solid var(--line); color:var(--text);
   border-radius:10px; padding:11px 12px; font-size:16px;
@@ -103,7 +109,7 @@ body.chart-open main{padding-bottom:60vh;}
 /* Ticker grid */
 .grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel);}
 .grid-row{
-  display:grid; grid-template-columns: 0.68fr 1.2fr 1.2fr 0.5fr; gap:10px;
+  display:grid; grid-template-columns: 0.9fr 1.2fr 1.2fr 0.5fr; gap:10px;
   padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer;
   align-items:center; position:relative; transition:padding-left .15s ease;
 }
@@ -119,9 +125,21 @@ body.chart-open main{padding-bottom:60vh;}
 .grid-head{color:var(--muted); font-size:11px; font-weight:600;}
 .grid-head .myx-head{text-align:right;}
 .myx-head-sub{display:block; font-size:10px; font-weight:400; color:var(--muted); margin-top:1px;}
-.coin-name{font-size:13px; font-weight:600;}
-.coin-sym{font-size:11px; color:var(--muted);}
+/* 로고가 이름 칸을 먹으므로 이름·심볼은 줄바꿈 대신 말줄임 (행 높이가 들쭉날쭉해지지 않게) */
+.coin-name{font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.coin-sym{font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .grid-row > div{min-width:0;} /* 그리드 셀 기본 min-width:auto로 인한 옆 칸 침범(겹침) 방지 */
+/* 표 맨 왼쪽 코인 로고 + 이름/심볼 */
+.coin-cell{display:flex; align-items:center; gap:8px;}
+.coin-text{min-width:0;}
+.coin-logo{
+  position:relative; flex-shrink:0; width:22px; height:22px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center; overflow:hidden;
+  background:hsl(var(--logo-h, 220), 42%, 42%); color:#fff;
+  font-size:11px; font-weight:800; line-height:1; font-style:normal;
+}
+/* 이미지가 뜨면 글자 아바타를 덮고, 전부 실패하면 img가 제거돼 글자만 남는다 */
+.coin-logo img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--panel-2);}
 .price{font-family:var(--mono); font-size:12px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .myx-price{font-family:var(--mono); font-size:12px; text-align:right; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .chg{
@@ -287,18 +305,15 @@ body.chart-open main{padding-bottom:60vh;}
 .pf-sort:active{opacity:0.6;}
 .pf-list-head .pf-sort-mode{color:var(--gold); font-weight:700;}
 .pf-edit-btn{flex:0 0 auto; width:auto; padding:6px 14px; font-size:12px;}
-.pf-row{
-  display:grid; grid-template-columns:1.4fr 1fr 1fr 30px; gap:6px; align-items:center;
-  padding:10px 4px; border-bottom:1px solid var(--line); font-size:13px; cursor:pointer;
-}
-.pf-row:last-child{border-bottom:none;}
-.pf-row .del{
-  color:var(--down); cursor:pointer; font-weight:700;
-  display:flex; align-items:center; justify-content:center; align-self:stretch;
+/* 보유 코인 표: 시세·관심 코인 탭과 같은 카드(.grid-wrap) + 행(.grid-row) 디자인 */
+.grid-wrap.portfolio .grid-row{grid-template-columns:1.5fr 1fr 1fr;}
+.pf-amt{
+  font-family:var(--mono); font-size:12px; text-align:right;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .pf-amt-edit{
   width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-  border-radius:6px; padding:4px 6px; font-size:16px; font-family:var(--mono);
+  border-radius:6px; padding:4px 6px; font-size:16px; font-family:var(--mono); text-align:right;
 }
 .pf-total{
   margin-top:14px; padding:16px; background:var(--panel-2); border-radius:12px;
@@ -320,13 +335,17 @@ body.chart-open main{padding-bottom:60vh;}
   .grid-wrap.market .grid-row{
     grid-template-columns: minmax(0,1fr) 92px 56px;
   }
+  .grid-wrap.portfolio .grid-row{
+    grid-template-columns: minmax(0,1fr) 76px 92px;
+  }
   .grid-head > div{white-space:normal; line-height:1.25;}
-  .coin-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .price, .myx-price, .chg{font-size:10.5px;}
+  .price, .myx-price, .chg, .pf-amt{font-size:10.5px;}
   .chg{padding:6px 6px; margin:-6px -6px -6px 0;}
   .myx-prem, .price-sub{font-size:9px;}
   .grid-head{font-size:9.5px;}
   .coin-sym, .myx-head-sub{font-size:9px;}
+  .coin-cell{gap:6px;}
+  .coin-logo{width:20px; height:20px; font-size:10px;}
 }
 
 /* alert()/confirm()/prompt() 대체 다이얼로그 */
