@@ -142,15 +142,21 @@ export async function renderStorageDiag(){
   if(location.protocol !== "https:" && location.hostname.indexOf(".") > 0){
     lines.push(`<b>보안 연결이 아닙니다</b> — 이 상태로 저장한 설정은 보안 연결로 들어오면 보이지 않아요.`);
   }
+
   if(!d.writable){
-    lines.push(`<b>저장 안 됨</b> — 이 브라우저에서는 저장이 막혀 있어요${d.error ? ` (${d.error})` : ""}.` +
-               ` 시크릿 모드이거나, 카카오톡·인스타그램 같은 앱 안의 브라우저로 열었을 때 그렇습니다.` +
-               ` 크롬·사파리 같은 브라우저로 직접 열어주세요.`);
+    // 네이티브 앱(WebView) 안에서도 뜨는 문구라 "브라우저로 여세요" 같은 말은 쓰지 않는다.
+    // 안드로이드 WebView는 DOM Storage가 기본으로 꺼져 있어서 여기에 걸린다.
+    lines.push(`<b>저장 안 됨</b> — 이 환경에서는 설정이 저장되지 않아, 다시 켜면 초기화됩니다.` +
+               (d.error ? ` (${d.error})` : ""));
   }else if(persisted === true){
     lines.push(`저장 <b>정상</b> · 이 기기에서 지워지지 않도록 보호됨`);
-  }else{
+  }else if(persisted === false){
     lines.push(`저장 <b>정상</b> · 다만 <b>보호되지 않은 상태</b>라, 기기 저장공간이 부족하면` +
-               ` 브라우저가 이 데이터를 지울 수 있어요. 홈 화면에 추가해두면 보호될 확률이 높아집니다.`);
+               ` 이 데이터가 지워질 수 있어요.`);
+  }else{
+    // persist API가 없는 환경(대표적으로 안드로이드 WebView) — 보호 여부를 알 수 없으니 단정하지 않는다
+    lines.push(`저장 <b>정상</b>`);
   }
+
   el.innerHTML = lines.join("<br>");
 }
