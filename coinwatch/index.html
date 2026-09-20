@@ -5,10 +5,19 @@
 <script>
   // http로 열렸으면 https로 옮긴다. localStorage는 스킴까지 포함한 "출처"별로 따로라,
   // http에서 저장한 설정은 https에서 보이지 않는다(반대도 마찬가지).
-  // 점이 없는 호스트(localhost)는 그대로 둬서 로컬 확인이 막히지 않게 한다.
-  if(location.protocol === "http:" && location.hostname.indexOf(".") > 0){
-    location.replace("https://" + location.host + location.pathname + location.search + location.hash);
-  }
+  // 다만 로컬 확인은 막히면 안 된다. localhost 같은 점 없는 호스트뿐 아니라
+  // 127.0.0.1(루프백)과 사설망 주소(휴대폰에서 개발 PC로 붙어볼 때)도 그대로 둔다.
+  (function(){
+    var h = location.hostname;
+    var local = h.indexOf(".") < 0                      // localhost 등
+      || /^127\./.test(h) || h === "::1" || h === "[::1]" // 루프백
+      || /^10\./.test(h) || /^192\.168\./.test(h)         // 사설망
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(h)
+      || /\.local$/.test(h);                              // mDNS 이름 (mac.local)
+    if(location.protocol === "http:" && !local){
+      location.replace("https://" + location.host + location.pathname + location.search + location.hash);
+    }
+  })();
 </script>
 <!-- viewport-fit=cover: 아이폰 노치/다이나믹 아일랜드 영역까지 화면으로 쓰고,
      그 높이를 env(safe-area-inset-top)으로 받아 가림막·헤더 여백에 반영한다 -->
