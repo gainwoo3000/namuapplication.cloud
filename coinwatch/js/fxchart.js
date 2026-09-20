@@ -112,7 +112,11 @@ function drawFxChart(res){
   renderFxDelta(points);
 
   const W = Math.max(240, box.clientWidth || 300);
-  const H = 190;
+  // 높이는 CSS(.fx-graph의 min-height)가 정한다 — 넓은 화면에서 차트가 오른쪽에 설 때 더 키우려고.
+  // 커스텀 속성을 getComputedStyle로 읽지 않는 이유: 커스텀 속성은 원문 토큰 그대로 돌아와서
+  // min()/calc()가 px로 계산되지 않는다. 칸을 비우고 실제 렌더된 높이를 재면 확실하다.
+  box.innerHTML = "";
+  const H = Math.max(140, Math.round(box.clientHeight) || 190);
   const padL = 8, padR = 56, padT = 18, padB = 22;   // padR은 오른쪽 최고/최저가 라벨 자리
   const iw = W - padL - padR, ih = H - padT - padB;
 
@@ -222,13 +226,19 @@ function bindScrub(svg){
 document.getElementById("fxMini").addEventListener("click", openFxChart);
 document.getElementById("fxCloseBtn").addEventListener("click", closeFxChart);
 
-// 화면 회전·창 크기 변경 시 SVG 폭이 바뀌므로 다시 그린다 (캐시된 데이터라 재요청 없음)
+// 그래프 칸의 폭이 바뀌면 SVG를 다시 그린다 (캐시된 데이터라 재요청은 없음).
+// window resize가 아니라 칸 자체를 보는 이유: 넓은 화면에서 차트가 오른쪽으로 붙을 때처럼
+// 창 크기는 그대로인데 칸 폭만 바뀌는 경우가 있다.
 let resizeTimer = null;
-window.addEventListener("resize", () => {
-  if(document.getElementById("fxPanel").style.display !== "block") return;
+let lastBox = "";
+new ResizeObserver(entries => {
+  const { width, height } = entries[0].contentRect;
+  const key = Math.round(width) + "x" + Math.round(height);
+  if(width === 0 || key === lastBox) return; // 패널을 닫으면 0이 되는데 그때는 다시 그릴 필요가 없다
+  lastBox = key;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     const cached = fxCache[fxDays];
-    if(cached) drawFxChart(cached);
-  }, 150);
-});
+    if(cached && document.getElementById("fxPanel").style.display === "block") drawFxChart(cached);
+  }, 120);
+}).observe(document.getElementById("fxGraph"));

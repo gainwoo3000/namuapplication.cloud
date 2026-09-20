@@ -184,34 +184,37 @@
     </section>
   </main>
 
-  <!-- 헤더의 환율 버튼을 누르면 뜨는 원/달러 추이 그래프 (코인 차트와 같은 자리를 쓴다) -->
-  <div class="chart-panel" id="fxPanel" style="display:none;">
-    <div class="chart-head">
-      <div>
-        <div class="name">원/달러 환율</div>
-        <div class="fx-sub" id="fxChartSub"></div>
-      </div>
-      <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
-        <div class="price-big"><span class="roll-wrap" id="fxChartPrice"></span></div>
-        <div class="chart-close" id="fxCloseBtn">✕</div>
-      </div>
-    </div>
-    <div class="opt-row fx-range" id="fxRangeOpts"></div>
-    <div class="fx-graph" id="fxGraph"></div>
-    <div class="src-note" id="fxSrcNote"></div>
-  </div>
+</div>
 
-  <div class="chart-panel" id="chartPanel" style="display:none;">
-    <div class="chart-head">
-      <div class="name" id="chartCoinName">-</div>
-      <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
-        <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
-        <div class="chart-close" id="chartCloseBtn">✕</div>
-      </div>
+<!-- 차트 패널은 .app 바깥에 둔다 — 넓은 화면에서 .app에 transform을 걸어 왼쪽으로 밀 때,
+     안쪽에 있으면 position:fixed가 뷰포트가 아니라 .app 기준으로 잡혀 자리가 틀어진다 -->
+<!-- 헤더의 환율 버튼을 누르면 뜨는 원/달러 추이 그래프 (코인 차트와 같은 자리를 쓴다) -->
+<div class="chart-panel" id="fxPanel" style="display:none;">
+  <div class="chart-head">
+    <div>
+      <div class="name">원/달러 환율</div>
+      <div class="fx-sub" id="fxChartSub"></div>
     </div>
-    <div id="tvChartContainer" style="height:320px;"></div>
-    <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
+    <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
+      <div class="price-big"><span class="roll-wrap" id="fxChartPrice"></span></div>
+      <div class="chart-close" id="fxCloseBtn">✕</div>
+    </div>
   </div>
+  <div class="opt-row fx-range" id="fxRangeOpts"></div>
+  <div class="fx-graph" id="fxGraph"></div>
+  <div class="src-note" id="fxSrcNote"></div>
+</div>
+
+<div class="chart-panel" id="chartPanel" style="display:none;">
+  <div class="chart-head">
+    <div class="name" id="chartCoinName">-</div>
+    <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
+      <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
+      <div class="chart-close" id="chartCloseBtn">✕</div>
+    </div>
+  </div>
+  <div id="tvChartContainer"></div>
+  <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

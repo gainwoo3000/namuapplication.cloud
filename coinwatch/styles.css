@@ -17,6 +17,8 @@
   --fsw: calc(1 + (var(--fs) - 1) * 0.6);
   /* 노치·다이나믹 아일랜드가 가리는 높이 (+15% 여유). 인셋이 없는 기기에서는 0이라 아무 영향 없음 */
   --safe-top: calc(env(safe-area-inset-top, 0px) * 1.15);
+  /* 환율 그래프 SVG 높이. fxchart.js가 이 값을 읽어서 그리므로 여기서 바꾸면 그래프도 따라온다 */
+  --fx-graph-h: 190px;
 }
 body.light-theme{
   --bg:#F4F5F7;
@@ -285,7 +287,7 @@ body.chart-open main{padding-bottom:60vh;}
 }
 .chart-head .price-big{font-family:var(--mono); font-size:calc(18px * var(--fs)); font-weight:700;}
 .src-note{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:8px;}
-#tvChartContainer{border-radius:8px; overflow:hidden;}
+#tvChartContainer{height:320px; border-radius:8px; overflow:hidden;}
 
 /* Fear & Greed index + 환율 (header, compact) */
 .header-metrics{display:flex; gap:16px; align-items:flex-start; flex-shrink:0;}
@@ -310,7 +312,7 @@ body.chart-open main{padding-bottom:60vh;}
 .fx-sub.down{color:var(--down);}
 .fx-range{margin-bottom:10px;}
 .fx-range .opt{padding:6px 10px;}
-.fx-graph{min-height:190px;}
+.fx-graph{min-height:var(--fx-graph-h);}
 .fx-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
 .fx-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
 .fx-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}
@@ -442,3 +444,60 @@ body.chart-open main{padding-bottom:60vh;}
 }
 .dialog-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:16px;}
 .dialog-actions .wt-btn{flex:none; padding:8px 16px;}
+
+
+/* ---------- 넓은 화면(태블릿 가로 · 데스크톱): 차트를 아래 시트가 아니라 오른쪽에 붙인다 ----------
+   좁은 화면에서는 목록 위로 올라오는 바텀시트가 맞지만, 가로로 넓으면 좌우 여백만 비어 있고
+   차트가 목록을 가린다. 여기서는 목록을 왼쪽으로 밀고 빈 오른쪽에 차트를 세워 둘 다 보이게 한다.
+
+   기준을 min-width 하나로 잡은 건 orientation:landscape를 같이 걸면 세로로 긴 데스크톱 창
+   (예: 1200x1400)이 두 칸을 놓을 폭이 있는데도 제외되기 때문이다. 두 칸이 들어가면 두 칸을 쓴다.
+   아이패드 세로(768~820px)는 이 아래라 지금처럼 휴대폰 레이아웃 그대로다.
+
+   --dock-w를 clamp(...100vw...) 같은 가변식이 아니라 단계별 고정 px로 두는 이유:
+   translateX()의 퍼센트는 뷰포트가 아니라 "그 요소 자신의 폭" 기준으로 풀린다. 폭 계산에
+   퍼센트가 섞이면 미는 거리(.app)와 놓는 자리(.chart-panel)가 서로 다른 기준으로 계산돼
+   둘이 겹친다. px로 두면 양쪽이 같은 값을 본다. */
+@media (min-width: 1000px){
+  :root{
+    --app-w:520px;   /* .app의 max-width와 같아야 한다 */
+    --dock-gap:20px;
+    --dock-w:420px;
+  }
+  /* 화면이 넓어지면 차트도 같이 넓어지되, 620px을 넘으면 그만 — 더 키워봐야 여백만 는다 */
+  @media (min-width: 1200px){ :root{ --dock-w:520px; } }
+  @media (min-width: 1440px){ :root{ --dock-w:620px; } }
+
+  /* .app은 margin:0 auto로 가운데 있다. 차트가 열리면 (차트폭+간격)의 절반만큼 왼쪽으로 밀면
+     [목록][간격][차트] 덩어리가 화면 가운데에 놓인다.
+     margin이 아니라 transform을 쓰는 이유: 목록 행이 수백 개라 margin을 애니메이션하면
+     매 프레임 리플로우가 걸린다. transform은 합성만 다시 한다. */
+  .app{ transition:transform .3s cubic-bezier(.4,0,.2,1); }
+  body.chart-open .app{
+    transform:translateX(calc(-1 * (var(--dock-w) + var(--dock-gap)) / 2));
+  }
+
+  /* 오른쪽 차트 자리.
+     left = 밀려난 .app의 오른쪽 끝 + 간격 = 50% + (앱폭 - 차트폭 + 간격)/2 */
+  body.chart-open .chart-panel{
+    left:calc(50% + (var(--app-w) - var(--dock-w) + var(--dock-gap)) / 2);
+    transform:none;
+    width:var(--dock-w); max-width:none;
+    top:calc(var(--safe-top) + 12px);
+    bottom:auto;
+    max-height:calc(100vh - var(--safe-top) - 24px);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding-bottom:14px; /* 좁은 화면에서 주던 홈 인디케이터 여백은 여기선 필요 없다 */
+    box-shadow:0 12px 32px rgba(0,0,0,0.38);
+  }
+  /* 바텀시트가 가리던 만큼 비워두던 여백 — 옆으로 빠졌으니 되돌린다 */
+  body.chart-open main{ padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px)); }
+  /* 세로로 여유가 있으니 차트도 키운다 */
+  body.chart-open #tvChartContainer{ height:min(440px, calc(100vh - 260px)); }
+  body.chart-open{ --fx-graph-h:min(300px, calc(100vh - 290px)); }
+}
+
+@media (min-width: 1000px) and (prefers-reduced-motion: reduce){
+  .app{ transition:none; }
+}
