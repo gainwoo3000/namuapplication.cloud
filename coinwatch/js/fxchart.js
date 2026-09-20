@@ -6,6 +6,7 @@ import { state } from "./state.js";
 import { FX_RANGES } from "./constants.js";
 import { fetchFxHistory } from "./api.js";
 import { rollNumberByKey } from "./animate.js";
+import { skeletonLine } from "./skeleton.js";
 import { ensureUsdKrw } from "./fx.js";
 import { closeChart } from "./chart.js";
 
@@ -34,7 +35,7 @@ export async function openFxChart(){
   renderFxRangeOpts();
   await ensureUsdKrw();
   if(state.usdKrw) renderFxPrice(state.usdKrw); // 그래프가 오기 전 잠깐 채워두는 값
-  else document.getElementById("fxChartPrice").innerHTML = '<span class="sk sk-line" style="width:5em"></span>';
+  else document.getElementById("fxChartPrice").innerHTML = skeletonLine("5em");
   loadAndDraw(fxDays);
 }
 
@@ -92,9 +93,9 @@ function renderFxRangeOpts(){
 // 데이터가 도착할 때 빈 칸이 갑자기 그래프 높이로 벌어져 화면이 튄다.
 // 글자 자리 폭은 실제로 들어올 문구 길이에 맞춘 em 값 (--fs를 따라 같이 늘어난다).
 function showFxSkeleton(){
-  document.getElementById("fxChartSub").innerHTML  = '<span class="sk sk-line" style="width:15em"></span>';
-  document.getElementById("fxGraph").innerHTML     = '<span class="sk sk-graph"></span>';
-  document.getElementById("fxSrcNote").innerHTML   = '<span class="sk sk-line" style="width:24em"></span>';
+  document.getElementById("fxChartSub").innerHTML = skeletonLine("15em");
+  document.getElementById("fxGraph").innerHTML    = '<span class="sk sk-graph"></span>';
+  document.getElementById("fxSrcNote").innerHTML  = skeletonLine("24em");
 }
 
 // quiet: 화면에 이미 그래프가 떠 있는 상태의 배경 갱신. 자리표시로 갈아끼우지 않는다

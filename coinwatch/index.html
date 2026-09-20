@@ -46,9 +46,9 @@
       <div class="market-search">
         <input type="text" id="marketSearch" placeholder="코인 검색" autocomplete="off">
       </div>
-      <div class="grid-wrap market" id="marketWrap">
-        <div class="loading">시세를 불러오는 중입니다…</div>
-      </div>
+      <!-- 비워둔다: main.js가 뜨는 즉시 자리표시(스켈레톤)를 그린다.
+           .is-boot은 그 전 한 프레임 동안 카드가 납작해지지 않게 높이만 잡아준다 -->
+      <div class="grid-wrap market is-boot" id="marketWrap"></div>
       <div class="market-pager" id="marketPager" style="display:none;"></div>
     </section>
 
@@ -63,12 +63,7 @@
         <div id="addCoinResults"></div>
       </div>
       <div class="grid-container">
-        <div class="grid-wrap" id="gridWrap">
-          <div class="grid-row grid-head">
-            <div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소</div><div style="text-align:right">등락률</div>
-          </div>
-          <div class="loading">시세를 불러오는 중입니다…</div>
-        </div>
+        <div class="grid-wrap is-boot" id="gridWrap"></div>
         <div class="pop-panel" id="priceHelpPop" style="display:none;">
           <div class="desc" style="margin:0 0 8px;">이 열의 가격은 <b>설정 › 시세 기준 거래소</b>에서 고른 거래소 기준이에요. 여러 곳을 켜면 평균이 표시됩니다.</div>
           <button class="wt-btn" id="priceHelpGoBtn">설정에서 바꾸기</button>
@@ -213,7 +208,11 @@
       <div class="chart-close" id="chartCloseBtn">✕</div>
     </div>
   </div>
-  <div id="tvChartContainer"></div>
+  <div id="tvChartWrap">
+    <div id="tvChartContainer"></div>
+    <!-- 위젯이 뜨기 전까지 그 자리를 덮는 자리표시 (chart.js가 껐다 켠다) -->
+    <span class="sk sk-chart" id="tvChartSk" hidden></span>
+  </div>
   <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
 </div>
 <script type="module" src="js/main.js"></script>

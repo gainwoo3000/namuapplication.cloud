@@ -322,6 +322,9 @@ body.chart-open main{padding-bottom:60vh;}
   position:relative; overflow:hidden; display:block;
   background:var(--panel-2); border-radius:6px;
 }
+/* display:block이 브라우저 기본 [hidden]{display:none}을 덮어쓰므로 다시 살려준다.
+   이게 없으면 hidden 속성을 켜도 자리표시가 그대로 남아 차트를 계속 가린다 */
+.sk[hidden]{ display:none; }
 .sk::after{
   content:""; position:absolute; inset:-60%;
   background:linear-gradient(135deg,
@@ -334,6 +337,23 @@ body.chart-open main{padding-bottom:60vh;}
   from{ transform:translate(-55%, -55%); }
   to  { transform:translate(55%, 55%); }
 }
+/* 표 한 행 자리표시 — 진짜 행(.grid-row)을 그대로 써서 열 너비·여백·높이를 물려받는다 */
+.sk-row{ cursor:default; }
+.sk-stack{ display:flex; flex-direction:column; gap:7px; min-width:0; } /* gap 7 = 진짜 행(52px)과 높이가 정확히 맞는 값 */
+/* 코인 칸은 flex라 남은 폭을 명시적으로 받아야 한다 — 안 그러면 바의 %가
+   "내용으로 정해지는 폭"을 기준으로 잡혀 순환이 되고 폭이 0이 된다 */
+.coin-cell > .sk-stack{ flex:1; }
+.sk-stack-r{ align-items:flex-end; }
+/* 두 줄짜리 칸은 첫 줄이 이름(13px), 둘째 줄이 심볼(11px) — 진짜 행과 높이를 맞춘다 */
+.sk-stack > .sk-line{ height:calc(11px * var(--fs)); }
+.sk-stack > .sk-line:first-child{ height:calc(13px * var(--fs)); }
+.sk-logo{ width:calc(22px * var(--fs)); height:calc(22px * var(--fs)); border-radius:50%; flex-shrink:0; }
+/* 트레이딩뷰 위젯이 뜨기 전까지 그 자리를 덮는다 */
+#tvChartWrap{ position:relative; }
+.sk-chart{ position:absolute; inset:0; border-radius:8px; }
+/* main.js가 자리표시를 그리기 전 한 프레임 동안만 쓰는 높이. 그 뒤로는 자리표시 행들이 높이를 만든다 */
+.grid-wrap.is-boot{ min-height:calc(320px * var(--fs)); }
+
 /* 글자 자리 — 들어올 문구 길이만큼. em이라 글자 크기 설정(--fs)을 따라 같이 늘어난다 */
 .sk-line{ height:1.05em; border-radius:4px; }
 /* 그래프 자리 — 실제 그래프와 같은 높이(--fx-graph-h)를 쓴다 */

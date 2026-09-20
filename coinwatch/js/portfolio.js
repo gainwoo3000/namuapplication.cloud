@@ -1,5 +1,6 @@
 import { MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
+import { skeletonRows } from "./skeleton.js";
 import { collapseRow, prevValues, rollNumberByKey } from "./animate.js";
 import { fmtDisplayPrice, displayPriceNum } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
@@ -151,7 +152,11 @@ document.getElementById("pfSortBtn").addEventListener("click", ()=>{
 // 정렬 결과 순서까지 포함하므로, 금액 순 정렬에서 순위가 바뀌면 자동으로 다시 그려진다.
 let lastPfSignature = null;
 function pfSignature(rows){
-  return state.activePortfolioIdx + "|" + pfEditMode + "|" + state.displayCurrency + "|" + state.pfSortMode + "|"
+  // 로딩 여부도 넣는다 — 이게 없으면 자리표시를 그린 뒤 시세가 도착해도 시그니처가 같아서
+  // 값만 갱신하는 경로(updatePortfolioValues)로 빠지는데, 그쪽은 .pf-row를 찾지 못해
+  // 아무것도 못 하고 자리표시가 영영 남는다
+  const loading = state.allTickers.length === 0;
+  return state.activePortfolioIdx + "|" + pfEditMode + "|" + state.displayCurrency + "|" + state.pfSortMode + "|" + loading + "|"
     + rows.map(r => r.p.id + ":" + r.p.amount).join(",");
 }
 
@@ -203,6 +208,12 @@ export function renderPortfolio(force){
   lastPfSignature = sig;
   if(holdings.length === 0){
     list.innerHTML = PF_HEAD + '<div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>';
+    document.getElementById("pfTotal").textContent = totalLabel;
+    return;
+  }
+  // 보유 코인은 있는데 시세를 아직 못 받았으면 평가 금액이 전부 "-"로 뜬다. 그동안은 자리표시.
+  if(state.allTickers.length === 0){
+    list.innerHTML = PF_HEAD + skeletonRows("portfolio", Math.min(holdings.length, 8));
     document.getElementById("pfTotal").textContent = totalLabel;
     return;
   }

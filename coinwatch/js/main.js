@@ -101,6 +101,14 @@ async function loadCmcKrw(){
 // ---------- 초기화 ----------
 loadState();
 applyLoadedUIState();
+// 시세가 도착하기 전에 각 탭에 자리표시를 깔아둔다. 목록이 비어 있으면 각 렌더 함수가
+// 알아서 자리표시를 그리므로 그냥 한 번씩 호출하면 된다 — 첫 화면이든, 로딩 중에
+// 다른 탭으로 넘어가든 같은 코드가 처리한다.
+renderMarketGrid();
+renderGrid();
+renderPortfolio();
+// 자리표시 행들이 높이를 만들어 주므로 임시 높이는 걷는다
+document.querySelectorAll(".grid-wrap.is-boot").forEach(el => el.classList.remove("is-boot"));
 loadMarkets();
 loadFearGreed();
 ensureUsdKrw().then(renderFxMini);

@@ -1,5 +1,6 @@
 import { MARKET_PAGE_SIZE } from "./constants.js";
 import { state } from "./state.js";
+import { skeletonRows } from "./skeleton.js";
 import { prevValues, rollUpdate, rollNumberByKey, flashChg } from "./animate.js";
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, priceSubText } from "./format.js";
 import { findCoinAnywhere } from "./watchlist.js";
@@ -108,7 +109,10 @@ export function renderMarketGrid(){
   lastMarketSig = sig;
   let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">등락률</div></div>`;
   if(list.length === 0){
-    wrap.innerHTML = html + '<div class="loading">' + (marketQuery ? '일치하는 코인이 없습니다.' : '시세를 불러오는 중입니다…') + '</div>';
+    // 검색 결과가 없는 것과 아직 안 불러온 것은 다르다 — 후자만 자리표시를 깐다
+    wrap.innerHTML = html + (marketQuery
+      ? '<div class="loading">일치하는 코인이 없습니다.</div>'
+      : skeletonRows("market", 10));
     renderMarketPager();
     return;
   }

@@ -1,4 +1,5 @@
 import { state } from "./state.js";
+import { skeletonRows } from "./skeleton.js";
 import { prevValues, rollUpdate, rollNumberByKey, flashChg, collapseRow } from "./animate.js";
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, fmtDisplayMyx, displayMyxNum } from "./format.js";
 import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
@@ -26,7 +27,10 @@ let lastGridSignature = null;
 
 function gridSignature(){
   const ids = state.coinsList.slice(0, state.visibleCount).map(c=>c.id).join(",");
-  return state.editMode + "|" + state.visibleCount + "|" + state.selectedCoinId + "|" + state.displayCurrency + "|" + ids;
+  // 로딩 여부도 넣는다 — 목록이 빈 채로 시세만 도착하면(관심 코인을 다 뺀 경우) ids가 그대로라
+  // 시그니처가 안 바뀌어 자리표시가 "관심 코인이 없습니다"로 넘어가지 못한다
+  const loading = state.allTickers.length === 0;
+  return state.editMode + "|" + state.visibleCount + "|" + state.selectedCoinId + "|" + state.displayCurrency + "|" + loading + "|" + ids;
 }
 
 export function renderGrid(){
@@ -40,7 +44,11 @@ export function renderGrid(){
   const wrap = document.getElementById("gridWrap");
   let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소 <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">등락률</div></div>`;
   if(state.coinsList.length === 0){
-    html += '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
+    // 목록이 비어 있는 이유가 둘이다 — 아직 안 불러왔거나(자리표시), 정말로 다 뺐거나(안내).
+    // allTickers가 비었으면 아직 시세를 못 받은 것이다.
+    html += state.allTickers.length === 0
+      ? skeletonRows("ticker", 8)
+      : '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
   }
   state.coinsList.slice(0, state.visibleCount).forEach(c=>{
     const chgCls = chgClass(c.price_change_percentage_24h);
