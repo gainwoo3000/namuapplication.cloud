@@ -119,6 +119,16 @@ async function loadAndDraw(days, quiet){
 }
 
 // ---------- 그리기 ----------
+// 점 사이의 실제 간격. 주말 공백(50시간 넘게 벌어진다)에 휘둘리지 않게 평균이 아니라
+// 중앙값을 쓴다 — 워커가 "n시간 간격"이라고 적을 때 쓰는 계산과 같다.
+function medianGap(points){
+  const gaps = [];
+  for(let i = 1; i < points.length; i++) gaps.push(points[i].t - points[i - 1].t);
+  if(gaps.length === 0) return 0;
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
 // 캔들의 마지막 종가는 구간에 따라 최대 3시간(3개월)~12시간(1년) 전 값이다. 그대로 두면
 // 선 끝과 헤더에 찍힌 현재가가 눈에 띄게 벌어진다. 같은 출처(야후)의 현재가를 맨 뒤에
 // 이어 붙여서 "선 끝 = 헤더 숫자"가 되게 한다.
@@ -130,6 +140,12 @@ function withLivePoint(points){
   if(Math.abs(rate - last.v) / last.v > 0.01) return points;
   const now = Math.floor(Date.now() / 1000);
   if(now <= last.t) return points;
+  // 외환시장이 닫혀 있는 동안(주말·공휴일)에도 야후는 마지막 고시가를 계속 내보낸다.
+  // 그 값을 "지금" 자리에 찍으면 마감 시점부터 오른쪽 끝까지 납작한 직선이 그어진다
+  // (일요일 저녁이면 토요일 새벽 마감에서 30시간이 넘는다). 새 캔들이 나올 만큼
+  // 기다렸는데도 갱신이 없으면 장이 닫힌 것으로 보고 선을 마지막 캔들에서 끝낸다.
+  // 기준은 캔들 간격의 두 배 — 1일(5분봉)은 너무 빡빡하니 30분을 밑값으로 둔다.
+  if(now - last.t > Math.max(medianGap(points) * 2, 1800)) return points;
   return points.concat([{ t: now, v: rate, live: true }]);
 }
 

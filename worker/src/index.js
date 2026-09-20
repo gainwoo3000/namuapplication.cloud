@@ -219,11 +219,13 @@ async function handleFxHistory(url, env, ctx, cors) {
   const cache = caches.default;
   // v3: interval을 요청값이 아니라 솎아낸 뒤의 실제 간격으로 계산하도록 바뀌었다.
   //      키를 안 올리면 "1시간"이라 적힌 옛 응답이 TTL 만료까지 그대로 나간다.
-  const key = new Request("https://cache.internal/fx-history/v3/" + days);
+  // v4: 장 마감 뒤 야후가 흘려보내는 메아리 점을 걷어내기 시작했다. 특히 lkg는 하루를
+  //      버티므로, 키를 안 올리면 메아리가 붙은 옛 응답이 그만큼 더 나간다.
+  const key = new Request("https://cache.internal/fx-history/v4/" + days);
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
-  const lkgKey = new Request("https://cache.internal/fx-history/lkg3/" + days);
+  const lkgKey = new Request("https://cache.internal/fx-history/lkg4/" + days);
   // 1일 구간은 장중에 계속 움직이므로 짧게 잡는다
   const ttl = days === 1 ? 120 : Number(env.FX_TTL || "600");
   try {
@@ -318,6 +320,17 @@ async function fetchYahooFx(days) {
     // 거래가 없던 구간은 close가 null로 온다 — 선이 0으로 떨어지지 않게 걸러낸다
     if (typeof v === "number" && v > 0) points.push({ t: ts[i], v: Math.round(v * 100) / 100 });
   }
+  // 장이 닫힌 뒤(주말·공휴일)에도 야후는 마지막 고시가를 같은 값으로 몇 번 더 흘려보낸다.
+  // 그대로 두면 마감 시점 뒤로 납작한 선이 더 붙으므로, 끝에서 값이 같은 구간은
+  // 진짜 마지막 체결 하나만 남기고 걷어낸다 — 선이 장 닫힌 시점에서 끝나게.
+  // 반드시 여기(솎아내기 전, 원본 해상도)서 해야 한다: thinPoints가 마지막 점을 무조건
+  // 남기는 탓에 3개월 이상은 솎아낸 뒤 메아리가 혼자 떨어져 나와 알아볼 수 없게 된다.
+  // 중간에 값이 같은 구간은 건드리지 않는다 — 장중에 한 칸 안 움직인 것과 구별할 수 없고,
+  // 선 한가운데라 눈에 걸리지도 않는다.
+  let end = points.length - 1;
+  while (end > 1 && points[end].v === points[end - 1].v) end--;
+  points.length = end + 1;
+
   if (points.length < 2) throw new Error("yahoo too few");
   return points;
 }
