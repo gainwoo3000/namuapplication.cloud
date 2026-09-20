@@ -19,8 +19,11 @@
   --safe-top: calc(env(safe-area-inset-top, 0px) * 1.15);
   /* 환율 그래프 SVG 높이. fxchart.js가 이 값을 읽어서 그리므로 여기서 바꾸면 그래프도 따라온다 */
   --fx-graph-h: 190px;
+  /* 로딩 자리표시(스켈레톤)용. 지나가는 빛은 테마마다 밝기가 달라야 보인다 */
+  --sk-sheen: rgba(255,255,255,0.17);
 }
 body.light-theme{
+  --sk-sheen:rgba(255,255,255,0.9);
   --bg:#F4F5F7;
   --panel:#FFFFFF;
   --panel-2:#EEF0F3;
@@ -312,6 +315,33 @@ body.chart-open main{padding-bottom:60vh;}
 .fx-sub.down{color:var(--down);}
 .fx-range{margin-bottom:10px;}
 .fx-range .opt{padding:6px 10px;}
+/* 로딩 중 자리표시 — 들어올 내용과 같은 크기의 네모를 깔고,
+   그 위로 흰빛이 왼쪽 위에서 오른쪽 아래로 훑고 지나간다.
+   빛은 ::after를 transform으로만 움직여서 리플로우 없이 합성만 다시 한다. */
+.sk{
+  position:relative; overflow:hidden; display:block;
+  background:var(--panel-2); border-radius:6px;
+}
+.sk::after{
+  content:""; position:absolute; inset:-60%;
+  background:linear-gradient(135deg,
+    transparent 30%, var(--sk-sheen) 50%, transparent 70%);
+  /* linear인 이유: ease-in-out으로 두면 양 끝(빛이 네모 밖에 있는 구간)에서 느려져
+     정작 네모 위를 지나는 순간만 휙 지나가 버린다 */
+  animation:skSweep 1.6s linear infinite;
+}
+@keyframes skSweep{
+  from{ transform:translate(-55%, -55%); }
+  to  { transform:translate(55%, 55%); }
+}
+/* 글자 자리 — 들어올 문구 길이만큼. em이라 글자 크기 설정(--fs)을 따라 같이 늘어난다 */
+.sk-line{ height:1.05em; border-radius:4px; }
+/* 그래프 자리 — 실제 그래프와 같은 높이(--fx-graph-h)를 쓴다 */
+.sk-graph{ height:var(--fx-graph-h); border-radius:10px; }
+@media (prefers-reduced-motion: reduce){
+  .sk::after{ animation:none; }
+}
+
 .fx-graph{min-height:var(--fx-graph-h);}
 .fx-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
 .fx-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}

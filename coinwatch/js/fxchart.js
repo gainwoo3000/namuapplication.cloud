@@ -33,7 +33,8 @@ export async function openFxChart(){
   document.body.classList.add("chart-open");
   renderFxRangeOpts();
   await ensureUsdKrw();
-  renderFxPrice(state.usdKrw); // 데이터가 오기 전 잠깐 채워두는 자리표시용
+  if(state.usdKrw) renderFxPrice(state.usdKrw); // 그래프가 오기 전 잠깐 채워두는 값
+  else document.getElementById("fxChartPrice").innerHTML = '<span class="sk sk-line" style="width:5em"></span>';
   loadAndDraw(fxDays);
 }
 
@@ -48,7 +49,7 @@ export function closeFxChart(){
 export function refreshFxChart(){
   if(document.getElementById("fxPanel").style.display !== "block") return;
   delete fxCache[fxDays];
-  loadAndDraw(fxDays);
+  loadAndDraw(fxDays, true);
 }
 
 // ---------- 패널 상단: 그래프 마지막 값 + 선택 기간 등락 ----------
@@ -87,17 +88,28 @@ function renderFxRangeOpts(){
 }
 
 // ---------- 데이터 ----------
-async function loadAndDraw(days){
+// 들어올 내용과 같은 크기의 자리표시를 깔아둔다. "불러오는 중" 한 줄만 띄우면
+// 데이터가 도착할 때 빈 칸이 갑자기 그래프 높이로 벌어져 화면이 튄다.
+// 글자 자리 폭은 실제로 들어올 문구 길이에 맞춘 em 값 (--fs를 따라 같이 늘어난다).
+function showFxSkeleton(){
+  document.getElementById("fxChartSub").innerHTML  = '<span class="sk sk-line" style="width:15em"></span>';
+  document.getElementById("fxGraph").innerHTML     = '<span class="sk sk-graph"></span>';
+  document.getElementById("fxSrcNote").innerHTML   = '<span class="sk sk-line" style="width:24em"></span>';
+}
+
+// quiet: 화면에 이미 그래프가 떠 있는 상태의 배경 갱신. 자리표시로 갈아끼우지 않는다
+// (2분마다 도는 자동 갱신에서 그래프가 깜빡이면 안 된다).
+async function loadAndDraw(days, quiet){
   const box = document.getElementById("fxGraph");
   const cached = fxCache[days];
   if(cached){ drawFxChart(cached); return; }
 
-  box.innerHTML = '<div class="loading">환율 추이를 불러오는 중…</div>';
-  document.getElementById("fxSrcNote").textContent = "";
+  if(!quiet) showFxSkeleton();
   const res = await fetchFxHistory(days);
   if(fxDays !== days) return;     // 불러오는 사이에 다른 기간을 눌렀으면 이 응답은 버린다
   if(!res){
     box.innerHTML = '<div class="loading">환율 추이를 불러오지 못했습니다.<br>네트워크를 확인하고 기간을 다시 눌러주세요.</div>';
+    document.getElementById("fxSrcNote").textContent = ""; // 남아 있던 자리표시 정리
     renderFxDelta(null);
     return;
   }
