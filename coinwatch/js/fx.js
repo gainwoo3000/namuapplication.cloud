@@ -3,7 +3,7 @@ import { fetchUsdKrw } from "./api.js";
 import { renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
-import { syncFxChartPrice } from "./fxchart.js";
+import { refreshFxChart } from "./fxchart.js";
 
 // 헤더의 원/달러 환율 표시 갱신
 export function renderFxMini(){
@@ -13,7 +13,7 @@ export function renderFxMini(){
     document.getElementById("fxRate").textContent =
       state.usdKrw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     box.style.display = "block";
-    syncFxChartPrice(); // 환율 그래프가 열려 있으면 패널 위 큰 숫자도 같이 갱신
+    refreshFxChart(); // 환율 그래프가 열려 있으면 그래프도 같이 최신으로
   }else{
     box.style.display = "none";
   }

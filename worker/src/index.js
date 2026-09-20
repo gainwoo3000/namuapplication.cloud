@@ -11,9 +11,11 @@
 //     -> { coins:[ {id,symbol,name,rank,price,change24h}, ... ] }
 //        CoinGecko 코인 검색(순위 밖 코인 포함). 엣지 캐시 CG_SEARCH_TTL(기본 3600초).
 //
-//   GET /fx/history?days=<7~365>
-//     -> { source:"naver", points:[ {t:"2026-09-18", v:1389}, ... ] }   오래된 -> 최신 순
-//        원/달러 일별 종가(네이버 금융). 엣지 캐시 FX_TTL(기본 600초).
+//   GET /fx/history?days=<1|30|90|180|365>
+//     -> { source:"yahoo"|"naver", interval:"5분"|"1시간"|"1일", points:[ {t:<unix초>, v:1389}, ... ] }
+//        원/달러 추이. 1일은 5분봉, 나머지는 1시간봉(야후 파이낸스) — 하루치 종가만 쓰면
+//        한 달이 20점밖에 안 돼 선이 듬성듬성해진다. 야후가 막히면 네이버 일별 종가로 폴백.
+//        엣지 캐시 FX_TTL(기본 600초, 1일 구간은 120초).
 //
 // 왜 필요한가:
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
@@ -30,6 +32,16 @@ const CMC_URL =
 const CG = "https://api.coingecko.com/api/v3";
 const NAVER_FX = "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW/prices";
 const NAVER_FX_PAGE = 60; // 네이버가 한 번에 주는 최대 행 수 — 61 이상을 요청하면 JSON이 아닌 에러가 온다
+const YAHOO_FX = "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X";
+// 기간 -> 야후 range/interval. 화면 폭이 500px 남짓이라 이보다 촘촘해도 눈에 안 보인다.
+const FX_RANGE = {
+  1:   { range: "1d",  interval: "5m", label: "5분" },
+  30:  { range: "1mo", interval: "1h", label: "1시간" },
+  90:  { range: "3mo", interval: "1h", label: "1시간" },
+  180: { range: "6mo", interval: "1h", label: "1시간" },
+  365: { range: "1y",  interval: "1h", label: "1시간" },
+};
+const FX_MAX_POINTS = 500;
 
 export default {
   async fetch(request, env, ctx) {
@@ -191,55 +203,38 @@ async function handleCgSearch(url, env, ctx, cors) {
   }
 }
 
-// ---------- 원/달러 일별 종가 (네이버 금융) ----------
-// 브라우저에서 직접 못 부른다: api.stock.naver.com은 CORS 헤더를 주지 않고,
-// Origin 헤더가 붙은 요청에는 403으로 답한다. 워커가 대신 부르고 엣지에 캐시한다.
+// ---------- 원/달러 추이 ----------
+// 브라우저에서 직접 못 부른다: 야후도 네이버도 CORS 헤더를 주지 않고,
+// 네이버는 Origin 헤더가 붙은 요청에 403으로 답한다. 워커가 대신 부르고 엣지에 캐시한다.
 async function handleFxHistory(url, env, ctx, cors) {
-  const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 90, 7), 365);
+  const asked = Number(url.searchParams.get("days"));
+  const days = FX_RANGE[asked] ? asked : 90;
 
   const cache = caches.default;
-  const key = new Request("https://cache.internal/fx-history/v1/" + days);
+  // v2: 응답 모양이 바뀌었다(t가 "YYYY-MM-DD" 문자열 -> unix초, interval 필드 추가)
+  const key = new Request("https://cache.internal/fx-history/v2/" + days);
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
-  const lkgKey = new Request("https://cache.internal/fx-history/lkg/" + days);
-  const ttl = Number(env.FX_TTL || "600");
+  const lkgKey = new Request("https://cache.internal/fx-history/lkg2/" + days);
+  // 1일 구간은 장중에 계속 움직이므로 짧게 잡는다
+  const ttl = days === 1 ? 120 : Number(env.FX_TTL || "600");
   try {
-    // 환율은 영업일에만 고시되므로 달력 일수의 약 5/7만 행으로 돌아온다.
-    // 주말·공휴일을 감안해 0.75를 곱해 넉넉히 잡고, 최대 5페이지(=300영업일 ≈ 14개월)까지만 부른다.
-    const pages = Math.min(5, Math.max(1, Math.ceil((days * 0.75) / NAVER_FX_PAGE)));
-    const chunks = await Promise.all(
-      Array.from({ length: pages }, (_, i) =>
-        fetch(`${NAVER_FX}?page=${i + 1}&pageSize=${NAVER_FX_PAGE}`, {
-          headers: {
-            // 이 두 헤더가 없으면 네이버가 403으로 막는다
-            "user-agent": "Mozilla/5.0",
-            referer: "https://m.stock.naver.com/",
-            accept: "application/json",
-          },
-        })
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => [])
-      )
-    );
-
-    const from = Date.now() - days * 86400000;
-    const seen = new Set();
-    const points = [];
-    for (const row of chunks.flat()) {
-      const t = row && row.localTradedAt;
-      if (!t || seen.has(t)) continue;
-      // closePrice는 "1,389.00" 같은 천단위 콤마 문자열로 온다
-      const v = parseFloat(String(row.closePrice || "").replace(/,/g, ""));
-      if (!(v > 0)) continue;
-      if (Date.parse(t + "T00:00:00+09:00") < from) continue;
-      seen.add(t);
-      points.push({ t, v });
+    let source = "yahoo";
+    let interval = FX_RANGE[days].label;
+    let points;
+    try {
+      points = await fetchYahooFx(days);
+    } catch (e) {
+      // 야후가 막히면(그쪽은 공유 IP에 429를 잘 뱉는다) 네이버 일별 종가로 내려간다.
+      // 하루 단위라 1일 구간은 점이 1~2개뿐이라 의미가 없어 그때는 포기한다.
+      if (days === 1) throw e;
+      points = await fetchNaverFx(days);
+      source = "naver";
+      interval = "1일";
     }
-    if (points.length < 2) throw new Error("naver fx empty");
-    points.sort((a, b) => (a.t < b.t ? -1 : 1)); // 오래된 -> 최신 (그래프가 왼쪽부터 그려지도록)
 
-    const body = JSON.stringify({ source: "naver", points });
+    const body = JSON.stringify({ source, interval, points: thinPoints(points, FX_MAX_POINTS) });
     const resp = new Response(body, {
       headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
     });
@@ -255,6 +250,81 @@ async function handleFxHistory(url, env, ctx, cors) {
     // 502를 주면 클라이언트가 ECB 폴백으로 넘어간다
     return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
+}
+
+// 야후 파이낸스 KRW=X (= 1달러당 원). 분/시간 단위라 선이 촘촘하게 그려진다.
+// 헤더에 찍히는 실시간 환율(manana.kr)도 야후를 중계한 값이라 출처가 같다.
+async function fetchYahooFx(days) {
+  const { range, interval } = FX_RANGE[days];
+  const r = await fetch(`${YAHOO_FX}?range=${range}&interval=${interval}`, {
+    headers: { "user-agent": "Mozilla/5.0", accept: "application/json" },
+  });
+  if (!r.ok) throw new Error("yahoo http " + r.status);
+  const j = await r.json();
+  const res = j && j.chart && j.chart.result && j.chart.result[0];
+  const ts = res && res.timestamp;
+  const q = res && res.indicators && res.indicators.quote && res.indicators.quote[0];
+  if (!ts || !q || !q.close) throw new Error("yahoo empty");
+
+  const points = [];
+  for (let i = 0; i < ts.length; i++) {
+    const v = q.close[i];
+    // 거래가 없던 구간은 close가 null로 온다 — 선이 0으로 떨어지지 않게 걸러낸다
+    if (typeof v === "number" && v > 0) points.push({ t: ts[i], v: Math.round(v * 100) / 100 });
+  }
+  if (points.length < 2) throw new Error("yahoo too few");
+  return points;
+}
+
+// 네이버 금융 일별 종가(하나은행 고시). 하루 한 점뿐이라 폴백 전용.
+async function fetchNaverFx(days) {
+  // 환율은 영업일에만 고시되므로 달력 일수의 약 5/7만 행으로 돌아온다.
+  // 주말·공휴일을 감안해 0.75를 곱해 넉넉히 잡고, 최대 5페이지(=300영업일 ≈ 14개월)까지만 부른다.
+  const pages = Math.min(5, Math.max(1, Math.ceil((days * 0.75) / NAVER_FX_PAGE)));
+  const chunks = await Promise.all(
+    Array.from({ length: pages }, (_, i) =>
+      fetch(`${NAVER_FX}?page=${i + 1}&pageSize=${NAVER_FX_PAGE}`, {
+        headers: {
+          // 이 두 헤더가 없으면 네이버가 403으로 막는다
+          "user-agent": "Mozilla/5.0",
+          referer: "https://m.stock.naver.com/",
+          accept: "application/json",
+        },
+      })
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => [])
+    )
+  );
+
+  const from = Date.now() - days * 86400000;
+  const seen = new Set();
+  const points = [];
+  for (const row of chunks.flat()) {
+    const day = row && row.localTradedAt;
+    if (!day || seen.has(day)) continue;
+    // closePrice는 "1,389.00" 같은 천단위 콤마 문자열로 온다
+    const v = parseFloat(String(row.closePrice || "").replace(/,/g, ""));
+    if (!(v > 0)) continue;
+    const t = Date.parse(day + "T00:00:00+09:00"); // 고시 기준은 한국 시각
+    if (isNaN(t) || t < from) continue;
+    seen.add(day);
+    points.push({ t: Math.floor(t / 1000), v });
+  }
+  if (points.length < 2) throw new Error("naver too few");
+  points.sort((a, b) => a.t - b.t); // 오래된 -> 최신 (그래프가 왼쪽부터 그려지도록)
+  return points;
+}
+
+// 1시간봉 1년치는 6천 점이 넘는데 그래프 폭은 500px 남짓이라 그대로 보내봐야 보이지도 않는다.
+// 균등 간격으로 솎아내되 마지막(가장 최근) 점은 반드시 남긴다 — 그 값이 패널 위 큰 숫자가 된다.
+function thinPoints(points, max) {
+  if (points.length <= max) return points;
+  const step = points.length / max;
+  const out = [];
+  for (let i = 0; i < max; i++) out.push(points[Math.floor(i * step)]);
+  const last = points[points.length - 1];
+  if (out[out.length - 1].t !== last.t) out.push(last);
+  return out;
 }
 
 // CoinGecko 호출. CG_KEY(Demo 키)가 있으면 헤더로 붙여 한도를 늘린다.

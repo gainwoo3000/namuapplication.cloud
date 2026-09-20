@@ -53,13 +53,21 @@ export const FNG_LABEL = {
   "Extreme Greed":"극도의 탐욕"
 };
 
-// 헤더의 환율을 눌렀을 때 뜨는 추이 그래프의 기간 버튼 (일 단위)
+// 헤더의 환율을 눌렀을 때 뜨는 추이 그래프의 기간 버튼 (일 단위).
+// 여기 days는 워커 /fx/history가 아는 값이어야 한다 (다른 값을 보내면 90일로 처리됨).
 export const FX_RANGES = [
+  { days: 1,   label: "1일"   },
   { days: 30,  label: "1개월" },
   { days: 90,  label: "3개월" },
   { days: 180, label: "6개월" },
   { days: 365, label: "1년"  }
 ];
+
+// 워커가 돌려주는 source 코드 -> 그래프 아래 출처 줄에 쓸 이름
+export const FX_SOURCE_LABEL = {
+  yahoo: "야후 파이낸스",
+  naver: "네이버 금융"
+};
 
 export const MARKET_PAGE_SIZE = 100; // 1페이지 = 1~100위, 2페이지 = 101~200위 …
 export const MAX_PORTFOLIOS = 10;

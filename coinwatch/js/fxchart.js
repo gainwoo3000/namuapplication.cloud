@@ -14,7 +14,16 @@ const fxCache = {};               // days -> {source, points} — 같은 기간�
 let fxGeom = null;                // 스크럽(손가락/커서로 값 훑기)에 쓰는 마지막 렌더의 좌표 정보
 
 const fmtRate = v => v.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-const mmdd    = t => t.slice(5, 7) + "." + t.slice(8, 10);
+const p2 = n => String(n).padStart(2, "0");
+const intraday = () => fxDays === 1; // 1일 구간만 시:분으로 읽는다
+
+// 축·툴팁 라벨. 하루 안을 보는 1일 구간은 시각이, 긴 구간은 날짜가 필요하다.
+function fmtStamp(t, withYear){
+  const d = new Date(t * 1000);
+  if(intraday()) return p2(d.getHours()) + ":" + p2(d.getMinutes());
+  const md = p2(d.getMonth() + 1) + "." + p2(d.getDate());
+  return withYear ? p2(d.getFullYear() % 100) + "." + md : md;
+}
 
 // ---------- 열고 닫기 ----------
 export async function openFxChart(){
@@ -24,7 +33,7 @@ export async function openFxChart(){
   document.body.classList.add("chart-open");
   renderFxRangeOpts();
   await ensureUsdKrw();
-  renderFxLive();
+  renderFxPrice(state.usdKrw); // 데이터가 오기 전 잠깐 채워두는 자리표시용
   loadAndDraw(fxDays);
 }
 
@@ -34,16 +43,20 @@ export function closeFxChart(){
   fxGeom = null;
 }
 
-// 2분마다 도는 환율 갱신(fx.js)이 패널이 열려 있을 때 큰 숫자도 같이 굴려주도록.
-export function syncFxChartPrice(){
-  if(document.getElementById("fxPanel").style.display === "block") renderFxLive();
+// 2분마다 도는 환율 갱신(fx.js)에 맞춰, 패널이 열려 있으면 그래프도 다시 받아 그린다.
+// 큰 숫자가 그래프의 마지막 점이므로 숫자만 갈아끼울 수는 없다.
+export function refreshFxChart(){
+  if(document.getElementById("fxPanel").style.display !== "block") return;
+  delete fxCache[fxDays];
+  loadAndDraw(fxDays);
 }
 
-// ---------- 패널 상단: 실시간 환율 + 선택 기간 등락 ----------
-function renderFxLive(){
-  if(!state.usdKrw) return;
-  rollNumberByKey("fx:chart", document.getElementById("fxChartPrice"),
-    "₩" + fmtRate(state.usdKrw), state.usdKrw);
+// ---------- 패널 상단: 그래프 마지막 값 + 선택 기간 등락 ----------
+// 큰 숫자는 그래프에서 읽히는 마지막 점과 같은 값이어야 한다 — 다른 출처의 실시간가를
+// 얹으면 선 끝과 숫자가 어긋나 보인다. 데이터가 오기 전에만 헤더의 실시간가를 임시로 띄운다.
+function renderFxPrice(v){
+  if(!(v > 0)) return;
+  rollNumberByKey("fx:chart", document.getElementById("fxChartPrice"), "₩" + fmtRate(v), v);
 }
 
 function renderFxDelta(points){
@@ -136,8 +149,8 @@ function drawFxChart(res){
       ${gridLine(hi)}${gridLine(lo)}
       <path d="${area}" fill="url(#fxGrad)"/>
       <path class="fx-line" d="${line}" stroke="${color}"/>
-      <text class="fx-axis" x="${padL}" y="${H - 6}">${points[0].t.slice(2).replace(/-/g, ".")}</text>
-      <text class="fx-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${points[points.length - 1].t.slice(2).replace(/-/g, ".")}</text>
+      <text class="fx-axis" x="${padL}" y="${H - 6}">${fmtStamp(points[0].t, true)}</text>
+      <text class="fx-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(points[points.length - 1].t, true)}</text>
       <g class="fx-cross" style="display:none">
         <line class="fx-cross-line" y1="${padT}" y2="${padT + ih}"/>
         <circle class="fx-cross-dot" r="3.5" fill="${color}"/>
@@ -146,8 +159,12 @@ function drawFxChart(res){
     </svg>`;
 
   const last = points[points.length - 1];
+  renderFxPrice(last.v); // 위의 큰 숫자 = 그래프의 마지막 점
+  const d = new Date(last.t * 1000);
+  const stamp = `${p2(d.getFullYear() % 100)}.${p2(d.getMonth() + 1)}.${p2(d.getDate())} ` +
+                `${p2(d.getHours())}:${p2(d.getMinutes())}`;
   document.getElementById("fxSrcNote").textContent =
-    `${res.source} · 최근 ${last.t.replace(/-/g, ".")} 종가 ₩${fmtRate(last.v)} (위 숫자는 실시간가)`;
+    `${res.source} · ${res.interval} 간격 · ${points.length}개 · 최종 ${stamp}`;
 
   fxGeom = { points, xs, ys, W, padT, ih, padL, iw };
   bindScrub(box.querySelector(".fx-svg"));
@@ -179,7 +196,7 @@ function bindScrub(svg){
     tip.setAttribute("x", rightHalf ? px - 8 : px + 8);
     tip.setAttribute("y", fxGeom.padT - 5);
     tip.setAttribute("text-anchor", rightHalf ? "end" : "start");
-    tip.textContent = `${mmdd(p.t)}  ₩${fmtRate(p.v)}`;
+    tip.textContent = `${fmtStamp(p.t)}  ₩${fmtRate(p.v)}`;
     cross.style.display = "";
   };
   const end = () => { cross.style.display = "none"; };
