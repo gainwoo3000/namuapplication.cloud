@@ -300,6 +300,18 @@ body.chart-open main{padding-bottom:60vh;}
 .fng-mini-cap{display:block; font-size:calc(10px * var(--fs)); color:var(--muted);}
 .fng-mini-body{font-family:var(--mono); font-size:calc(13px * var(--fs)); font-weight:800;}
 #fxMini .fng-mini-body{color:var(--gold-ink);}
+/* 값 한 줄의 자리표시. 진짜 값과 같은 칸을 번갈아 쓰므로 둘 다 같은 높이를 못박아 두면
+   값이 도착해도 캡션 아래가 밀리지 않는다 (17px = 13px 글자의 한 줄 높이) */
+.fng-mini-body, .mini-sk{ display:block; height:calc(17px * var(--fs)); line-height:calc(17px * var(--fs)); }
+.mini-sk{ border-radius:4px; }
+.fng-mini:not(.is-loading) .mini-sk{ display:none; }
+.fng-mini.is-loading .fng-mini-body{ display:none; }
+/* 폭은 들어올 문구만큼 — "₩1,385.20", "62 · 탐욕" */
+#fxMini  .mini-sk{ width:calc(70px * var(--fs)); }
+#fngMini .mini-sk{ width:calc(66px * var(--fs)); }
+/* 아직 못 누르는 동안에는 누를 수 있다는 힌트(꺾쇠)도 내린다 */
+.fx-mini-btn.is-loading .fng-mini-cap::after{ content:none; }
+.fx-mini-btn:disabled{ cursor:default; }
 /* 환율은 눌러서 추이 그래프를 여는 버튼이다. 옆의 공포·탐욕 지수와 높이·정렬이
    어긋나지 않도록 버튼 기본 스타일을 전부 지우고 .fng-mini 규칙만 남긴다 */
 .fx-mini-btn{

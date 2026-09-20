@@ -37,14 +37,19 @@
         <div class="sub" id="updatedAt">불러오는 중…</div>
       </div>
       <div class="header-metrics">
-        <button type="button" class="fng-mini fx-mini-btn" id="fxMini" style="display:none;"
+        <!-- 값이 도착하기 전에는 .is-loading이 켜져 있어 값 줄 자리에 자리표시가 깔린다.
+             캡션은 고정 문구라 그대로 두고 값 줄만 바꾼다. 받아오기에 실패하면 fx.js/fng.js가
+             지금까지처럼 통째로 감춘다. 환율은 값이 없으면 열어봐야 빈 그래프라 그때까진 눌리지 않게 둔다 -->
+        <button type="button" class="fng-mini fx-mini-btn is-loading" id="fxMini" disabled
                 aria-label="원/달러 환율 추이 그래프 열기">
           <span class="fng-mini-cap">원/달러 환율</span>
           <span class="fng-mini-body">₩<span id="fxRate">-</span></span>
+          <span class="sk mini-sk" aria-hidden="true"></span>
         </button>
-        <div class="fng-mini" id="fngMini" style="display:none;">
+        <div class="fng-mini is-loading" id="fngMini">
           <span class="fng-mini-cap">공포·탐욕 지수</span>
           <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
+          <span class="sk mini-sk" aria-hidden="true"></span>
         </div>
       </div>
     </header>

@@ -12,6 +12,8 @@ export function renderFxMini(){
   if(state.usdKrw){
     document.getElementById("fxRate").textContent =
       state.usdKrw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    box.classList.remove("is-loading"); // 자리표시를 걷고 진짜 값을 드러낸다
+    box.disabled = false;               // 이제 눌러서 추이 그래프를 열 수 있다
     box.style.display = "block";
     refreshFxChart(); // 환율 그래프가 열려 있으면 그래프도 같이 최신으로
   }else{

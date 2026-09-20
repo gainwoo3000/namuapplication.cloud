@@ -25,6 +25,7 @@ export async function loadFearGreed(){
     const clsEl = document.getElementById("fngClass");
     clsEl.textContent = FNG_LABEL[d.value_classification] || d.value_classification || "-";
     clsEl.style.color = fngColor(v);
+    box.classList.remove("is-loading"); // 자리표시를 걷고 진짜 값을 드러낸다
     box.style.display = "block";
   }catch(e){
     if(box) box.style.display = "none";
