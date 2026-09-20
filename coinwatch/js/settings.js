@@ -6,7 +6,7 @@ import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
 import { updateChartPrice } from "./chart.js";
 import { ensureUsdKrw } from "./fx.js";
-import { saveState } from "./persist.js";
+import { saveState, storageDiagnostics } from "./persist.js";
 import { loadMarkets } from "./main.js";
 import { revealTopbar } from "./layout.js";
 
@@ -123,4 +123,30 @@ document.getElementById("refreshOpts").addEventListener("click", (e)=>{
 export function restartRefreshTimer(){
   if(state.refreshTimer) clearInterval(state.refreshTimer);
   state.refreshTimer = setInterval(loadMarkets, state.refreshSec*1000);
+}
+
+// ---------- 설정 › 저장 상태 ----------
+// "아이폰은 설정이 남는데 안드로이드는 풀린다" 같은 증상은 기기에서 직접 보지 않으면
+// 원인을 못 가린다(브라우저마다 저장소가 따로고, 인앱 브라우저는 닫으면 지우기도 한다).
+// 그래서 지금 이 브라우저의 상태를 그대로 보여준다.
+export async function renderStorageDiag(){
+  const el = document.getElementById("storageDiag");
+  if(!el) return;
+  const d = storageDiagnostics();
+  let persisted = null;
+  try{ persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; }catch(e){}
+
+  const lines = [];
+  lines.push(`주소: <b>${d.origin}</b>`);
+  if(!d.writable){
+    lines.push(`<b>저장 안 됨</b> — 이 브라우저에서는 저장이 막혀 있어요${d.error ? ` (${d.error})` : ""}.` +
+               ` 시크릿 모드이거나, 카카오톡·인스타그램 같은 앱 안의 브라우저로 열었을 때 그렇습니다.` +
+               ` 크롬·사파리 같은 브라우저로 직접 열어주세요.`);
+  }else if(persisted === true){
+    lines.push(`저장 <b>정상</b> · 이 기기에서 지워지지 않도록 보호됨`);
+  }else{
+    lines.push(`저장 <b>정상</b> · 다만 <b>보호되지 않은 상태</b>라, 기기 저장공간이 부족하면` +
+               ` 브라우저가 이 데이터를 지울 수 있어요. 홈 화면에 추가해두면 보호될 확률이 높아집니다.`);
+  }
+  el.innerHTML = lines.join("<br>");
 }

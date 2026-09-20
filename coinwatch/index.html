@@ -2,6 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<script>
+  // http로 열렸으면 https로 옮긴다. localStorage는 스킴까지 포함한 "출처"별로 따로라,
+  // http에서 저장한 설정은 https에서 보이지 않는다(반대도 마찬가지).
+  // 점이 없는 호스트(localhost)는 그대로 둬서 로컬 확인이 막히지 않게 한다.
+  if(location.protocol === "http:" && location.hostname.indexOf(".") > 0){
+    location.replace("https://" + location.host + location.pathname + location.search + location.hash);
+  }
+</script>
 <!-- viewport-fit=cover: 아이폰 노치/다이나믹 아일랜드 영역까지 화면으로 쓰고,
      그 높이를 env(safe-area-inset-top)으로 받아 가림막·헤더 여백에 반영한다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -160,6 +168,10 @@
           <div class="opt" data-fs="1.24">더 크게</div>
         </div>
         <div class="desc">휴대폰에서 숫자가 작아 보이면 키워주세요. 가격 칸 너비도 같이 늘어나서 숫자가 잘리지 않아요.</div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title">저장 상태</div>
+        <div class="desc" id="storageDiag" style="margin-top:0;">확인 중…</div>
       </div>
       <div class="setting-group">
         <div class="setting-title">테마</div>

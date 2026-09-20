@@ -3,6 +3,38 @@ import { state } from "./state.js";
 import { renderExchangeOpts, applyFontScale } from "./settings.js";
 import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel } from "./portfolio.js";
 
+// 마지막 저장이 실패했는지. 설정 탭의 "저장 상태"가 이 값을 읽어 보여준다.
+export let storageError = null;
+
+// 브라우저에게 "이 데이터는 함부로 지우지 말아달라"고 요청한다.
+// 이걸 안 하면 저장소가 evictable 상태로 남아, 안드로이드 크롬은 기기 저장공간이
+// 부족할 때 이런 데이터를 실제로 비운다(아이폰 사파리는 이 방식으로 지우지 않는다).
+// 허용 여부는 브라우저가 방문 빈도·홈 화면 추가 여부 등을 보고 스스로 정한다.
+export async function requestPersistentStorage(){
+  try{
+    if(!navigator.storage || !navigator.storage.persist) return null;
+    if(await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  }catch(e){ return null; }
+}
+
+// 저장이 실제로 되는지 실제로 써보고 확인한다 (프라이빗 모드·인앱 브라우저에서는 막힌다)
+export function storageDiagnostics(){
+  let writable = false, err = null;
+  try{
+    const k = "__cw_probe";
+    localStorage.setItem(k, "1");
+    writable = localStorage.getItem(k) === "1";
+    localStorage.removeItem(k);
+  }catch(e){ err = e && e.name ? e.name : String(e); }
+  return {
+    origin: location.origin,
+    writable,
+    error: err || storageError,
+    hasSaved: (()=>{ try{ return !!localStorage.getItem(STORAGE_KEY); }catch(e){ return false; } })()
+  };
+}
+
 // ---------- 로컬 저장 ----------
 export function saveState(){
   try{
@@ -22,7 +54,12 @@ export function saveState(){
       )
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-  }catch(e){ /* 저장 실패(프라이빗 브라우징 등)해도 앱은 계속 동작 */ }
+    storageError = null;
+  }catch(e){
+    // 저장이 막혀도 앱은 계속 동작하되, 조용히 넘기지 않는다 —
+    // 설정이 왜 안 남는지 사용자가 알 수 있어야 한다.
+    storageError = e && e.name ? e.name : String(e);
+  }
 }
 
 export function loadState(){

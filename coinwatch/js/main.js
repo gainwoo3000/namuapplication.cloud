@@ -7,8 +7,8 @@ import { renderPortfolio } from "./portfolio.js";
 import { updateChartPrice } from "./chart.js";
 import { ensureUsdKrw, refreshUsdKrw, renderFxMini } from "./fx.js";
 import { loadFearGreed } from "./fng.js";
-import { loadState, applyLoadedUIState } from "./persist.js";
-import { restartRefreshTimer } from "./settings.js";
+import { loadState, applyLoadedUIState, requestPersistentStorage } from "./persist.js";
+import { restartRefreshTimer, renderStorageDiag } from "./settings.js";
 import "./layout.js";
 import "./swipe.js"; // 좌우 스와이프로 탭 넘기기
 
@@ -101,6 +101,9 @@ async function loadCmcKrw(){
 // ---------- 초기화 ----------
 loadState();
 applyLoadedUIState();
+// 저장소를 "함부로 지우지 말 것"으로 표시 요청 — 안드로이드 크롬은 저장공간이 부족하면
+// 보호되지 않은 사이트 데이터를 비운다. 요청 결과와 무관하게 앱은 그대로 동작한다.
+requestPersistentStorage().then(renderStorageDiag);
 // 시세가 도착하기 전에 각 탭에 자리표시를 깔아둔다. 목록이 비어 있으면 각 렌더 함수가
 // 알아서 자리표시를 그리므로 그냥 한 번씩 호출하면 된다 — 첫 화면이든, 로딩 중에
 // 다른 탭으로 넘어가든 같은 코드가 처리한다.
