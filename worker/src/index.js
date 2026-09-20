@@ -17,6 +17,11 @@
 //        한 달이 20점밖에 안 돼 선이 듬성듬성해진다. 야후가 막히면 네이버 일별 종가로 폴백.
 //        엣지 캐시 FX_TTL(기본 600초, 1일 구간은 120초).
 //
+//   GET /fx/rate
+//     -> { rate:1385.95, at:<unix초> }
+//        원/달러 현재가(야후 meta). 헤더에 찍는 숫자와 그래프가 같은 출처를 보도록 두는 용도.
+//        엣지 캐시 60초.
+//
 // 왜 필요한가:
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
 //   - CoinGecko: 키 없는 공개 API는 공유 IP 기준으로 분당 몇 콜만 허용 → 브라우저에서 직접
@@ -61,6 +66,7 @@ export default {
     if (url.pathname === "/cg/markets") return handleCgMarkets(env, ctx, openCors("*"));
     if (url.pathname === "/cg/search") return handleCgSearch(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/history") return handleFxHistory(url, env, ctx, openCors("*"));
+    if (url.pathname === "/fx/rate") return handleFxRate(env, ctx, openCors("*"));
     return json({ error: "not_found" }, 404, openCors("*"));
   },
 };
@@ -250,6 +256,44 @@ async function handleFxHistory(url, env, ctx, cors) {
     const lkg = await cache.match(lkgKey);
     if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
     // 502를 주면 클라이언트가 ECB 폴백으로 넘어간다
+    return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
+  }
+}
+
+// 원/달러 현재가. 그래프(/fx/history)와 같은 야후 KRW=X를 보므로, 헤더 숫자와
+// 그래프 끝점이 서로 다른 출처라서 벌어지는 일이 없다.
+async function handleFxRate(env, ctx, cors) {
+  const cache = caches.default;
+  const key = new Request("https://cache.internal/fx-rate/v1");
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
+
+  const lkgKey = new Request("https://cache.internal/fx-rate/lkg1");
+  try {
+    // interval=1d면 응답이 가장 작다 — 필요한 건 meta의 현재가뿐이다
+    const r = await fetch(`${YAHOO_FX}?range=1d&interval=1d`, {
+      headers: { "user-agent": "Mozilla/5.0", accept: "application/json" },
+    });
+    if (!r.ok) throw new Error("yahoo http " + r.status);
+    const j = await r.json();
+    const meta = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+    const rate = meta && meta.regularMarketPrice;
+    if (!(rate > 0)) throw new Error("yahoo rate empty");
+
+    const body = JSON.stringify({ rate, at: meta.regularMarketTime || Math.floor(Date.now() / 1000) });
+    const resp = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
+    });
+    const lkg = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=86400" },
+    });
+    ctx.waitUntil(cache.put(key, resp.clone()));
+    ctx.waitUntil(cache.put(lkgKey, lkg));
+    return withHeaders(resp, { ...cors, "x-cache": "MISS" });
+  } catch (err) {
+    const lkg = await cache.match(lkgKey);
+    if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
+    // 502면 클라이언트가 manana/ECB 폴백으로 넘어간다
     return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
 }

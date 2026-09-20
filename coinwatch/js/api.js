@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_SOURCE_LABEL, NAME_MAP } from "./constants.js";
+import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, FX_SOURCE_LABEL, NAME_MAP } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -265,7 +265,15 @@ export async function fetchBithumbPrices(){
 // USD/KRW 환율을 최초 1회만 가져와 캐싱(프리미엄 계산, 나의 거래소 환산에 공용으로 사용)
 export async function fetchUsdKrw(){
   const sources = [
-    // 1) manana.kr — 야후 파이낸스 USD/KRW를 그대로 중계. 장중에는 분 단위로 갱신되는 (거의) 실시간가.
+    // 1) 워커 경유 야후 KRW=X. 그래프(/fx/history)와 같은 출처라 헤더 숫자와 그래프 끝점이
+    //    어긋나지 않는다 — 이게 폴백으로 밀리면 그만큼 두 값이 벌어질 수 있다.
+    async ()=>{
+      const r = await fetch(`${FX_RATE_PROXY}?t=${Math.floor(Date.now() / 60000)}`);
+      if(!r.ok) return null;
+      const d = await r.json();
+      return d && d.rate;
+    },
+    // 2) manana.kr — 야후 USD/KRW를 그대로 중계하는 제3자. 워커가 막혔을 때의 폴백.
     async ()=>{
       const r = await fetch("https://api.manana.kr/exchange/rate/USD/KRW.json");
       const d = await r.json();
@@ -276,13 +284,13 @@ export async function fetchUsdKrw(){
       if(/^USDKRW/i.test(row.name || "")) return row.rate;
       return row.rate < 0.1 ? 1 / row.rate : row.rate; // 이름을 못 읽으면 값 크기로 방향 추정
     },
-    // 2) frankfurter (ECB 참고환율, 영업일 1회 고시) — 실시간보다 몇 원 벌어질 수 있는 폴백
+    // 3) frankfurter (ECB 참고환율, 영업일 1회 고시) — 실시간보다 몇 원 벌어질 수 있는 폴백
     async ()=>{
       const r = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=KRW");
       const d = await r.json();
       return d.rates && d.rates.KRW;
     },
-    // 3) open.er-api (일 1회 갱신) — 마지막 폴백
+    // 4) open.er-api (일 1회 갱신) — 마지막 폴백
     async ()=>{
       const r = await fetch("https://open.er-api.com/v6/latest/USD");
       const d = await r.json();

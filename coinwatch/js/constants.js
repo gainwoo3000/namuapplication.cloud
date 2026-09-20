@@ -6,7 +6,8 @@ export const API_BASE = "https://api.namuapplication.cloud"; // Cloudflare Worke
 export const CMC_PROXY = API_BASE + "/cmc/krw";
 export const CG_MARKETS_PROXY = API_BASE + "/cg/markets"; // 시총 1~500위 (엣지 캐시 15분, 가격은 거래소 값으로 덮어씀)
 export const CG_SEARCH_PROXY = API_BASE + "/cg/search";   // 코인 검색 (순위 밖 포함, 엣지 캐시 1시간)
-export const FX_HISTORY_PROXY = API_BASE + "/fx/history"; // 원/달러 일별 종가 (네이버 금융, 엣지 캐시 10분)
+export const FX_HISTORY_PROXY = API_BASE + "/fx/history"; // 원/달러 추이 (야후, 엣지 캐시 10분)
+export const FX_RATE_PROXY = API_BASE + "/fx/rate";       // 원/달러 현재가 (야후, 엣지 캐시 60초)
 
 export const EX_LABEL = {binance:"바이낸스", okx:"OKX", bybit:"바이빗", coinbase:"코인베이스", kraken:"크라켄"};
 

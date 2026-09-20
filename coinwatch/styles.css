@@ -8,6 +8,7 @@
   --up:#3ECF8E;
   --down:#F05464;
   --gold:#D9A441;
+  --gold-ink:#D9A441; /* 다크에서는 배경색과 같은 값 */
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Pretendard, sans-serif;
   /* 글자 크기 배율 (설정 › 글자 크기). 모든 font-size가 이 값을 곱해서 쓴다 */
@@ -32,7 +33,8 @@ body.light-theme{
   --muted:#6B7480;
   --up:#0E9F6E;
   --down:#D93A4A;
-  --gold:#B8860B;
+  --gold:#EDA81C;   /* 칩·버튼 배경 (위에 #1a1400 글자) */
+  --gold-ink:#C8890A; /* 흰 바탕 위 글자용 — 배경색 그대로 쓰면 너무 옅어 안 읽힌다 */
 }
 body{transition:background .2s ease, color .2s ease;}
 *{box-sizing:border-box;}
@@ -143,7 +145,7 @@ body.chart-open main{padding-bottom:60vh;}
 }
 .market-search input::placeholder{color:var(--muted);}
 .grid-wrap.market .grid-row{grid-template-columns:1.5fr 1fr 0.8fr;}
-.mkt-tv{color:var(--gold); font-weight:600;}
+.mkt-tv{color:var(--gold-ink); font-weight:600;}
 .market-pager{
   display:flex; align-items:center; justify-content:center; gap:4px; margin-top:12px; flex-wrap:wrap;
 }
@@ -160,7 +162,7 @@ body.chart-open main{padding-bottom:60vh;}
 /* Ticker grid */
 .grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel);}
 .grid-row{
-  display:grid; grid-template-columns: 0.9fr 1.2fr 1.2fr 0.5fr; gap:10px;
+  display:grid; grid-template-columns: 0.9fr 1.2fr 1.2fr 0.5fr; gap:14px;
   padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer;
   align-items:center; position:relative; transition:padding-left .15s ease;
 }
@@ -297,7 +299,7 @@ body.chart-open main{padding-bottom:60vh;}
 .fng-mini{text-align:right; line-height:1.25; flex-shrink:0;}
 .fng-mini-cap{display:block; font-size:calc(10px * var(--fs)); color:var(--muted);}
 .fng-mini-body{font-family:var(--mono); font-size:calc(13px * var(--fs)); font-weight:800;}
-#fxMini .fng-mini-body{color:var(--gold);}
+#fxMini .fng-mini-body{color:var(--gold-ink);}
 /* 환율은 눌러서 추이 그래프를 여는 버튼이다. 옆의 공포·탐욕 지수와 높이·정렬이
    어긋나지 않도록 버튼 기본 스타일을 전부 지우고 .fng-mini 규칙만 남긴다 */
 .fx-mini-btn{
@@ -429,7 +431,7 @@ body.chart-open main{padding-bottom:60vh;}
   padding:8px 6px; margin:-8px -6px;
 }
 .pf-sort:active{opacity:0.6;}
-.pf-list-head .pf-sort-mode{color:var(--gold); font-weight:700;}
+.pf-list-head .pf-sort-mode{color:var(--gold-ink); font-weight:700;}
 .pf-edit-btn{flex:0 0 auto; width:auto; padding:6px 14px; font-size:calc(12px * var(--fs));}
 /* 보유 코인 표: 시세·관심 코인 탭과 같은 카드(.grid-wrap) + 행(.grid-row) 디자인 */
 .grid-wrap.portfolio .grid-row{grid-template-columns:1.5fr 1fr 1fr;}
@@ -458,7 +460,7 @@ body.chart-open main{padding-bottom:60vh;}
      대신 글자를 키울수록 칸 사이 여백은 조금씩 줄여서 그만큼을 코인 이름 칸에 돌려준다 */
   .grid-row{
     grid-template-columns: minmax(0,1fr) calc(86px * var(--fsw)) calc(86px * var(--fsw)) calc(52px * var(--fsw));
-    gap:calc(6px / var(--fs)); padding:10px calc(8px / var(--fs));
+    gap:calc(12px / var(--fs)); padding:10px calc(8px / var(--fs));
   }
   .grid-wrap.market .grid-row{
     grid-template-columns: minmax(0,1fr) calc(92px * var(--fsw)) calc(56px * var(--fsw));
@@ -550,4 +552,11 @@ body.chart-open main{padding-bottom:60vh;}
 
 @media (min-width: 1000px) and (prefers-reduced-motion: reduce){
   .app{ transition:none; }
+}
+
+/* 하단 고지 문구 — 모든 탭 아래에 공통으로 깔린다 */
+.app-footer{
+  color:var(--muted); font-size:calc(10.5px * var(--fs)); line-height:1.6;
+  padding:16px 12px calc(24px + env(safe-area-inset-bottom, 0px));
+  border-top:1px solid var(--line); margin-top:8px;
 }

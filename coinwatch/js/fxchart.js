@@ -119,9 +119,23 @@ async function loadAndDraw(days, quiet){
 }
 
 // ---------- 그리기 ----------
+// 캔들의 마지막 종가는 구간에 따라 최대 3시간(3개월)~12시간(1년) 전 값이다. 그대로 두면
+// 선 끝과 헤더에 찍힌 현재가가 눈에 띄게 벌어진다. 같은 출처(야후)의 현재가를 맨 뒤에
+// 이어 붙여서 "선 끝 = 헤더 숫자"가 되게 한다.
+// 환율을 못 받았거나 캔들과 1% 넘게 벌어지면(=값이 이상하면) 붙이지 않는다.
+function withLivePoint(points){
+  const rate = state.usdKrw;
+  const last = points[points.length - 1];
+  if(!(rate > 0) || !last) return points;
+  if(Math.abs(rate - last.v) / last.v > 0.01) return points;
+  const now = Math.floor(Date.now() / 1000);
+  if(now <= last.t) return points;
+  return points.concat([{ t: now, v: rate, live: true }]);
+}
+
 function drawFxChart(res){
   const box = document.getElementById("fxGraph");
-  const points = res.points;
+  const points = withLivePoint(res.points);
   renderFxDelta(points);
 
   const W = Math.max(240, box.clientWidth || 300);
@@ -179,12 +193,13 @@ function drawFxChart(res){
     </svg>`;
 
   const last = points[points.length - 1];
-  renderFxPrice(last.v); // 위의 큰 숫자 = 그래프의 마지막 점
+  renderFxPrice(last.v); // 위의 큰 숫자 = 그래프의 마지막 점 = 헤더에 찍힌 현재가
   const d = new Date(last.t * 1000);
   const stamp = `${p2(d.getFullYear() % 100)}.${p2(d.getMonth() + 1)}.${p2(d.getDate())} ` +
                 `${p2(d.getHours())}:${p2(d.getMinutes())}`;
   document.getElementById("fxSrcNote").textContent =
-    `${res.source} · ${res.interval} 간격 · ${points.length}개 · 최종 ${stamp}`;
+    `${res.source} · ${res.interval} 간격 · ${res.points.length}개` +
+    (last.live ? ` · 현재가 ${stamp} 기준` : ` · 최종 ${stamp}`);
 
   fxGeom = { points, xs, ys, W, padT, ih, padL, iw };
   bindScrub(box.querySelector(".fx-svg"));

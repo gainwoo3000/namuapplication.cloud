@@ -1,6 +1,6 @@
 # coinwatch-api
 
-정적 페이지(코인워치)가 브라우저에서 직접 못 부르는 API를 CORS 허용 + 엣지 캐시로 중계하는 Cloudflare Worker.
+정적 페이지(코인워치캡)가 브라우저에서 직접 못 부르는 API를 CORS 허용 + 엣지 캐시로 중계하는 Cloudflare Worker.
 
 | 경로 | 용도 | 캐시 |
 |---|---|---|
