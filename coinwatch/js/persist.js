@@ -28,7 +28,7 @@ export function storageDiagnostics(){
     localStorage.removeItem(k);
   }catch(e){ err = e && e.name ? e.name : String(e); }
   return {
-    origin: location.origin,
+    // 주소(origin)는 일부러 담지 않는다 — 홈 화면 웹앱으로 쓰는 화면이라 URL이 드러나면 안 된다
     writable,
     error: err || storageError,
     hasSaved: (()=>{ try{ return !!localStorage.getItem(STORAGE_KEY); }catch(e){ return false; } })()

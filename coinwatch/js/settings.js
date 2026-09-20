@@ -137,7 +137,11 @@ export async function renderStorageDiag(){
   try{ persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; }catch(e){}
 
   const lines = [];
-  lines.push(`주소: <b>${d.origin}</b>`);
+  // 주소는 적지 않는다 — 홈 화면 웹앱으로 쓰는 화면이라 URL이 드러나면 안 된다.
+  // 진단에 필요한 건 "저장이 되는가 / 보호되는가 / 보안 연결인가" 셋뿐이고 URL 없이 다 알 수 있다.
+  if(location.protocol !== "https:" && location.hostname.indexOf(".") > 0){
+    lines.push(`<b>보안 연결이 아닙니다</b> — 이 상태로 저장한 설정은 보안 연결로 들어오면 보이지 않아요.`);
+  }
   if(!d.writable){
     lines.push(`<b>저장 안 됨</b> — 이 브라우저에서는 저장이 막혀 있어요${d.error ? ` (${d.error})` : ""}.` +
                ` 시크릿 모드이거나, 카카오톡·인스타그램 같은 앱 안의 브라우저로 열었을 때 그렇습니다.` +
