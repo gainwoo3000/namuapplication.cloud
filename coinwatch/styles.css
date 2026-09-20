@@ -293,6 +293,34 @@ body.chart-open main{padding-bottom:60vh;}
 .fng-mini-cap{display:block; font-size:calc(10px * var(--fs)); color:var(--muted);}
 .fng-mini-body{font-family:var(--mono); font-size:calc(13px * var(--fs)); font-weight:800;}
 #fxMini .fng-mini-body{color:var(--gold);}
+/* 환율은 눌러서 추이 그래프를 여는 버튼이다. 옆의 공포·탐욕 지수와 높이·정렬이
+   어긋나지 않도록 버튼 기본 스타일을 전부 지우고 .fng-mini 규칙만 남긴다 */
+.fx-mini-btn{
+  appearance:none; -webkit-appearance:none; background:none; border:none;
+  padding:0; margin:0; font:inherit; color:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.fx-mini-btn:active{opacity:.55;}
+/* 누를 수 있다는 힌트 — 캡션 끝의 작은 꺾쇠 */
+.fx-mini-btn .fng-mini-cap::after{content:" ›"; font-weight:700; opacity:.75;}
+
+/* 원/달러 추이 그래프 패널 (.chart-panel 스타일을 코인 차트와 공유) */
+.fx-sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:3px; font-family:var(--mono);}
+.fx-sub.up{color:var(--up);}
+.fx-sub.down{color:var(--down);}
+.fx-range{margin-bottom:10px;}
+.fx-range .opt{padding:6px 10px;}
+.fx-graph{min-height:190px;}
+.fx-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
+.fx-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
+.fx-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}
+.fx-axis{fill:var(--muted); font-size:10px; font-family:var(--mono);}
+.fx-cross-line{stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3;}
+/* paint-order로 글자 뒤에 패널색 테두리를 깔아, 선·면 위에 겹쳐도 읽힌다 */
+.fx-cross-tip{
+  fill:var(--text); font-size:11px; font-weight:700; font-family:var(--mono);
+  paint-order:stroke; stroke:var(--panel); stroke-width:4px; stroke-linejoin:round;
+}
 
 /* Settings */
 .setting-group{

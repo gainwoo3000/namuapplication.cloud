@@ -11,6 +11,10 @@
 //     -> { coins:[ {id,symbol,name,rank,price,change24h}, ... ] }
 //        CoinGecko 코인 검색(순위 밖 코인 포함). 엣지 캐시 CG_SEARCH_TTL(기본 3600초).
 //
+//   GET /fx/history?days=<7~365>
+//     -> { source:"naver", points:[ {t:"2026-09-18", v:1389}, ... ] }   오래된 -> 최신 순
+//        원/달러 일별 종가(네이버 금융). 엣지 캐시 FX_TTL(기본 600초).
+//
 // 왜 필요한가:
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
 //   - CoinGecko: 키 없는 공개 API는 공유 IP 기준으로 분당 몇 콜만 허용 → 브라우저에서 직접
@@ -24,6 +28,8 @@ const CMC_LKG_KEY = "https://cache.internal/cmc-krw/last-known-good";
 const CMC_URL =
   "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=200&convert=KRW";
 const CG = "https://api.coingecko.com/api/v3";
+const NAVER_FX = "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW/prices";
+const NAVER_FX_PAGE = 60; // 네이버가 한 번에 주는 최대 행 수 — 61 이상을 요청하면 JSON이 아닌 에러가 온다
 
 export default {
   async fetch(request, env, ctx) {
@@ -42,6 +48,7 @@ export default {
     if (url.pathname === "/cmc/krw") return handleCmc(env, ctx, openCors(strictOrigin));
     if (url.pathname === "/cg/markets") return handleCgMarkets(env, ctx, openCors("*"));
     if (url.pathname === "/cg/search") return handleCgSearch(url, env, ctx, openCors("*"));
+    if (url.pathname === "/fx/history") return handleFxHistory(url, env, ctx, openCors("*"));
     return json({ error: "not_found" }, 404, openCors("*"));
   },
 };
@@ -181,6 +188,72 @@ async function handleCgSearch(url, env, ctx, cors) {
   } catch (err) {
     // 실패해도 200 + 빈 목록(+CORS) → 클라이언트는 조용히 로컬 결과만 보여준다
     return json({ coins: [], error: String(err) }, 200, cors);
+  }
+}
+
+// ---------- 원/달러 일별 종가 (네이버 금융) ----------
+// 브라우저에서 직접 못 부른다: api.stock.naver.com은 CORS 헤더를 주지 않고,
+// Origin 헤더가 붙은 요청에는 403으로 답한다. 워커가 대신 부르고 엣지에 캐시한다.
+async function handleFxHistory(url, env, ctx, cors) {
+  const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 90, 7), 365);
+
+  const cache = caches.default;
+  const key = new Request("https://cache.internal/fx-history/v1/" + days);
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
+
+  const lkgKey = new Request("https://cache.internal/fx-history/lkg/" + days);
+  const ttl = Number(env.FX_TTL || "600");
+  try {
+    // 환율은 영업일에만 고시되므로 달력 일수의 약 5/7만 행으로 돌아온다.
+    // 주말·공휴일을 감안해 0.75를 곱해 넉넉히 잡고, 최대 5페이지(=300영업일 ≈ 14개월)까지만 부른다.
+    const pages = Math.min(5, Math.max(1, Math.ceil((days * 0.75) / NAVER_FX_PAGE)));
+    const chunks = await Promise.all(
+      Array.from({ length: pages }, (_, i) =>
+        fetch(`${NAVER_FX}?page=${i + 1}&pageSize=${NAVER_FX_PAGE}`, {
+          headers: {
+            // 이 두 헤더가 없으면 네이버가 403으로 막는다
+            "user-agent": "Mozilla/5.0",
+            referer: "https://m.stock.naver.com/",
+            accept: "application/json",
+          },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => [])
+      )
+    );
+
+    const from = Date.now() - days * 86400000;
+    const seen = new Set();
+    const points = [];
+    for (const row of chunks.flat()) {
+      const t = row && row.localTradedAt;
+      if (!t || seen.has(t)) continue;
+      // closePrice는 "1,389.00" 같은 천단위 콤마 문자열로 온다
+      const v = parseFloat(String(row.closePrice || "").replace(/,/g, ""));
+      if (!(v > 0)) continue;
+      if (Date.parse(t + "T00:00:00+09:00") < from) continue;
+      seen.add(t);
+      points.push({ t, v });
+    }
+    if (points.length < 2) throw new Error("naver fx empty");
+    points.sort((a, b) => (a.t < b.t ? -1 : 1)); // 오래된 -> 최신 (그래프가 왼쪽부터 그려지도록)
+
+    const body = JSON.stringify({ source: "naver", points });
+    const resp = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
+    });
+    const lkg = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=86400" },
+    });
+    ctx.waitUntil(cache.put(key, resp.clone()));
+    ctx.waitUntil(cache.put(lkgKey, lkg));
+    return withHeaders(resp, { ...cors, "x-cache": "MISS" });
+  } catch (err) {
+    const lkg = await cache.match(lkgKey);
+    if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
+    // 502를 주면 클라이언트가 ECB 폴백으로 넘어간다
+    return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
 }
 

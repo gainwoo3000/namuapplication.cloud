@@ -5,6 +5,7 @@ import { fmtDisplayPrice, displayPriceNum } from "./format.js";
 import { findCoinAnywhere, renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { ensureUsdKrw } from "./fx.js";
+import { closeFxChart } from "./fxchart.js";
 
 // 차트 패널 우상단 가격: "표시 통화" 설정(displayCurrency)에 맞춰 USD/KRW로 보여준다
 export function updateChartPrice(){
@@ -20,6 +21,7 @@ export async function selectCoin(id){
   const c = state.coinsList.find(x=>x.id===id) || findCoinAnywhere(id);
   if(!c) return;
   state.selectedCoinId = id;
+  closeFxChart(); // 환율 그래프와 같은 자리(화면 하단)를 쓰므로 둘 중 하나만 열린다
   renderGrid();
   renderMarketGrid();
   const panel = document.getElementById("chartPanel");

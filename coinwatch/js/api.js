@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, NAME_MAP } from "./constants.js";
+import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, NAME_MAP } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -295,6 +295,39 @@ export async function fetchUsdKrw(){
       if(rate && isFinite(rate) && rate > 0) return rate;
     }catch(e){ /* 다음 소스로 시도 */ }
   }
+  return null;
+}
+
+// 원/달러 환율의 일별 추이. 헤더 환율 버튼 -> 그래프에서만 쓴다.
+// 반환: { source:"표시용 출처", points:[{t:"YYYY-MM-DD", v:1389}, ...] } (오래된 -> 최신), 실패 시 null
+export async function fetchFxHistory(days){
+  // 1) 워커 경유 네이버 금융 일별 종가. 국내 고시 환율이라 헤더에 찍히는 숫자와 결이 같다.
+  //    (네이버는 CORS를 안 주고 Origin이 붙으면 403이라 브라우저에서 직접은 못 부른다)
+  try{
+    const r = await fetch(`${FX_HISTORY_PROXY}?days=${days}&t=${Math.floor(Date.now() / 600000)}`);
+    if(r.ok){
+      const j = await r.json();
+      if(j && Array.isArray(j.points) && j.points.length > 1){
+        return { source: "네이버 금융 · 일별 종가", points: j.points };
+      }
+    }
+  }catch(e){ /* 폴백으로 */ }
+
+  // 2) frankfurter(ECB 참고환율) — 워커가 아직 배포 전이거나 네이버가 막혔을 때의 폴백.
+  //    CORS가 열려 있어 브라우저에서 직접 부를 수 있지만, 영업일 1회 고시라 실시간가와 몇 원 벌어진다.
+  try{
+    const end = new Date();
+    const start = new Date(end.getTime() - days * 86400000);
+    const iso = d => d.toISOString().slice(0, 10);
+    const r = await fetch(`https://api.frankfurter.dev/v1/${iso(start)}..${iso(end)}?base=USD&symbols=KRW`);
+    const d = await r.json();
+    const points = Object.entries((d && d.rates) || {})
+      .map(([t, o]) => ({ t, v: o && o.KRW }))
+      .filter(pt => pt.v > 0)
+      .sort((a, b) => a.t < b.t ? -1 : 1);
+    if(points.length > 1) return { source: "ECB 참고환율 · frankfurter", points };
+  }catch(e){ /* 아래에서 null */ }
+
   return null;
 }
 
