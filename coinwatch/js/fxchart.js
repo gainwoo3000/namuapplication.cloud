@@ -122,10 +122,13 @@ function drawFxChart(res){
   const head = (hi - lo) * 0.14;                     // 선이 위아래 테두리에 달라붙지 않게 여유
   const top = hi + head, bot = lo - head;
 
-  const xAt = i => padL + (points.length === 1 ? iw / 2 : (i / (points.length - 1)) * iw);
+  // x는 점 순번이 아니라 시각에 비례해야 한다. 외환시장은 주말마다 50시간 넘게 쉬는데
+  // 순번으로 그리면 그 공백이 한 칸으로 뭉개져서 축 날짜와 실제 위치가 어긋난다.
+  const t0 = points[0].t, tSpan = (points[points.length - 1].t - t0) || 1;
+  const xAt = pt => padL + ((pt.t - t0) / tSpan) * iw;
   const yAt = v => padT + (1 - (v - bot) / (top - bot)) * ih;
 
-  const xs = points.map((_, i) => xAt(i));
+  const xs = points.map(xAt);
   const ys = points.map(p => yAt(p.v));
   const up = points[points.length - 1].v >= points[0].v;
   const color = up ? "var(--up)" : "var(--down)";
@@ -183,10 +186,15 @@ function bindScrub(svg){
     const r = svg.getBoundingClientRect();
     if(!r.width) return;
     const x = (e.clientX - r.left) * (fxGeom.W / r.width);
-    // 등간격이므로 인덱스는 나눗셈 한 번으로 구한다
-    const n = fxGeom.points.length;
-    let i = Math.round(((x - fxGeom.padL) / (fxGeom.iw || 1)) * (n - 1));
-    i = Math.max(0, Math.min(n - 1, i));
+    // 점 간격이 고르지 않으므로(주말 공백) 가장 가까운 점을 이분 탐색으로 찾는다
+    const xs = fxGeom.xs;
+    let lo = 0, hi = xs.length - 1;
+    while(lo < hi){
+      const mid = (lo + hi) >> 1;
+      if(xs[mid] < x) lo = mid + 1; else hi = mid;
+    }
+    let i = lo;
+    if(i > 0 && Math.abs(xs[i - 1] - x) < Math.abs(xs[i] - x)) i--;
 
     const px = fxGeom.xs[i], py = fxGeom.ys[i], p = fxGeom.points[i];
     vline.setAttribute("x1", px); vline.setAttribute("x2", px);

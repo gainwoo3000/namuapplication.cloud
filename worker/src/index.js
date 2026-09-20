@@ -35,11 +35,11 @@ const NAVER_FX_PAGE = 60; // 네이버가 한 번에 주는 최대 행 수 — 6
 const YAHOO_FX = "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X";
 // 기간 -> 야후 range/interval. 화면 폭이 500px 남짓이라 이보다 촘촘해도 눈에 안 보인다.
 const FX_RANGE = {
-  1:   { range: "1d",  interval: "5m", label: "5분" },
-  30:  { range: "1mo", interval: "1h", label: "1시간" },
-  90:  { range: "3mo", interval: "1h", label: "1시간" },
-  180: { range: "6mo", interval: "1h", label: "1시간" },
-  365: { range: "1y",  interval: "1h", label: "1시간" },
+  1:   { range: "1d",  interval: "5m" },
+  30:  { range: "1mo", interval: "1h" },
+  90:  { range: "3mo", interval: "1h" },
+  180: { range: "6mo", interval: "1h" },
+  365: { range: "1y",  interval: "1h" },
 };
 const FX_MAX_POINTS = 500;
 
@@ -211,17 +211,17 @@ async function handleFxHistory(url, env, ctx, cors) {
   const days = FX_RANGE[asked] ? asked : 90;
 
   const cache = caches.default;
-  // v2: 응답 모양이 바뀌었다(t가 "YYYY-MM-DD" 문자열 -> unix초, interval 필드 추가)
-  const key = new Request("https://cache.internal/fx-history/v2/" + days);
+  // v3: interval을 요청값이 아니라 솎아낸 뒤의 실제 간격으로 계산하도록 바뀌었다.
+  //      키를 안 올리면 "1시간"이라 적힌 옛 응답이 TTL 만료까지 그대로 나간다.
+  const key = new Request("https://cache.internal/fx-history/v3/" + days);
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
-  const lkgKey = new Request("https://cache.internal/fx-history/lkg2/" + days);
+  const lkgKey = new Request("https://cache.internal/fx-history/lkg3/" + days);
   // 1일 구간은 장중에 계속 움직이므로 짧게 잡는다
   const ttl = days === 1 ? 120 : Number(env.FX_TTL || "600");
   try {
     let source = "yahoo";
-    let interval = FX_RANGE[days].label;
     let points;
     try {
       points = await fetchYahooFx(days);
@@ -231,10 +231,12 @@ async function handleFxHistory(url, env, ctx, cors) {
       if (days === 1) throw e;
       points = await fetchNaverFx(days);
       source = "naver";
-      interval = "1일";
     }
 
-    const body = JSON.stringify({ source, interval, points: thinPoints(points, FX_MAX_POINTS) });
+    // 간격은 솎아낸 결과에서 재야 한다. 요청한 interval(1h)을 그대로 적으면
+    // 3개월/6개월/1년은 솎아낸 뒤 실제 3시간/6시간/12시간인데도 "1시간"이라 적히게 된다.
+    const thinned = thinPoints(points, FX_MAX_POINTS);
+    const body = JSON.stringify({ source, interval: intervalLabel(thinned), points: thinned });
     const resp = new Response(body, {
       headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
     });
@@ -313,6 +315,18 @@ async function fetchNaverFx(days) {
   if (points.length < 2) throw new Error("naver too few");
   points.sort((a, b) => a.t - b.t); // 오래된 -> 최신 (그래프가 왼쪽부터 그려지도록)
   return points;
+}
+
+// 실제 점 간격을 사람이 읽는 말로. 주말 공백(50시간 넘게 벌어진다)에 휘둘리지 않게 중앙값을 쓴다.
+function intervalLabel(points) {
+  const gaps = [];
+  for (let i = 1; i < points.length; i++) gaps.push(points[i].t - points[i - 1].t);
+  if (gaps.length === 0) return "";
+  gaps.sort((a, b) => a - b);
+  const s = gaps[Math.floor(gaps.length / 2)];
+  if (s >= 86400) return Math.round(s / 86400) + "일";
+  if (s >= 3600) return Math.round(s / 3600) + "시간";
+  return Math.max(1, Math.round(s / 60)) + "분";
 }
 
 // 1시간봉 1년치는 6천 점이 넘는데 그래프 폭은 500px 남짓이라 그대로 보내봐야 보이지도 않는다.
