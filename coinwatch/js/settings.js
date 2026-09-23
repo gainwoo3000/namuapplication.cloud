@@ -1,10 +1,9 @@
-import { EX_LABEL } from "./constants.js";
 import { state } from "./state.js";
 import { reapplyIntlFilter } from "./pricing.js";
 import { renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { renderPortfolio } from "./portfolio.js";
-import { updateChartPrice } from "./chart.js";
+import { updateChartPrice, syncChartTheme } from "./chart.js";
 import { ensureUsdKrw } from "./fx.js";
 import { saveState, storageDiagnostics } from "./persist.js";
 import { loadMarkets } from "./main.js";
@@ -66,10 +65,6 @@ export function renderExchangeOpts(){
     const active = ex === "avg" ? isAvg : (!isAvg && state.intlExchangeFilter.has(ex));
     o.classList.toggle("active", active);
   });
-  const label = isAvg ? "5거래소 평균" : [...state.intlExchangeFilter].map(x=>EX_LABEL[x]).join("+");
-  if(document.getElementById("chartPanel").style.display !== "none"){
-    document.getElementById("chartSrcNote").textContent = "가격 기준: " + label;
-  }
 }
 
 document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
@@ -107,6 +102,7 @@ document.getElementById("themeOpts").addEventListener("click", (e)=>{
   document.querySelectorAll("#themeOpts .opt").forEach(o=>o.classList.remove("active"));
   opt.classList.add("active");
   document.body.classList.toggle("light-theme", opt.dataset.theme === "light");
+  syncChartTheme(); // 자체 차트는 CSS 변수라 저절로 바뀌지만 트레이딩뷰 iframe은 다시 만들어야 한다
   saveState();
 });
 

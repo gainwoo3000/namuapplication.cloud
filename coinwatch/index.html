@@ -23,7 +23,6 @@
      그 높이를 env(safe-area-inset-top)으로 받아 가림막·헤더 여백에 반영한다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>코인워치캡 — 실시간 시세</title>
-<script src="https://s3.tradingview.com/tv.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -220,7 +219,7 @@
   <div class="chart-head">
     <div>
       <div class="name">원/달러 환율</div>
-      <div class="fx-sub" id="fxChartSub"></div>
+      <div class="panel-sub" id="fxChartSub"></div>
     </div>
     <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
       <div class="price-big"><span class="roll-wrap" id="fxChartPrice"></span></div>
@@ -234,18 +233,42 @@
 
 <div class="chart-panel" id="chartPanel" style="display:none;">
   <div class="chart-head">
-    <div class="name" id="chartCoinName">-</div>
+    <div>
+      <div class="name" id="chartCoinName">-</div>
+      <div class="panel-sub" id="chartCoinSub"></div>
+    </div>
     <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
       <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
       <div class="chart-close" id="chartCloseBtn">✕</div>
     </div>
   </div>
-  <div id="tvChartWrap">
-    <div id="tvChartContainer"></div>
-    <!-- 위젯이 뜨기 전까지 그 자리를 덮는 자리표시 (chart.js가 껐다 켠다) -->
-    <span class="sk sk-chart" id="tvChartSk" hidden></span>
+
+  <!-- 평소 화면: coinchart.js가 SVG로 직접 그리는 차트 -->
+  <div id="coinChartView">
+    <div class="chart-tools">
+      <div class="opt-row range-row" id="coinRangeOpts"></div>
+      <div class="chart-tools-r">
+        <!-- 확대해서 보고 있을 때만 나타난다 -->
+        <button class="detail-btn zoom-reset" id="coinZoomReset" hidden>전체</button>
+        <!-- 라인 / 캔들 (coinchart.js가 아이콘까지 만든다) -->
+        <div class="style-toggle" id="coinStyleToggle"></div>
+        <button class="detail-btn" id="tvOpenBtn">상세 ▸</button>
+      </div>
+    </div>
+    <div class="coin-graph" id="coinGraph"></div>
   </div>
-  <div class="src-note" id="chartSrcNote">가격 기준: 바이낸스 실시간가</div>
+
+  <!-- 지표·드로잉툴이 필요할 때만 여는 트레이딩뷰 -->
+  <div id="tvChartView" hidden>
+    <button class="detail-btn back" id="tvBackBtn">◂ 돌아가기</button>
+    <div id="tvChartWrap">
+      <div id="tvChartContainer"></div>
+      <!-- 위젯이 뜨기 전까지 그 자리를 덮는 자리표시 (chart.js가 껐다 켠다) -->
+      <span class="sk sk-chart" id="tvChartSk" hidden></span>
+    </div>
+  </div>
+
+  <div class="src-note" id="chartSrcNote"></div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

@@ -46,6 +46,7 @@ export function saveState(){
       intlExchangeFilter: [...state.intlExchangeFilter],
       displayCurrency: state.displayCurrency,
       fontScale: state.fontScale,
+      chartStyle: state.chartStyle,
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
       refreshSec: state.refreshSec,
       pfSortMode: state.pfSortMode,
@@ -85,6 +86,7 @@ export function loadState(){
     if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(saved.intlExchangeFilter);
     if(saved.displayCurrency) state.displayCurrency = saved.displayCurrency;
     if(saved.fontScale > 0) state.fontScale = saved.fontScale;
+    if(["line","candle"].includes(saved.chartStyle)) state.chartStyle = saved.chartStyle;
     if(saved.refreshSec) state.refreshSec = saved.refreshSec;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(saved.virtualCoins){

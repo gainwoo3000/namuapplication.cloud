@@ -18,8 +18,9 @@
   --fsw: calc(1 + (var(--fs) - 1) * 0.6);
   /* 노치·다이나믹 아일랜드가 가리는 높이 (+15% 여유). 인셋이 없는 기기에서는 0이라 아무 영향 없음 */
   --safe-top: calc(env(safe-area-inset-top, 0px) * 1.15);
-  /* 환율 그래프 SVG 높이. fxchart.js가 이 값을 읽어서 그리므로 여기서 바꾸면 그래프도 따라온다 */
+  /* 그래프 SVG 높이. fxchart.js/coinchart.js가 이 값을 읽어서 그리므로 여기서 바꾸면 그래프도 따라온다 */
   --fx-graph-h: 190px;
+  --coin-graph-h: 240px;
   /* 로딩 자리표시(스켈레톤)용. 지나가는 빛은 테마마다 밝기가 달라야 보인다 */
   --sk-sheen: rgba(255,255,255,0.17);
 }
@@ -294,6 +295,32 @@ body.chart-open main{padding-bottom:60vh;}
 .src-note{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:8px;}
 #tvChartContainer{height:320px; border-radius:8px; overflow:hidden;}
 
+/* 차트 위 도구줄: [기간 버튼들] ......... [라인|캔들] [상세] */
+.chart-tools{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
+.chart-tools-r{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+.range-row .opt{padding:6px 10px;}
+
+/* 두 칸짜리 라인/캔들 토글. 칸 하나가 .opt.active와 같은 금색이 된다 */
+.style-toggle{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+.st-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:calc(30px * var(--fs)); height:calc(28px * var(--fs));
+  padding:0; border:none; background:none; color:var(--muted); cursor:pointer;
+}
+.st-btn + .st-btn{border-left:1px solid var(--line);}
+.st-btn svg{width:calc(15px * var(--fs)); height:calc(15px * var(--fs)); fill:none; stroke:currentColor; stroke-width:1.6; stroke-linejoin:round; stroke-linecap:round;}
+.st-btn.active{background:var(--gold); color:#1a1400;}
+/* 캔들 아이콘의 몸통은 채워야 캔들처럼 보인다 */
+.st-btn[data-style="candle"] svg rect{fill:currentColor;}
+
+.detail-btn{
+  padding:6px 10px; border-radius:8px; border:1px solid var(--line); background:none;
+  font-size:calc(12px * var(--fs)); color:var(--muted); cursor:pointer; font-family:inherit;
+}
+.detail-btn.back{margin-bottom:10px;}
+/* 확대 중일 때만 뜨는 전체 보기 버튼 — 지금 보고 있는 게 일부라는 표시도 겸한다 */
+.detail-btn.zoom-reset{border-color:var(--gold); color:var(--gold-ink);}
+
 /* Fear & Greed index + 환율 (header, compact) */
 .header-metrics{display:flex; gap:16px; align-items:flex-start; flex-shrink:0;}
 .fng-mini{text-align:right; line-height:1.25; flex-shrink:0;}
@@ -324,9 +351,9 @@ body.chart-open main{padding-bottom:60vh;}
 .fx-mini-btn .fng-mini-cap::after{content:" ›"; font-weight:700; opacity:.75;}
 
 /* 원/달러 추이 그래프 패널 (.chart-panel 스타일을 코인 차트와 공유) */
-.fx-sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:3px; font-family:var(--mono);}
-.fx-sub.up{color:var(--up);}
-.fx-sub.down{color:var(--down);}
+.panel-sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:3px; font-family:var(--mono);}
+.panel-sub.up{color:var(--up);}
+.panel-sub.down{color:var(--down);}
 .fx-range{margin-bottom:10px;}
 .fx-range .opt{padding:6px 10px;}
 /* 로딩 중 자리표시 — 들어올 내용과 같은 크기의 네모를 깔고,
@@ -376,16 +403,32 @@ body.chart-open main{padding-bottom:60vh;}
   .sk::after{ animation:none; }
 }
 
+/* 그래프 공용 스타일 — 환율 추이(fxchart.js)와 코인 차트(coinchart.js)가 함께 쓴다 */
 .fx-graph{min-height:var(--fx-graph-h);}
-.fx-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
-.fx-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
-.fx-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}
-.fx-axis{fill:var(--muted); font-size:10px; font-family:var(--mono);}
-.fx-cross-line{stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3;}
+/* touch-action:none — 두 손가락으로 확대할 때 화면이 같이 줌되지 않게.
+   확대·이동 제스처는 SVG가 아니라 이 칸에 걸려 있다(SVG는 다시 그릴 때마다 갈아끼워진다) */
+.coin-graph{min-height:var(--coin-graph-h); touch-action:none;}
+.g-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
+.g-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
+.g-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}
+.g-axis{fill:var(--muted); font-size:10px; font-family:var(--mono);}
+.g-cross-line, .g-cross-hline{stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3;}
+/* 캔들 — 몸통(rect)과 심지(line). 봉이 1px까지 얇아져도 보이게 심지는 정확히 1px로 둔다 */
+.g-cd.up{fill:var(--up);}
+.g-cd.down{fill:var(--down);}
+.g-wick{stroke-width:1;}
+.g-wick.up{stroke:var(--up);}
+.g-wick.down{stroke:var(--down);}
 /* paint-order로 글자 뒤에 패널색 테두리를 깔아, 선·면 위에 겹쳐도 읽힌다 */
-.fx-cross-tip{
+.g-cross-tip{
   fill:var(--text); font-size:11px; font-weight:700; font-family:var(--mono);
   paint-order:stroke; stroke:var(--panel); stroke-width:4px; stroke-linejoin:round;
+}
+/* 가로선 높이의 값 — 오른쪽 눈금 라벨과 같은 자리에 겹쳐 뜨므로, 후광을 더 두껍게 줘서
+   밑에 깔린 눈금 숫자를 가리고 이게 읽히게 한다 */
+.g-cross-ytip{
+  fill:var(--text); font-size:10px; font-weight:700; font-family:var(--mono);
+  paint-order:stroke; stroke:var(--panel); stroke-width:5px; stroke-linejoin:round;
 }
 
 /* Settings */
@@ -559,7 +602,10 @@ body.chart-open main{padding-bottom:60vh;}
   body.chart-open main{ padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px)); }
   /* 세로로 여유가 있으니 차트도 키운다 */
   body.chart-open #tvChartContainer{ height:min(440px, calc(100vh - 260px)); }
-  body.chart-open{ --fx-graph-h:min(300px, calc(100vh - 290px)); }
+  body.chart-open{
+    --fx-graph-h:min(300px, calc(100vh - 290px));
+    --coin-graph-h:min(420px, calc(100vh - 300px));
+  }
 }
 
 @media (min-width: 1000px) and (prefers-reduced-motion: reduce){

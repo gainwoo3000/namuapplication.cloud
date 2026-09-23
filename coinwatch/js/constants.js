@@ -32,15 +32,43 @@ export const ALIAS_MAP = {
   USDC: ["유에스디코인", "USD코인"]
 };
 
-// range 버튼 값(1/7/30/365) -> 트레이딩뷰 interval/range 매핑
+// 코인 차트의 기간 버튼. days는 라벨용이고, 실제 요청은 거래소마다 규격이 달라서
+// 아래 CANDLE_SPEC에 따로 적어둔다.
+export const COIN_RANGES = [
+  { days: 1,   label: "1일"   },
+  { days: 7,   label: "1주"   },
+  { days: 30,  label: "1개월" },
+  { days: 90,  label: "3개월" },
+  { days: 365, label: "1년"   }
+];
+
+// 기간 -> 거래소별 봉 규격. 같은 "1개월"이라도 4시간봉을 주는 곳과 6시간봉밖에 없는 곳이
+// 있어서, 화면에 적는 "n시간 간격"은 미리 적어두지 않고 받아온 점에서 계산한다(graph.fmtGap).
+//   binance/okx/bybit: {i: 봉 크기, n: 개수}
+//   upbit:  {p: /candles/ 뒤 경로, n: 개수}  — 한 번에 최대 200개
+//   bithumb: {i: 봉 크기, n: 꼬리에서 잘라 쓸 개수} — 전체 이력을 통째로 주므로 잘라서 쓴다
+export const CANDLE_SPEC = {
+  1:   { binance:{i:"15m",n:96 },  okx:{i:"15m",n:96 },  bybit:{i:"15", n:96 },  upbit:{p:"minutes/15", n:96 },  bithumb:{i:"30m",n:48 } },
+  7:   { binance:{i:"1h", n:168},  okx:{i:"1H", n:168},  bybit:{i:"60", n:168},  upbit:{p:"minutes/60", n:168},  bithumb:{i:"1h", n:168} },
+  30:  { binance:{i:"4h", n:180},  okx:{i:"4H", n:180},  bybit:{i:"240",n:180},  upbit:{p:"minutes/240",n:180},  bithumb:{i:"6h", n:120} },
+  90:  { binance:{i:"12h",n:180},  okx:{i:"12H",n:180},  bybit:{i:"720",n:180},  upbit:{p:"days",       n:90 },  bithumb:{i:"12h",n:180} },
+  365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} }
+};
+
+export const CANDLE_SOURCE_LABEL = {
+  binance:"바이낸스", okx:"OKX", bybit:"바이빗", upbit:"업비트", bithumb:"빗썸"
+};
+
+// "상세" 버튼으로 여는 트레이딩뷰 위젯의 interval/range 매핑 (기간 버튼 값 기준)
 export const TV_RANGE_MAP = {
   1:   { interval: "15",  range: "1D"  },
   7:   { interval: "60",  range: "5D"  },
   30:  { interval: "240", range: "1M"  },
+  90:  { interval: "720", range: "3M"  },
   365: { interval: "D",   range: "12M" }
 };
 
-// 차트가 의미 없는(항상 ≈$1) 스테이블코인들 — TradingView에 SYMUSDT 페어가 없어 "Invalid symbol"이 뜬다
+// 차트가 의미 없는(항상 ≈$1) 스테이블코인들 — 어차피 선이 $1에 납작하게 붙는다
 export const STABLECOINS = new Set([
   "USDT","USDC","DAI","USDE","USD1","FDUSD","TUSD","USDD","PYUSD","USDP","GUSD",
   "USDS","BUSD","USDL","USDG","USD0","USDX","USR","LUSD","FRAX","USDB","USDTB","RLUSD","EURC","EURT"

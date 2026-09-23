@@ -10,7 +10,8 @@ export const state = {
   selectedCoinId: null,
   intlExchangeFilter: new Set(), // 빈 값 = 5개 해외 거래소 전체 평균, 값이 있으면 그것들만 평균
   refreshSec: 30,
-  currentDays: 1,
+  currentDays: 1,        // 코인 차트 기간 버튼 (COIN_RANGES의 days)
+  chartStyle: "line",    // 코인 차트 모양: "line" | "candle" (설정과 함께 저장된다)
   refreshTimer: null,
   usdKrw: null,
   lastSource: "binance",

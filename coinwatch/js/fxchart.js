@@ -1,12 +1,13 @@
 // 헤더의 "원/달러 환율"을 누르면 열리는 추이 그래프.
-// 코인 차트(chart.js)는 트레이딩뷰 위젯을 쓰지만, 환율은 일별 종가 몇백 개가 전부라
-// 외부 위젯을 하나 더 띄우는 대신 SVG로 직접 그린다 — 테마(다크/라이트)와 글자 크기 설정이
-// 그대로 먹고, 추가로 로드할 스크립트도 없다.
+// 외부 위젯을 띄우는 대신 SVG로 직접 그린다 — 테마(다크/라이트)와 글자 크기 설정이
+// 그대로 먹고, 추가로 로드할 스크립트도 없다. 코인 차트(coinchart.js)도 같은 방식이라,
+// 좌표 계산과 스크럽은 graph.js에 모아두고 둘이 나눠 쓴다.
 import { state } from "./state.js";
 import { FX_RANGES } from "./constants.js";
 import { fetchFxHistory } from "./api.js";
 import { rollNumberByKey } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
+import { medianGap, crossMarkup, bindScrub } from "./graph.js";
 import { ensureUsdKrw } from "./fx.js";
 import { closeChart } from "./chart.js";
 
@@ -63,13 +64,13 @@ function renderFxPrice(v){
 
 function renderFxDelta(points){
   const sub = document.getElementById("fxChartSub");
-  if(!points || points.length < 2){ sub.textContent = ""; sub.className = "fx-sub"; return; }
+  if(!points || points.length < 2){ sub.textContent = ""; sub.className = "panel-sub"; return; }
   const first = points[0].v, last = points[points.length - 1].v;
   const diff = last - first;
   const pct = (diff / first) * 100;
   const label = (FX_RANGES.find(r => r.days === fxDays) || {}).label || "";
   const sign = diff >= 0 ? "+" : "−";
-  sub.className = "fx-sub " + (diff >= 0 ? "up" : "down");
+  sub.className = "panel-sub " + (diff >= 0 ? "up" : "down");
   sub.textContent = `${label} ${sign}${fmtRate(Math.abs(diff))}원 (${sign}${Math.abs(pct).toFixed(2)}%)`;
 }
 
@@ -119,16 +120,6 @@ async function loadAndDraw(days, quiet){
 }
 
 // ---------- 그리기 ----------
-// 점 사이의 실제 간격. 주말 공백(50시간 넘게 벌어진다)에 휘둘리지 않게 평균이 아니라
-// 중앙값을 쓴다 — 워커가 "n시간 간격"이라고 적을 때 쓰는 계산과 같다.
-function medianGap(points){
-  const gaps = [];
-  for(let i = 1; i < points.length; i++) gaps.push(points[i].t - points[i - 1].t);
-  if(gaps.length === 0) return 0;
-  gaps.sort((a, b) => a - b);
-  return gaps[Math.floor(gaps.length / 2)];
-}
-
 // 캔들의 마지막 종가는 구간에 따라 최대 3시간(3개월)~12시간(1년) 전 값이다. 그대로 두면
 // 선 끝과 헤더에 찍힌 현재가가 눈에 띄게 벌어진다. 같은 출처(야후)의 현재가를 맨 뒤에
 // 이어 붙여서 "선 끝 = 헤더 숫자"가 되게 한다.
@@ -184,11 +175,11 @@ function drawFxChart(res){
   const area = `${line} L${xs[xs.length - 1].toFixed(1)} ${(padT + ih).toFixed(1)} L${xs[0].toFixed(1)} ${(padT + ih).toFixed(1)} Z`;
 
   const gridLine = (v) =>
-    `<line class="fx-grid" x1="${padL}" x2="${padL + iw}" y1="${yAt(v).toFixed(1)}" y2="${yAt(v).toFixed(1)}"/>` +
-    `<text class="fx-axis" x="${padL + iw + 6}" y="${(yAt(v) + 3.5).toFixed(1)}">${fmtRate(v)}</text>`;
+    `<line class="g-grid" x1="${padL}" x2="${padL + iw}" y1="${yAt(v).toFixed(1)}" y2="${yAt(v).toFixed(1)}"/>` +
+    `<text class="g-axis" x="${padL + iw + 6}" y="${(yAt(v) + 3.5).toFixed(1)}">${fmtRate(v)}</text>`;
 
   box.innerHTML = `
-    <svg class="fx-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
+    <svg class="g-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
          aria-label="원/달러 환율 추이 그래프">
       <defs>
         <linearGradient id="fxGrad" x1="0" y1="0" x2="0" y2="1">
@@ -198,14 +189,10 @@ function drawFxChart(res){
       </defs>
       ${gridLine(hi)}${gridLine(lo)}
       <path d="${area}" fill="url(#fxGrad)"/>
-      <path class="fx-line" d="${line}" stroke="${color}"/>
-      <text class="fx-axis" x="${padL}" y="${H - 6}">${fmtStamp(points[0].t, true)}</text>
-      <text class="fx-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(points[points.length - 1].t, true)}</text>
-      <g class="fx-cross" style="display:none">
-        <line class="fx-cross-line" y1="${padT}" y2="${padT + ih}"/>
-        <circle class="fx-cross-dot" r="3.5" fill="${color}"/>
-        <text class="fx-cross-tip"></text>
-      </g>
+      <path class="g-line" d="${line}" stroke="${color}"/>
+      <text class="g-axis" x="${padL}" y="${H - 6}">${fmtStamp(points[0].t, true)}</text>
+      <text class="g-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(points[points.length - 1].t, true)}</text>
+      ${crossMarkup(color, padT, ih, padL, iw)}
     </svg>`;
 
   const last = points[points.length - 1];
@@ -217,53 +204,11 @@ function drawFxChart(res){
     `${res.source} · ${res.interval} 간격 · ${res.points.length}개` +
     (last.live ? ` · 현재가 ${stamp} 기준` : ` · 최종 ${stamp}`);
 
-  fxGeom = { points, xs, ys, W, padT, ih, padL, iw };
-  bindScrub(box.querySelector(".fx-svg"));
-}
-
-// 그래프를 손가락/커서로 훑으면 그 날짜의 종가를 따라다니며 보여준다
-function bindScrub(svg){
-  if(!svg) return;
-  const cross = svg.querySelector(".fx-cross");
-  const vline = svg.querySelector(".fx-cross-line");
-  const dot = svg.querySelector(".fx-cross-dot");
-  const tip = svg.querySelector(".fx-cross-tip");
-
-  const move = (e) => {
-    if(!fxGeom) return;
-    const r = svg.getBoundingClientRect();
-    if(!r.width) return;
-    const x = (e.clientX - r.left) * (fxGeom.W / r.width);
-    // 점 간격이 고르지 않으므로(주말 공백) 가장 가까운 점을 이분 탐색으로 찾는다
-    const xs = fxGeom.xs;
-    let lo = 0, hi = xs.length - 1;
-    while(lo < hi){
-      const mid = (lo + hi) >> 1;
-      if(xs[mid] < x) lo = mid + 1; else hi = mid;
-    }
-    let i = lo;
-    if(i > 0 && Math.abs(xs[i - 1] - x) < Math.abs(xs[i] - x)) i--;
-
-    const px = fxGeom.xs[i], py = fxGeom.ys[i], p = fxGeom.points[i];
-    vline.setAttribute("x1", px); vline.setAttribute("x2", px);
-    dot.setAttribute("cx", px); dot.setAttribute("cy", py);
-    // 라벨이 오른쪽 끝에서 잘리지 않도록 절반을 넘어가면 왼쪽으로 붙인다
-    const rightHalf = px > fxGeom.padL + fxGeom.iw / 2;
-    tip.setAttribute("x", rightHalf ? px - 8 : px + 8);
-    tip.setAttribute("y", fxGeom.padT - 5);
-    tip.setAttribute("text-anchor", rightHalf ? "end" : "start");
-    tip.textContent = `${fmtStamp(p.t)}  ₩${fmtRate(p.v)}`;
-    cross.style.display = "";
-  };
-  const end = () => { cross.style.display = "none"; };
-
-  svg.addEventListener("pointerdown", (e) => { svg.setPointerCapture(e.pointerId); move(e); });
-  svg.addEventListener("pointermove", (e) => { if(e.pointerType === "mouse" || e.pressure > 0 || e.buttons) move(e); });
-  svg.addEventListener("pointerup", end);
-  svg.addEventListener("pointercancel", end);
-  svg.addEventListener("pointerleave", end);
-  // 그래프를 훑는 동안 화면이 같이 스크롤되지 않게
-  svg.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  fxGeom = { points, xs, ys, W, H, padT, ih, padL, iw };
+  bindScrub(box.querySelector(".g-svg"), () => fxGeom,
+    p => `${fmtStamp(p.t)}  ₩${fmtRate(p.v)}`,
+    // 가로선 높이 -> 그 높이의 환율. yAt의 역산이다.
+    { yLabel: y => "₩" + fmtRate(bot + (1 - (y - padT) / ih) * (top - bot)) });
 }
 
 // ---------- 배선 ----------

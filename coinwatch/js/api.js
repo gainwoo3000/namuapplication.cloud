@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, FX_SOURCE_LABEL, NAME_MAP } from "./constants.js";
+import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -360,4 +360,85 @@ export async function fetchCmcKrw(){
     if(v && typeof v.krw === "number") m[sym] = v.krw;
   }
   return m;
+}
+
+// ---------- 코인 캔들(차트용) ----------
+// 어느 거래소에서 받든 { t:<unix초>, o,h,l,c } 배열(오래된 -> 최신)로 맞춰서 돌려준다.
+// 거래소마다 정렬 방향과 필드 순서가 제각각이라 어댑터를 하나씩 둔다.
+const CANDLE_FETCHERS = {
+  // 바이낸스: 오래된 -> 최신, [openTime(ms), o, h, l, c, ...]
+  async binance(sym, spec){
+    const r = await fetch(`${BINANCE}/klines?symbol=${sym}USDT&interval=${spec.i}&limit=${spec.n}`);
+    if(!r.ok) return null;
+    const rows = await r.json();
+    return rows.map(k => ({ t: k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
+  },
+  // OKX: 최신 -> 오래된, [ts(ms), o, h, l, c, ...]
+  async okx(sym, spec){
+    const r = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${sym}-USDT&bar=${spec.i}&limit=${spec.n}`);
+    if(!r.ok) return null;
+    const j = await r.json();
+    return (j.data || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] })).reverse();
+  },
+  // 바이빗: 최신 -> 오래된, [start(ms), o, h, l, c, ...]
+  async bybit(sym, spec){
+    const r = await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}USDT&interval=${spec.i}&limit=${spec.n}`);
+    if(!r.ok) return null;
+    const j = await r.json();
+    return ((j.result && j.result.list) || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] })).reverse();
+  },
+  // 업비트: 최신 -> 오래된, 객체. 값은 원화라 quote가 KRW가 된다
+  async upbit(sym, spec){
+    const r = await fetch(`https://api.upbit.com/v1/candles/${spec.p}?market=KRW-${sym}&count=${spec.n}`);
+    if(!r.ok) return null;
+    const rows = await r.json();
+    if(!Array.isArray(rows)) return null;
+    return rows.map(k => ({
+      t: Date.parse(k.candle_date_time_utc + "Z") / 1000,
+      o: k.opening_price, h: k.high_price, l: k.low_price, c: k.trade_price
+    })).reverse();
+  },
+  // 빗썸: 오래된 -> 최신, [ts(ms), 시가, 종가, 고가, 저가, 거래량] — 고저가 자리가 다른 곳과 다르다.
+  // 개수 지정이 없어 전체 이력을 주므로 뒤에서 필요한 만큼만 잘라 쓴다.
+  async bithumb(sym, spec){
+    const r = await fetch(`https://api.bithumb.com/public/candlestick/${sym}_KRW/${spec.i}`);
+    if(!r.ok) return null;
+    const j = await r.json();
+    if(j.status !== "0000" || !Array.isArray(j.data)) return null;
+    return j.data.slice(-spec.n).map(k => ({ t: +k[0] / 1000, o: +k[1], c: +k[2], h: +k[3], l: +k[4] }));
+  }
+};
+
+const CANDLE_QUOTE = { binance:"USD", okx:"USD", bybit:"USD", upbit:"KRW", bithumb:"KRW" };
+
+// 그 코인이 실제로 거래되는 곳만, 시세 탭과 같은 우선순위로 훑는다.
+// (거래소 정보가 아직 없으면 바이낸스부터 순서대로 찔러본다)
+function candleSourcesFor(c){
+  const ex = c.exUsd || {}, dom = c.domestic || {};
+  const known = [];
+  if(ex.binance)  known.push("binance");
+  if(ex.okx)      known.push("okx");
+  if(ex.bybit)    known.push("bybit");
+  if(dom.upbit)   known.push("upbit");
+  if(dom.bithumb) known.push("bithumb");
+  // 보강 전이라 거래소를 모를 때도 차트가 비지 않도록 나머지를 뒤에 붙인다
+  return known.concat(["binance","okx","bybit","upbit","bithumb"].filter(s => !known.includes(s)));
+}
+
+// 반환: { source:"binance", quote:"USD"|"KRW", candles:[...] } — 전부 실패하면 null
+export async function fetchCoinCandles(c, days){
+  const spec = CANDLE_SPEC[days] || CANDLE_SPEC[1];
+  const sym = (c.symbol || "").toUpperCase();
+  if(!sym) return null;
+  for(const source of candleSourcesFor(c)){
+    if(!spec[source]) continue;
+    try{
+      const candles = await CANDLE_FETCHERS[source](sym, spec[source]);
+      // 점이 하나뿐이면 선을 못 그린다 — 상장 직후이거나 심볼이 다른 코인일 수 있으니 다음 거래소로
+      if(candles && candles.length > 1 && candles.every(k => k.c > 0)){
+        return { source, quote: CANDLE_QUOTE[source], candles };
+      }
+    }catch(e){ /* 다음 거래소로 */ }
+  }
+  return null;
 }
