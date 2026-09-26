@@ -23,7 +23,33 @@
      그 높이를 env(safe-area-inset-top)으로 받아 가림막·헤더 여백에 반영한다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>코인워치캡 — 실시간 시세</title>
+<!-- 시세 요청이 JS를 다 받은 뒤에야 시작되므로, 그 사이에 주요 API 서버와 연결(TLS)을 미리 열어 둔다.
+     fetch는 CORS(자격 증명 없음) 요청이라 crossorigin을 붙여야 그 연결을 그대로 재사용한다. -->
+<link rel="preconnect" href="https://api.namuapplication.cloud" crossorigin>
+<link rel="preconnect" href="https://api.binance.com" crossorigin>
+<link rel="dns-prefetch" href="https://api.bybit.com">
+<link rel="dns-prefetch" href="https://www.okx.com">
+<link rel="dns-prefetch" href="https://api.bithumb.com">
+<link rel="dns-prefetch" href="https://api.alternative.me">
 <link rel="stylesheet" href="styles.css">
+<!-- JS 모듈은 import를 따라가며 하나씩 발견된다(main -> watchlist -> coinchart -> graph …).
+     그대로 두면 4단계 계단식으로 받아서, 단계마다 왕복 한 번씩 늦어진다(한국 접속이 미국 LAX를 거치는
+     지금은 왕복 한 번이 1초 가까이 된다). 그래서 나머지 모듈을 한꺼번에 미리 받게 한다.
+     단, <head>에 modulepreload를 그냥 적으면 첫 요청부터 CSS와 대역폭을 나눠 써서 CSS가 늦게 오고,
+     그만큼 첫 화면(LCP)이 늦어진다(측정: 느린 4G에서 약 0.4초). 이 스크립트는 CSS를 다 받은 뒤에야
+     실행되므로(앞선 스타일시트를 기다리는 게 규칙) 그때 한꺼번에 건다.
+     js/에 파일을 새로 만들면 아래 목록에도 추가할 것. -->
+<script>
+  (function(){
+    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "persist.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
+    for(var i = 0; i < mods.length; i++){
+      var l = document.createElement("link");
+      l.rel = "modulepreload";
+      l.href = "js/" + mods[i];
+      document.head.appendChild(l);
+    }
+  })();
+</script>
 </head>
 <body>
 <!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
