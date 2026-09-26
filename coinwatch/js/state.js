@@ -13,6 +13,7 @@ export const state = {
   currentDays: 1,        // 코인 차트 기간 버튼 (COIN_RANGES의 days)
   chartStyle: "line",    // 코인 차트 모양: "line" | "candle" (설정과 함께 저장된다)
   showVolume: true,      // 코인 차트 아래 거래량 막대 (차트 도구줄에서 켜고 끈다, 저장된다)
+  showMA: true,          // 코인 차트 이동평균선 5·20·60·120 (차트 도구줄에서 켜고 끈다, 저장된다)
   refreshTimer: null,
   usdKrw: null,
   usdKrwPrev: null,      // 원/달러 전일 종가 (헤더 띠의 등락률용, 워커 /fx/rate가 줄 때만)

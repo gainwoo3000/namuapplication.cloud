@@ -41,7 +41,7 @@
      js/에 파일을 새로 만들면 아래 목록에도 추가할 것. -->
 <script>
   (function(){
-    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "mcap.js", "persist.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
+    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "mcap.js", "persist.js", "signals.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
     for(var i = 0; i < mods.length; i++){
       var l = document.createElement("link");
       l.rel = "modulepreload";
@@ -294,6 +294,13 @@
       <div class="name" id="chartCoinName">-</div>
       <div class="panel-sub" id="chartCoinSub"></div>
     </div>
+    <!-- 거래소로 가기: 누르면 말풍선에 거래소 목록, 고르면 새 탭으로 (레퍼럴 코드는 constants.js REFERRAL) -->
+    <div class="ex-link-wrap">
+      <button type="button" class="ex-link-btn" id="exLinkBtn" aria-haspopup="true" aria-expanded="false">
+        거래소<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 8.5l5-5M4.5 3.5h4v4"/></svg>
+      </button>
+      <div class="ex-pop" id="exPop" hidden></div>
+    </div>
     <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
   </div>
 
@@ -307,11 +314,15 @@
         <!-- 라인 / 캔들 (coinchart.js가 아이콘까지 만든다) -->
         <!-- 거래량 막대 켜기/끄기 -->
         <button class="detail-btn vol-btn" id="coinVolBtn" aria-pressed="true">거래량</button>
+        <!-- 이동평균선(5·20·60·120) 켜기/끄기 -->
+        <button class="detail-btn vol-btn" id="coinMaBtn" aria-pressed="true">이평</button>
         <div class="style-toggle" id="coinStyleToggle"></div>
         <button class="detail-btn" id="tvOpenBtn">상세 ▸</button>
       </div>
     </div>
     <div class="coin-graph" id="coinGraph"></div>
+    <!-- 이동평균 범례: 색 · 기간 · 값 (coinchart.js fillMaLegend) -->
+    <div class="ma-legend" id="maLegend" hidden></div>
   </div>
 
   <!-- 지표·드로잉툴이 필요할 때만 여는 트레이딩뷰 -->
@@ -349,6 +360,35 @@
       <div class="stat-sub" id="stat52wSub"></div>
     </div>
   </div>
+
+  <!-- 이 코인의 공포·탐욕과 기간별 기술적 지표 요약 (signals.js) -->
+  <div class="coin-signals">
+    <div class="stat-card">
+      <div class="stat-label">공포·탐욕 <span class="stat-label-sub">이 코인</span></div>
+      <div class="cfg-row"><span class="stat-value" id="cfgVal">-</span><span class="cfg-label" id="cfgLabel"></span></div>
+      <span class="fg-bar is-empty" id="cfgBar"><span class="range-dot"></span></span>
+      <div class="range-ends"><span>공포</span><span>탐욕</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">기술적 지표 요약</div>
+      <div class="sig-row">
+        <span class="sig-tf">단기<small>1시간봉</small></span>
+        <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-short"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-short"></span></span>
+        <span class="sig-rating" id="sig-short">…</span>
+      </div>
+      <div class="sig-row">
+        <span class="sig-tf">중기<small>1일봉</small></span>
+        <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-mid"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-mid"></span></span>
+        <span class="sig-rating" id="sig-mid">…</span>
+      </div>
+      <div class="sig-row">
+        <span class="sig-tf">장기<small>1주봉</small></span>
+        <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-long"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-long"></span></span>
+        <span class="sig-rating" id="sig-long">…</span>
+      </div>
+    </div>
+  </div>
+  <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
 <script type="module" src="js/main.js"></script>

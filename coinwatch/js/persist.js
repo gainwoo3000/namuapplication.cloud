@@ -48,6 +48,7 @@ export function saveState(){
       fontScale: state.fontScale,
       chartStyle: state.chartStyle,
       showVolume: state.showVolume,
+      showMA: state.showMA,
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
       refreshSec: state.refreshSec,
       pfSortMode: state.pfSortMode,
@@ -89,6 +90,7 @@ export function loadState(){
     if(saved.fontScale > 0) state.fontScale = saved.fontScale;
     if(["line","candle"].includes(saved.chartStyle)) state.chartStyle = saved.chartStyle;
     if(typeof saved.showVolume === "boolean") state.showVolume = saved.showVolume;
+    if(typeof saved.showMA === "boolean") state.showMA = saved.showMA;
     if(saved.refreshSec) state.refreshSec = saved.refreshSec;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(saved.virtualCoins){

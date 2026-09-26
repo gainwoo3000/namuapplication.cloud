@@ -1,6 +1,6 @@
 // 앱 버전 — 코드를 고칠 때마다 손으로 올린다. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
-export const APP_VERSION = "v.260926.1952";
+export const APP_VERSION = "v.260926.2043";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).
 // 바이낸스 응답이 실패하면 CoinGecko(키 없는 공개 API, 분당 호출 제한 있음)로 자동 대체.
@@ -70,6 +70,29 @@ export const CANDLE_SPEC = {
   365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  kraken:{i:1440,n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} },
   [ALL_DAYS]: { binance:{i:"1w",n:1000}, okx:{i:"1W",n:300}, bybit:{i:"W",n:1000}, kraken:{i:10080,n:720}, upbit:{p:"weeks",n:200}, bithumb:{i:"24h",n:Infinity,week:true} }
 };
+
+// ---------- 코인 상세 페이지 "거래소 ↗" 말풍선 ----------
+// 레퍼럴(추천) 코드. 여기만 채우면 말풍선의 링크에 붙는다. 비워 두면 코드 없이 거래 화면으로만 간다.
+// 국내 거래소(업비트·빗썸)는 링크로 추천인을 넘기는 공개 방식이 없어 코드 칸이 없다.
+export const REFERRAL = {
+  binance: "1281584257", // 바이낸스 레퍼럴 ID
+  okx: "",       // OKX 초대 코드
+  bybit: "",     // 바이빗 레퍼럴 코드
+};
+
+// 거래소별 이동 주소. sym = 코인 심볼(대문자), code = 위 레퍼럴 코드(없으면 "").
+// 바이낸스는 어느 주소에나 ?ref=를 붙이면 추천이 적용된다. OKX·바이빗은 추천이 가입(초대) 링크로만
+// 확실히 적용되므로, 코드가 있으면 초대 링크로, 없으면 그 코인 거래 화면으로 보낸다.
+export const EXCHANGE_LINKS = [
+  { key: "binance", name: "바이낸스", url: (sym, code) =>
+      `https://www.binance.com/en/trade/${sym}_USDT?type=spot` + (code ? `&ref=${encodeURIComponent(code)}` : "") },
+  { key: "okx",     name: "OKX",      url: (sym, code) =>
+      code ? `https://www.okx.com/join/${encodeURIComponent(code)}` : `https://www.okx.com/trade-spot/${sym.toLowerCase()}-usdt` },
+  { key: "bybit",   name: "바이빗",   url: (sym, code) =>
+      code ? `https://www.bybit.com/invite?ref=${encodeURIComponent(code)}` : `https://www.bybit.com/trade/spot/${sym}/USDT` },
+  { key: "upbit",   name: "업비트",   url: sym => `https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${sym}` },
+  { key: "bithumb", name: "빗썸",     url: sym => `https://www.bithumb.com/react/trade/order/${sym}-KRW` },
+];
 
 export const CANDLE_SOURCE_LABEL = {
   binance:"바이낸스", okx:"OKX", bybit:"바이빗", kraken:"크라켄", upbit:"업비트", bithumb:"빗썸"

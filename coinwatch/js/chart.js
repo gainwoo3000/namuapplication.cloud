@@ -7,7 +7,7 @@
 // 트레이딩뷰 스크립트(tv.js)는 상세를 처음 누를 때 받아온다. 예전처럼 index.html에서
 // 통째로 불러오면 차트를 한 번도 안 여는 사람까지 매번 그 스크립트를 내려받는다.
 import { state } from "./state.js";
-import { TV_RANGE_MAP } from "./constants.js";
+import { TV_RANGE_MAP, REFERRAL, EXCHANGE_LINKS } from "./constants.js";
 import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { fmtDisplayPrice, displayPriceNum, fmtChg, chgClass, fmtKrw, fmtPrice } from "./format.js";
 import { findCoinAnywhere, renderGrid } from "./watchlist.js";
@@ -17,6 +17,7 @@ import { closeFxChart } from "./fxchart.js";
 import { openCoinChart, closeCoinChart, refreshCoinChart } from "./coinchart.js";
 import { fetchCoinCandles } from "./api.js";
 import { range24hPct } from "./rangebar.js";
+import { renderCoinSignals } from "./signals.js";
 
 // 트레이딩뷰 상세를 보고 있는지. 코인을 바꿔도, 패널을 닫았다 열어도 그대로 따라간다 —
 // 지표를 보려고 상세를 켠 사람은 다음 코인도 상세로 보고 싶어한다.
@@ -51,6 +52,7 @@ function showPage(){
 }
 
 function hidePage(){
+  closeExPop();
   state.selectedCoinId = null;
   page.classList.remove("open");
   page.setAttribute("aria-hidden", "true");
@@ -74,6 +76,7 @@ export async function selectCoin(id, fromHistory){
     else history.pushState({ coinPage: id, pushed: true }, "", url);
   }
   state.selectedCoinId = id;
+  closeExPop();   // 다른 코인으로 넘어가면 이전 코인의 거래소 말풍선은 닫는다
   closeFxChart(); // 환율 그래프가 떠 있었으면 닫는다
   renderGrid();
   renderMarketGrid();
@@ -131,6 +134,47 @@ export function openCoinFromHash(){
   });
 }
 
+// ---------- "거래소 ↗" 말풍선 ----------
+// 그 코인이 실제로 거래되는 곳(시세 데이터로 확인된 곳)을 먼저, 모르는 곳은 뒤에 흐리게 둔다.
+const exBtn = document.getElementById("exLinkBtn");
+const exPop = document.getElementById("exPop");
+
+function listedOn(c, key){
+  const ex = c.exUsd || {}, dom = c.domestic || {};
+  return !!(ex[key] || dom[key]);
+}
+
+function openExPop(){
+  const c = state.selectedCoinId && (state.coinsList.find(x=>x.id===state.selectedCoinId) || findCoinAnywhere(state.selectedCoinId));
+  if(!c) return;
+  const sym = c.symbol.toUpperCase();
+  const known = EXCHANGE_LINKS.filter(e => listedOn(c, e.key));
+  // 거래소 정보를 아직 못 받았으면(보강 전) 전부 보여 준다
+  const list = known.length ? known : EXCHANGE_LINKS;
+  exPop.innerHTML = list.map(e => {
+    const code = REFERRAL[e.key] || "";
+    const sub = e.key === "upbit" || e.key === "bithumb" ? sym + "/KRW" : sym + "/USDT";
+    return `<a href="${e.url(sym, code)}" target="_blank" rel="noopener">${e.name}<span class="ex-sub">${sub} ↗</span></a>`;
+  }).join("") + `<div class="ex-note">새 탭에서 거래소가 열려요</div>`;
+  exPop.hidden = false;
+  exBtn.setAttribute("aria-expanded", "true");
+}
+function closeExPop(){
+  if(exPop.hidden) return;
+  exPop.hidden = true;
+  exBtn.setAttribute("aria-expanded", "false");
+}
+exBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  exPop.hidden ? openExPop() : closeExPop();
+});
+exPop.addEventListener("click", e => {
+  if(e.target.closest("a")) closeExPop(); // 거래소를 골랐으면 말풍선은 접는다
+  e.stopPropagation();
+});
+document.addEventListener("click", closeExPop);          // 바깥을 누르면 닫힘
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeExPop(); });
+
 // ---------- 차트 아래 요약 카드 ----------
 // 시가총액은 CoinGecko(달러) 값을 표시 통화로 바꿔 쓰고, 1일 등락률은 시세 목록과 같은 값(거래소 24시간).
 // 52주 등락률은 1년 봉을 따로 받아 첫 봉 종가 대비 마지막 봉 종가로 잰다 — 차트가 보고 있는 기간과
@@ -182,6 +226,7 @@ function setBar(el, pos, pct){
 }
 
 function renderCoinStats(c){
+  renderCoinSignals(c); // 이 코인의 공포·탐욕 + 기술적 지표 (10분 캐시라 자주 불러도 괜찮다)
   const cap = c.marketCap;
   const krw = state.displayCurrency === "krw" && state.usdKrw > 0;
   document.getElementById("statMcap").textContent =

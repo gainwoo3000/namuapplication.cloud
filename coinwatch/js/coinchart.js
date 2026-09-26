@@ -157,12 +157,14 @@ function markActive(row, attr, value){
 // 들어올 내용과 같은 크기의 자리표시를 깔아둔다 (환율 그래프와 같은 이유 — 데이터가
 // 도착할 때 빈 칸이 갑자기 그래프 높이로 벌어지면 화면이 튄다).
 function showSkeleton(){
+  document.getElementById("maLegend").hidden = true; // 이전 코인의 이동평균 값이 남지 않게
   document.getElementById("chartCoinSub").innerHTML = skeletonLine("9em");
   document.getElementById("coinGraph").innerHTML = '<span class="sk sk-graph"></span>';
   document.getElementById("chartSrcNote").innerHTML = skeletonLine("22em");
 }
 
 function message(text, note){
+  document.getElementById("maLegend").hidden = true;
   document.getElementById("coinGraph").innerHTML = `<div class="loading" style="padding:40px 12px;">${text}</div>`;
   document.getElementById("chartSrcNote").textContent = note || "";
   document.getElementById("chartCoinSub").textContent = "";
@@ -312,6 +314,21 @@ volBtn.addEventListener("click", () => {
 });
 syncVolBtn();
 
+// 이동평균선 켜기/끄기 (거래량 버튼과 같은 방식, 저장된다)
+const maBtn = document.getElementById("coinMaBtn");
+function syncMaBtn(){
+  maBtn.classList.toggle("active", state.showMA);
+  maBtn.setAttribute("aria-pressed", String(state.showMA));
+}
+maBtn.addEventListener("click", () => {
+  state.showMA = !state.showMA;
+  syncMaBtn();
+  saveState();
+  const cached = coin && cache[key()];
+  if(cached) draw(cached);
+});
+syncMaBtn();
+
 // ---------- 그리기 ----------
 // 칸 높이는 CSS(--coin-graph-h)가 정한다. 커스텀 속성을 getComputedStyle로 읽으면 min()/calc()가
 // 풀리지 않은 원문으로 돌아오므로 실제 렌더된 높이를 재야 하는데, 그러려면 칸을 한 번 비워야 한다.
@@ -433,6 +450,13 @@ function draw(res){
     : pts.map(p => padL + ((p.t - tStart) / tSpan) * iw);
   const ys = pts.map(p => yAt(p.c));
 
+  // 이동평균선: 받아온 봉 전체(all)로 계산해 두고 그리는 구간(ds~de)만 잘라 쓴다 —
+  // 확대해도 화면 왼쪽 끝의 평균이 "보이는 봉만으로" 계산돼 휘지 않게. 봉이 모자란 기간은 빠진다.
+  const closes = all.map(p => p.c);
+  const mas = state.showMA
+    ? MA_SPECS.map(([n, color]) => ({ n, color, vals: smaSeries(closes, n) })).filter(m => closes.length >= m.n)
+    : [];
+
   const upward = vis[vis.length - 1].c >= vis[0].c;
   const color = upward ? "var(--up)" : "var(--down)";
 
@@ -455,6 +479,7 @@ function draw(res){
       ${grid}
       <g clip-path="url(#ccClip)">
         ${candle ? candleMarkup(pts, xs, yAt, iw / (span + 1)) : lineMarkup(xs, ys, color, padT, ih)}
+        ${mas.map(m => maPath(m.vals.slice(ds, de + 1), xs, yAt, m.color)).join("")}
       </g>
       ${withVol ? volumeMarkup(pts, vis, xs, padL, padT + ih + volGap, iw, volH, iw / (span + 1), candle) : ""}
       ${candle ? `<g class="cc-ohlc">${ohlcMarkup(padL, W)}</g>` : ""}
@@ -475,6 +500,9 @@ function draw(res){
     if(p) fillOhlc(svg, p, idx > 0 ? all[idx - 1].c : p.o, conv.cur);
   };
   showOhlc(null);
+  // 이동평균 범례(차트 아래): 십자선이 없으면 보이는 마지막 봉, 있으면 가리킨 봉의 값
+  const showMa = k => fillMaLegend(mas, k == null ? all.indexOf(vis[vis.length - 1]) : ds + k, conv.cur);
+  showMa(null);
 
   // 거래량을 켜 두면 툴팁 날짜 옆에 그 봉의 거래량도 적는다
   const sym = coin.symbol.toUpperCase();
@@ -486,7 +514,7 @@ function draw(res){
     {
       busy: gestureBusy,
       mouseOnly: true, // 손가락은 bindZoomPan이 맡는다 (한 손가락=이동, 꾹 누르기=훑기)
-      onPoint: showOhlc,
+      onPoint: k => { showOhlc(k); showMa(k); },
       // 가로선 높이 -> 그 높이의 가격. yAt의 역산이다.
       yLabel: y => fmtCur(bot + (1 - (y - padT) / ih) * (top - bot), conv.cur)
     });
@@ -515,6 +543,44 @@ function candleMarkup(pts, xs, yAt, slot){
            `y1="${yAt(p.h).toFixed(1)}" y2="${yAt(p.l).toFixed(1)}"/>` +
            `<rect class="${cls}" x="${(x - bw / 2).toFixed(1)}" y="${bodyY.toFixed(1)}" ` +
            `width="${bw.toFixed(1)}" height="${bodyH.toFixed(1)}"/>`;
+  }).join("");
+}
+
+// ---------- 이동평균선 ----------
+// 국내 거래소 차트에서 흔한 5·20·60·120봉. 색은 오르내림(초록·빨강)과 겹치지 않게 고른다.
+const MA_SPECS = [[5, "#F5C542"], [20, "#4FA3F7"], [60, "#B18CFF"], [120, "#9AA4B2"]];
+
+// 단순 이동평균 시리즈. 앞쪽 n-1개는 계산할 봉이 모자라 null.
+function smaSeries(c, n){
+  const out = new Array(c.length).fill(null);
+  let sum = 0;
+  for(let i = 0; i < c.length; i++){
+    sum += c[i];
+    if(i >= n) sum -= c[i - n];
+    if(i >= n - 1) out[i] = sum / n;
+  }
+  return out;
+}
+
+// null(평균이 아직 없는 앞부분)을 건너뛰며 선을 잇는다
+function maPath(vals, xs, yAt, color){
+  let d = "", pen = false;
+  vals.forEach((v, i) => {
+    if(v == null || xs[i] == null){ pen = false; return; }
+    d += (pen ? "L" : "M") + xs[i].toFixed(1) + " " + yAt(v).toFixed(1);
+    pen = true;
+  });
+  return d ? `<path class="g-ma" d="${d}" stroke="${color}"/>` : "";
+}
+
+function fillMaLegend(mas, idx, cur){
+  const el = document.getElementById("maLegend");
+  if(!el) return;
+  if(!mas.length){ el.innerHTML = ""; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = mas.map(m => {
+    const v = m.vals[idx];
+    return `<span class="ma-item"><i style="background:${m.color}"></i>MA${m.n} <b>${v == null ? "-" : fmtCur(v, cur)}</b></span>`;
   }).join("");
 }
 

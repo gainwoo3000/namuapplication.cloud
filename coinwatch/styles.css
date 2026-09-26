@@ -375,6 +375,68 @@ body.chart-open main{padding-bottom:60vh;}
   white-space:nowrap; min-height:1.2em;
 }
 .range-ends > span{overflow:hidden; text-overflow:ellipsis;}
+/* 이 코인의 공포·탐욕 + 기술적 지표 요약 — 요약 카드 아래 두 장(왼쪽 좁게, 오른쪽 넓게) */
+.coin-signals{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 2fr); gap:8px; margin-top:8px;}
+.stat-label-sub{font-weight:400; opacity:.8; margin-left:2px;}
+.cfg-row{display:flex; align-items:baseline; gap:6px; margin-top:6px; min-width:0;}
+.cfg-row .stat-value{margin-top:0; font-size:calc(18px * var(--fs));}
+.cfg-label{font-size:calc(11px * var(--fs)); font-weight:700; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+/* 막대 두 종류: 공포(빨강)->탐욕(초록), 매도(빨강)->매수(초록). 점은 흰 테두리로 어느 색 위에서도 보이게 */
+.fg-bar, .sig-bar{
+  display:block; position:relative; height:4px; border-radius:2px;
+  background:linear-gradient(90deg, var(--down), #D9A441 50%, var(--up));
+}
+.fg-bar{margin-top:10px;}
+.fg-bar .range-dot, .sig-bar .range-dot{
+  width:9px; height:9px; background:var(--text); box-shadow:0 0 0 2px var(--panel);
+}
+.fg-bar.is-empty .range-dot, .sig-bar.is-empty .range-dot{display:none;}
+.fg-bar.is-empty, .sig-bar.is-empty{opacity:.35;}
+.sig-row{display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:10px; margin-top:9px;}
+.sig-row + .sig-row{margin-top:7px;}
+.sig-tf{font-size:calc(12px * var(--fs)); font-weight:700; white-space:nowrap;}
+.sig-tf small{display:block; font-size:calc(9.5px * var(--fs)); color:var(--muted); font-weight:500;}
+.sig-meter{display:flex; flex-direction:column; gap:3px; min-width:0;}
+.sig-counts{font-size:calc(9.5px * var(--fs)); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:1.1em;}
+.sig-rating{font-size:calc(12px * var(--fs)); font-weight:800; white-space:nowrap; text-align:right; min-width:4.5em;}
+.sig-rating.up{color:var(--up);} .sig-rating.down{color:var(--down);} .sig-rating.flat{color:var(--muted);}
+.sig-note{font-size:calc(10px * var(--fs)); color:var(--muted); margin-top:8px; line-height:1.5;}
+/* 폰 폭에서는 두 장을 위아래로 */
+@media (max-width: 420px){
+  .coin-signals{grid-template-columns:minmax(0, 1fr);}
+}
+
+/* "거래소 ↗" 버튼 + 말풍선 */
+:root{--link-blue:#4C8DFF;}
+body.light-theme{--link-blue:#2563EB;}
+.ex-link-wrap{position:relative; flex-shrink:0;}
+.ex-link-btn{
+  display:inline-flex; align-items:center; gap:3px;
+  padding:5px 9px; border:1px solid var(--link-blue); border-radius:8px; background:none;
+  color:var(--link-blue); font:inherit; font-size:calc(12px * var(--fs)); font-weight:700; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.ex-link-btn:active{opacity:.6;}
+.ex-link-btn svg{width:calc(11px * var(--fs)); height:calc(11px * var(--fs)); fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;}
+.ex-pop{
+  position:absolute; top:calc(100% + 8px); right:-40px; z-index:5; min-width:170px;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:6px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.45);
+}
+/* 말풍선 꼬리 — 버튼 쪽을 가리킨다 */
+.ex-pop::before{
+  content:""; position:absolute; top:-6px; right:62px; width:10px; height:10px;
+  background:var(--panel); border-left:1px solid var(--line); border-top:1px solid var(--line); transform:rotate(45deg);
+}
+.ex-pop a{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 10px; border-radius:8px; color:var(--text); text-decoration:none;
+  font-size:calc(13px * var(--fs)); font-weight:600;
+}
+.ex-pop a:active, .ex-pop a:hover{background:var(--panel-2);}
+.ex-pop a .ex-sub{font-size:calc(10.5px * var(--fs)); color:var(--muted); font-weight:500;}
+.ex-pop .ex-note{font-size:calc(10px * var(--fs)); color:var(--muted); padding:6px 10px 4px; border-top:1px solid var(--line); margin-top:4px;}
+
 /* 페이지가 떠 있는 동안 뒤의 목록이 같이 스크롤되지 않게 */
 body.coin-page-open{overflow:hidden;}
 .coin-page #tvChartContainer{height:clamp(320px, calc(100vh - 220px), 560px);}
@@ -539,6 +601,12 @@ body.coin-page-open{overflow:hidden;}
 .g-wick{stroke-width:1;}
 .g-wick.up{stroke:var(--up);}
 .g-wick.down{stroke:var(--down);}
+/* 이동평균선 — 봉·가격선보다 가늘게 */
+.g-ma{fill:none; stroke-width:1.2; stroke-linejoin:round; opacity:.9;}
+.ma-legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:calc(10.5px * var(--fs)); color:var(--muted);}
+.ma-item{display:inline-flex; align-items:center; gap:4px; white-space:nowrap;}
+.ma-item i{width:10px; height:2px; border-radius:1px; display:inline-block;}
+.ma-item b{font-family:var(--mono); font-weight:600; color:var(--text);}
 /* 거래량 막대 — 가격 봉보다 흐리게 깔아 눈이 가격에 먼저 가게 */
 .g-vol{opacity:0.45;}
 .g-vol.up{fill:var(--up);}

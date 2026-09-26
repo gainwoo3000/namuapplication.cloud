@@ -477,7 +477,22 @@ function candleSourcesFor(c){
 }
 
 // 반환: { source:"binance", quote:"USD"|"KRW", candles:[...] } — 전부 실패하면 null
-export async function fetchCoinCandles(c, days){
+// 같은 코인·기간을 여러 곳(차트, 52주 카드, 기술적 지표)이 거의 동시에 부르므로 잠깐 같은 결과를 나눠 쓴다.
+// 55초 — 차트의 "봉이 새로 생겼으면 다시 받기"(최소 60초 간격)를 가로막지 않는 선.
+const candleMemo = new Map(); // "SYM:days" -> { at, promise }
+const CANDLE_MEMO_MS = 55000;
+
+export function fetchCoinCandles(c, days){
+  const key = (c.symbol || "").toUpperCase() + ":" + days;
+  const hit = candleMemo.get(key);
+  if(hit && Date.now() - hit.at < CANDLE_MEMO_MS) return hit.promise;
+  const promise = fetchCoinCandlesFresh(c, days);
+  candleMemo.set(key, { at: Date.now(), promise });
+  promise.then(res => { if(!res) candleMemo.delete(key); }); // 실패는 붙들지 않는다 — 곧바로 다시 시도할 수 있게
+  return promise;
+}
+
+async function fetchCoinCandlesFresh(c, days){
   const spec = CANDLE_SPEC[days] || CANDLE_SPEC[1];
   const sym = (c.symbol || "").toUpperCase();
   if(!sym) return null;
