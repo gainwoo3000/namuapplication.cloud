@@ -412,9 +412,31 @@ const CANDLE_FETCHERS = {
     if(!r.ok) return null;
     const j = await r.json();
     if(j.status !== "0000" || !Array.isArray(j.data)) return null;
-    return j.data.slice(-spec.n).map(k => ({ t: +k[0] / 1000, o: +k[1], c: +k[2], h: +k[3], l: +k[4], v: +k[5] }));
+    const rows = j.data.slice(-spec.n).map(k => ({ t: +k[0] / 1000, o: +k[1], c: +k[2], h: +k[3], l: +k[4], v: +k[5] }));
+    return spec.week ? toWeekly(rows) : rows;
   }
 };
+
+// 일봉 -> 주봉. 다른 거래소 주봉과 같게 월요일(UTC) 시작으로 끊는다.
+// 1970-01-01이 목요일이라 4일을 빼면 월요일 기준 주 번호가 된다.
+function toWeekly(days){
+  const out = [];
+  let cur = null, curWeek = null;
+  for(const k of days){
+    const week = Math.floor((k.t - 4 * 86400) / (7 * 86400));
+    if(week !== curWeek){
+      cur = { t: week * 7 * 86400 + 4 * 86400, o: k.o, h: k.h, l: k.l, c: k.c, v: k.v || 0 };
+      curWeek = week;
+      out.push(cur);
+    }else{
+      cur.h = Math.max(cur.h, k.h);
+      cur.l = Math.min(cur.l, k.l);
+      cur.c = k.c;
+      cur.v += k.v || 0;
+    }
+  }
+  return out;
+}
 
 const CANDLE_QUOTE = { binance:"USD", okx:"USD", bybit:"USD", upbit:"KRW", bithumb:"KRW" };
 

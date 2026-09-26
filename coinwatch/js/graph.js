@@ -59,7 +59,8 @@ export function niceTicks(lo, hi, target){
   const out = [];
   // 부동소수 오차로 마지막 눈금이 빠지는 걸 막으려고 아주 작은 여유를 둔다
   for(let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step){
-    out.push(v);
+    // 0 근처는 부동소수 오차로 -0.0000001 같은 값이 되어 "$-0"으로 찍힌다 — 딱 0으로 맞춘다
+    out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
     if(out.length > 40) break; // 방어 (비정상적인 범위에서 무한히 도는 것 방지)
   }
   return out;

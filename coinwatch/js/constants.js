@@ -1,6 +1,6 @@
 // 앱 버전 — 코드를 고칠 때마다 손으로 올린다. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
-export const APP_VERSION = "v.260926.1626";
+export const APP_VERSION = "v.260926.1659";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).
 // 바이낸스 응답이 실패하면 CoinGecko(키 없는 공개 API, 분당 호출 제한 있음)로 자동 대체.
@@ -37,6 +37,10 @@ export const ALIAS_MAP = {
   USDC: ["유에스디코인", "USD코인"]
 };
 
+// "전체" 기간 버튼의 days 값. 실제 일수가 아니라 표식이다 — 1년(365)보다 크기만 하면
+// 날짜 라벨 규칙(fmtStamp: 30일 넘으면 연.월.일)이 그대로 맞는다.
+export const ALL_DAYS = 99999;
+
 // 코인 차트의 기간 버튼. days는 라벨용이고, 실제 요청은 거래소마다 규격이 달라서
 // 아래 CANDLE_SPEC에 따로 적어둔다.
 export const COIN_RANGES = [
@@ -44,7 +48,8 @@ export const COIN_RANGES = [
   { days: 7,   label: "1주"   },
   { days: 30,  label: "1개월" },
   { days: 90,  label: "3개월" },
-  { days: 365, label: "1년"   }
+  { days: 365, label: "1년"   },
+  { days: ALL_DAYS, label: "전체" }
 ];
 
 // 기간 -> 거래소별 봉 규격. 같은 "1개월"이라도 4시간봉을 주는 곳과 6시간봉밖에 없는 곳이
@@ -52,12 +57,16 @@ export const COIN_RANGES = [
 //   binance/okx/bybit: {i: 봉 크기, n: 개수}
 //   upbit:  {p: /candles/ 뒤 경로, n: 개수}  — 한 번에 최대 200개
 //   bithumb: {i: 봉 크기, n: 꼬리에서 잘라 쓸 개수} — 전체 이력을 통째로 주므로 잘라서 쓴다
+//            week:true면 받은 일봉을 주봉으로 묶는다 (빗썸엔 주봉이 없다)
+// "전체"는 주봉을 거래소가 한 번에 주는 만큼 받는다: 바이낸스·바이빗 1000개(≈19년이라 사실상 전체),
+// OKX 300개(≈5.7년), 업비트 200개(≈3.8년 — 워커가 한 번에 200개까지만 중계한다), 빗썸은 일봉 전체.
 export const CANDLE_SPEC = {
   1:   { binance:{i:"15m",n:96 },  okx:{i:"15m",n:96 },  bybit:{i:"15", n:96 },  upbit:{p:"minutes/15", n:96 },  bithumb:{i:"30m",n:48 } },
   7:   { binance:{i:"1h", n:168},  okx:{i:"1H", n:168},  bybit:{i:"60", n:168},  upbit:{p:"minutes/60", n:168},  bithumb:{i:"1h", n:168} },
   30:  { binance:{i:"4h", n:180},  okx:{i:"4H", n:180},  bybit:{i:"240",n:180},  upbit:{p:"minutes/240",n:180},  bithumb:{i:"6h", n:120} },
   90:  { binance:{i:"12h",n:180},  okx:{i:"12H",n:180},  bybit:{i:"720",n:180},  upbit:{p:"days",       n:90 },  bithumb:{i:"12h",n:180} },
-  365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} }
+  365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} },
+  [ALL_DAYS]: { binance:{i:"1w",n:1000}, okx:{i:"1W",n:300}, bybit:{i:"W",n:1000}, upbit:{p:"weeks",n:200}, bithumb:{i:"24h",n:Infinity,week:true} }
 };
 
 export const CANDLE_SOURCE_LABEL = {
@@ -70,7 +79,8 @@ export const TV_RANGE_MAP = {
   7:   { interval: "60",  range: "5D"  },
   30:  { interval: "240", range: "1M"  },
   90:  { interval: "720", range: "3M"  },
-  365: { interval: "D",   range: "12M" }
+  365: { interval: "D",   range: "12M" },
+  [ALL_DAYS]: { interval: "W", range: "ALL" }
 };
 
 // 차트가 의미 없는(항상 ≈$1) 스테이블코인들 — 어차피 선이 $1에 납작하게 붙는다
