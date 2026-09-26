@@ -329,7 +329,7 @@ body.chart-open main{padding-bottom:60vh;}
   transform:translateX(100%); visibility:hidden;
   transition:transform .3s cubic-bezier(.4,0,.2,1), visibility 0s linear .3s;
   /* 페이지는 세로 공간이 넉넉하니 차트를 키운다 */
-  --coin-graph-h:clamp(240px, calc(100vh - 360px), 460px);
+  --coin-graph-h:clamp(210px, 38vh, 320px);
 }
 .coin-page.open{
   transform:none; visibility:visible;
@@ -522,10 +522,13 @@ body.coin-page-open{overflow:hidden;}
 .fx-graph{min-height:var(--fx-graph-h);}
 /* touch-action:none — 두 손가락으로 확대할 때 화면이 같이 줌되지 않게.
    확대·이동 제스처는 SVG가 아니라 이 칸에 걸려 있다(SVG는 다시 그릴 때마다 갈아끼워진다) */
-.coin-graph{min-height:var(--coin-graph-h); touch-action:none;
+/* pan-y: 차트 위에서 위아래로 쓸면 페이지가 스크롤된다(코인 상세 페이지를 내려 볼 수 있게).
+   옆으로 끌기·꾹 누르기·두 손가락은 bindZoomPan이 받고, 그때는 스크롤을 막는다(graph.js). */
+.coin-graph{min-height:var(--coin-graph-h); touch-action:pan-y;
   /* 꾹 눌러 값을 훑을 때 iOS의 글자 선택·돋보기·길게 누르기 메뉴가 끼어들지 않게 */
   -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
-.g-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
+.g-svg{display:block; touch-action:none;}
+.coin-graph .g-svg{touch-action:pan-y;} /* 위 .coin-graph와 같은 이유 — 안쪽 SVG가 none이면 그게 이긴다 */ /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
 .g-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
 .g-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}
 .g-axis{fill:var(--muted); font-size:10px; font-family:var(--mono);}

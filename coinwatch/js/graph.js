@@ -163,8 +163,9 @@ export function bindScrub(svg, getGeom, label, opts){
   svg.addEventListener("pointerup", e => { if(!skip(e)) end(); });
   svg.addEventListener("pointercancel", e => { if(!skip(e)) end(); });
   svg.addEventListener("pointerleave", e => { if(!skip(e)) end(); });
-  // 그래프를 훑는 동안 화면이 같이 스크롤되지 않게
-  svg.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  // 그래프를 훑는 동안 화면이 같이 스크롤되지 않게. 손가락을 bindZoomPan이 맡는 차트(mouseOnly)는
+  // 거기서 필요할 때만 막는다 — 여기서 무조건 막으면 차트 위에서 페이지를 스크롤할 수 없다.
+  if(!mouseOnly) svg.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
   return control;
 }
 
@@ -207,7 +208,8 @@ function haptic(ms){
 }
 
 // 손가락과 마우스에서 기대하는 동작이 서로 달라서 나눠 맡긴다.
-//   손가락: 한 손가락으로 끌면 이동, 두 손가락으로 벌리면 확대(같이 밀면 이동).
+//   손가락: 한 손가락으로 옆으로 끌면 이동, 위아래로 쓸면 페이지 스크롤(차트는 관여 안 함),
+//           두 손가락으로 벌리면 확대(같이 밀면 이동).
 //           꾹 누르면(LONG_PRESS_MS) 값 훑기 — 십자선이 손가락보다 조금 위에 뜨고, 그 뒤로는
 //           손가락 바로 아래가 아니라 손가락이 움직인 만큼 따라간다(트랙패드처럼).
 //           손을 떼도 십자선은 남는다. 그 상태에서 다시 끌면 이동이 아니라 십자선이 이어서
@@ -274,6 +276,13 @@ export function bindZoomPan(el, h){
     h.zoom(Math.pow(1.0016, -e.deltaY), frac(e.clientX));
   }, { passive: false });
 
+  // 차트가 손가락을 쓰는 동안(옆으로 끌기·훑기·두 손가락)에는 페이지 스크롤을 막는다.
+  // 그 외(누른 직후 판단 전, 위아래 쓸기)에는 막지 않아 차트 위에서도 페이지가 스크롤된다.
+  // pointermove가 touchmove보다 먼저 오므로 여기서 보는 mode는 이미 이번 움직임으로 정해진 값이다.
+  el.addEventListener("touchmove", e => {
+    if(active.size >= 2 || (one && (one.mode === "pan" || one.mode === "scrub"))) e.preventDefault();
+  }, { passive: false });
+
   // 꾹 누를 때 뜨는 길게 누르기 메뉴(이미지 저장 등)를 막는다
   el.addEventListener("contextmenu", e => { if(one || active.size) e.preventDefault(); });
 
@@ -325,6 +334,14 @@ export function bindZoomPan(el, h){
       const dx = e.clientX - one.lx, dy = e.clientY - one.ly;
       one.lx = e.clientX; one.ly = e.clientY;
       const moved = Math.hypot(e.clientX - one.sx, e.clientY - one.sy) > TAP_SLOP;
+      // 누르자마자 위아래로 쓸었으면 페이지 스크롤이다 — 차트는 손을 떼고 브라우저에 넘긴다
+      // (.coin-graph의 touch-action:pan-y라 브라우저가 스크롤하고 곧 pointercancel을 보낸다)
+      if((one.mode === "wait" || one.mode === "tap") && moved &&
+         Math.abs(e.clientY - one.sy) > Math.abs(e.clientX - one.sx)){
+        clearTimeout(one.timer);
+        one.mode = "done";
+        return;
+      }
       if(one.mode === "wait"){
         if(!moved) return;
         clearTimeout(one.timer);

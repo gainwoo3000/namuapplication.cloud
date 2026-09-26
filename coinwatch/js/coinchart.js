@@ -218,15 +218,20 @@ function totalPoints(){
   return e ? e.candles.length : 0;
 }
 
+// 오른쪽 여백: 최신 봉을 왼쪽으로 밀어 앞(미래) 쪽을 비워 둘 수 있다. 보이는 폭의 절반까지.
+const RIGHT_PAD_MAX = 0.5;
+
 function setView(i0, i1){
   const n = totalPoints();
-  const span = i1 - i0;
-  if(!n || span >= n - 1 - 1e-6){ view = null; }   // 전체를 덮으면 확대 해제로 친다
-  else{
-    if(i0 < 0){ i0 = 0; i1 = span; }
-    if(i1 > n - 1){ i1 = n - 1; i0 = i1 - span; }
-    view = { i0, i1 };
-  }
+  let span = i1 - i0;
+  if(!n){ view = null; syncResetBtn(); scheduleDraw(); return; }
+  span = Math.min(span, n - 1);                  // 전체보다 넓게는 못 본다
+  const maxI1 = n - 1 + span * RIGHT_PAD_MAX;    // 오른쪽은 폭의 절반까지 빈 칸
+  if(i0 < 0){ i0 = 0; i1 = span; }
+  if(i1 > maxI1){ i1 = maxI1; i0 = i1 - span; }
+  if(i1 < i0 + span) i1 = i0 + span;
+  // 전체를 덮고 오른쪽 빈 칸도 없으면 확대 해제(전체 보기)로 친다
+  view = (span >= n - 1 - 1e-6 && i1 <= n - 1 + 1e-6) ? null : { i0, i1 };
   syncResetBtn();
   scheduleDraw();
 }
@@ -243,10 +248,13 @@ function zoomView(factor, frac){
   setView(start, start + next);
 }
 
+// 전체 보기에서도 민다 — 왼쪽으로 밀면 최신 봉 오른쪽에 빈 칸이 생긴다
 function panView(frac){
-  if(!view) return;                              // 전체 보기에서는 밀 데가 없다
-  const span = view.i1 - view.i0;
-  setView(view.i0 + span * frac, view.i1 + span * frac);
+  const n = totalPoints();
+  if(!n) return;
+  const { i0, i1 } = view || { i0: 0, i1: n - 1 };
+  const span = i1 - i0;
+  setView(i0 + span * frac, i1 + span * frac);
 }
 
 export function resetZoom(){
@@ -358,8 +366,11 @@ function ticksFor(bot, top, target, cur){
 
 // 소수 순번 위치의 시각 (확대 경계가 봉 사이에 걸칠 때 쓴다)
 function tAtIndex(all, f){
-  const a = Math.max(0, Math.min(all.length - 1, Math.floor(f)));
-  const b = Math.min(all.length - 1, a + 1);
+  const last = all.length - 1;
+  // 마지막 봉보다 오른쪽(빈 칸)은 봉 간격으로 앞으로 늘려 잡는다
+  if(f > last) return all[last].t + (f - last) * (medianGap(all) || 1);
+  const a = Math.max(0, Math.min(last, Math.floor(f)));
+  const b = Math.min(last, a + 1);
   return all[a].t + (all[b].t - all[a].t) * (f - a);
 }
 
@@ -448,7 +459,7 @@ function draw(res){
       ${withVol ? volumeMarkup(pts, vis, xs, padL, padT + ih + volGap, iw, volH, iw / (span + 1), candle) : ""}
       ${candle ? `<g class="cc-ohlc">${ohlcMarkup(padL, W)}</g>` : ""}
       <text class="g-axis" x="${padL}" y="${H - 6}">${fmtStamp(vis[0].t)}</text>
-      <text class="g-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(vis[vis.length - 1].t)}</text>
+      <text class="g-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(Math.max(vis[vis.length - 1].t, tEnd))}</text>
       ${crossMarkup(color, padT, ih + volGap + volH, padL, iw)}
     </svg>`;
 
@@ -508,7 +519,7 @@ function candleMarkup(pts, xs, yAt, slot){
 }
 
 // ---------- 거래량 ----------
-const VOL_RATIO = 0.2;           // 거래량 칸이 차지하는 비율 (가격+거래량 전체 높이 중)
+const VOL_RATIO = 0.14;          // 거래량 칸이 차지하는 비율 (가격+거래량 전체 높이 중)
 
 // 막대 높이는 보이는 구간의 최대 거래량 기준. 색은 그 봉이 올랐는지(캔들이면 시작가 대비,
 // 선이면 전 봉 대비)를 따른다. 오른쪽 위에 보이는 구간의 최대 거래량을 적는다.
