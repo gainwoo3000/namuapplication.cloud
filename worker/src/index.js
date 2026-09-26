@@ -22,7 +22,16 @@
 //        원/달러 현재가(야후 meta). 헤더에 찍는 숫자와 그래프가 같은 출처를 보도록 두는 용도.
 //        엣지 캐시 60초.
 //
+//   GET /upbit/krw
+//     -> { "BTC":<원화 현재가>, ... }   업비트 KRW 마켓 전체 현재가. 엣지 캐시 5초.
+//
+//   GET /upbit/candles?unit=<minutes/15|minutes/60|minutes/240|days|weeks>&market=KRW-BTC&count=<1~200>
+//     -> 업비트 캔들 원본 배열 그대로. 엣지 캐시 60초.
+//
 // 왜 필요한가:
+//   - 업비트: Origin 헤더가 붙은(=브라우저) 요청은 "group=origin"이라는 아주 작은 한도로
+//     따로 묶는다. 넘으면 429인데 429에는 CORS 헤더가 없어 브라우저엔 CORS 에러로만 보인다.
+//     서버에서 부르면 Origin이 없어 일반 한도(초당 10회)를 쓴다.
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
 //   - CoinGecko: 키 없는 공개 API는 공유 IP 기준으로 분당 몇 콜만 허용 → 브라우저에서 직접
 //     부르면 조금만 몰려도 429(그리고 429에는 CORS 헤더가 없어 fetch 자체가 실패)한다.
@@ -47,6 +56,8 @@ const FX_RANGE = {
   365: { range: "1y",  interval: "1h" },
 };
 const FX_MAX_POINTS = 500;
+const UPBIT = "https://api.upbit.com/v1";
+const UPBIT_CANDLE_UNITS = new Set(["minutes/15", "minutes/60", "minutes/240", "days", "weeks"]);
 
 export default {
   async fetch(request, env, ctx) {
@@ -67,6 +78,8 @@ export default {
     if (url.pathname === "/cg/search") return handleCgSearch(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/history") return handleFxHistory(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/rate") return handleFxRate(env, ctx, openCors("*"));
+    if (url.pathname === "/upbit/krw") return handleUpbitKrw(ctx, openCors("*"));
+    if (url.pathname === "/upbit/candles") return handleUpbitCandles(url, ctx, openCors("*"));
     return json({ error: "not_found" }, 404, openCors("*"));
   },
 };
@@ -296,6 +309,74 @@ async function handleFxRate(env, ctx, cors) {
     const lkg = await cache.match(lkgKey);
     if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
     // 502면 클라이언트가 manana/ECB 폴백으로 넘어간다
+    return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
+  }
+}
+
+// ---------- 업비트 ----------
+// 사용자마다 다른 코인 묶음으로 /ticker?markets=를 부르면 캐시가 안 맞는다.
+// KRW 마켓 전체를 한 번에 받아 심볼->가격 맵으로 캐시하고, 고르는 건 클라이언트가 한다.
+// 이 맵의 키가 곧 업비트 상장 목록이라 /market/all 도 따로 부를 필요가 없다.
+async function handleUpbitKrw(ctx, cors) {
+  const cache = caches.default;
+  const key = new Request("https://cache.internal/upbit-krw/v1");
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
+
+  const lkgKey = new Request("https://cache.internal/upbit-krw/lkg1");
+  try {
+    const r = await fetch(`${UPBIT}/ticker/all?quote_currencies=KRW`, { headers: { accept: "application/json" } });
+    if (!r.ok) throw new Error("upbit http " + r.status);
+    const out = {};
+    for (const t of await r.json()) {
+      if (t && typeof t.market === "string" && typeof t.trade_price === "number") {
+        out[t.market.replace("KRW-", "")] = t.trade_price;
+      }
+    }
+    if (Object.keys(out).length === 0) throw new Error("upbit empty");
+
+    const body = JSON.stringify(out);
+    const resp = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=5" },
+    });
+    const lkg = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
+    });
+    ctx.waitUntil(cache.put(key, resp.clone()));
+    ctx.waitUntil(cache.put(lkgKey, lkg));
+    return withHeaders(resp, { ...cors, "x-cache": "MISS" });
+  } catch (err) {
+    const lkg = await cache.match(lkgKey);
+    if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
+    return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
+  }
+}
+
+async function handleUpbitCandles(url, ctx, cors) {
+  const unit = url.searchParams.get("unit") || "";
+  const market = url.searchParams.get("market") || "";
+  const count = Math.min(200, Math.max(1, Number(url.searchParams.get("count")) || 200));
+  // 아무 경로나 중계하지 않게 단위와 마켓 모양을 고정한다
+  if (!UPBIT_CANDLE_UNITS.has(unit) || !/^KRW-[A-Z0-9]{1,20}$/.test(market)) {
+    return json({ error: "bad_request" }, 400, cors);
+  }
+
+  const cache = caches.default;
+  const key = new Request(`https://cache.internal/upbit-candles/v1/${unit}/${market}/${count}`);
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
+
+  try {
+    const r = await fetch(`${UPBIT}/candles/${unit}?market=${market}&count=${count}`, {
+      headers: { accept: "application/json" },
+    });
+    if (!r.ok) return json({ error: "upstream_http_" + r.status }, 502, cors);
+    const resp = new Response(await r.text(), {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
+    });
+    ctx.waitUntil(cache.put(key, resp.clone()));
+    return withHeaders(resp, { ...cors, "x-cache": "MISS" });
+  } catch (err) {
     return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
 }

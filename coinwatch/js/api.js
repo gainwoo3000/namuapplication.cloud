@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
+import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, UPBIT_KRW_PROXY, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -219,33 +219,26 @@ export async function fetchBybitMap(){
 }
 
 // ---------- 국내 거래소(업비트/빗썸/코인원) ----------
-async function getUpbitMarketSet(){
-  if(state.upbitMarketSet) return state.upbitMarketSet;
+// 업비트는 브라우저(Origin 헤더가 붙은) 요청을 아주 작은 한도로 묶고, 넘으면 CORS 헤더 없는
+// 429를 준다 → 워커를 거쳐 부른다. 워커가 KRW 마켓 전체 가격을 주므로 그 키가 곧 상장 목록이다.
+let upbitMapCache = { data: null, at: 0 };
+async function getUpbitMap(){
+  if(upbitMapCache.data && Date.now() - upbitMapCache.at < EX_MAP_TTL) return upbitMapCache.data;
   try{
-    const res = await fetch("https://api.upbit.com/v1/market/all");
+    const res = await fetch(`${UPBIT_KRW_PROXY}?t=${Math.floor(Date.now() / 5000)}`);
+    if(!res.ok) throw new Error("upbit proxy http " + res.status);
     const data = await res.json();
-    state.upbitMarketSet = new Set(
-      data.filter(m=>m.market.startsWith("KRW-")).map(m=>m.market.replace("KRW-",""))
-    );
-  }catch(e){
-    state.upbitMarketSet = new Set();
-  }
-  return state.upbitMarketSet;
+    upbitMapCache = { data, at: Date.now() };
+    state.upbitMarketSet = new Set(Object.keys(data));
+    return data;
+  }catch(e){ return upbitMapCache.data || {}; }
 }
 
 export async function fetchUpbitPricesFor(symbolsUpper){
-  const set = await getUpbitMarketSet();
-  const valid = [...new Set(symbolsUpper.filter(s=>set.has(s)))];
-  if(valid.length === 0) return {};
-  try{
-    const markets = valid.map(s=>"KRW-"+s).join(",");
-    const res = await fetch(`https://api.upbit.com/v1/ticker?markets=${markets}`);
-    if(!res.ok) return {};
-    const data = await res.json();
-    const out = {};
-    data.forEach(t=>{ out[t.market.replace("KRW-","")] = t.trade_price; });
-    return out;
-  }catch(e){ return {}; }
+  const map = await getUpbitMap();
+  const out = {};
+  symbolsUpper.forEach(s=>{ if(map[s] != null) out[s] = map[s]; });
+  return out;
 }
 
 export async function fetchBithumbPrices(){
@@ -389,7 +382,7 @@ const CANDLE_FETCHERS = {
   },
   // 업비트: 최신 -> 오래된, 객체. 값은 원화라 quote가 KRW가 된다
   async upbit(sym, spec){
-    const r = await fetch(`https://api.upbit.com/v1/candles/${spec.p}?market=KRW-${sym}&count=${spec.n}`);
+    const r = await fetch(`${UPBIT_CANDLES_PROXY}?unit=${spec.p}&market=KRW-${sym}&count=${spec.n}`);
     if(!r.ok) return null;
     const rows = await r.json();
     if(!Array.isArray(rows)) return null;
