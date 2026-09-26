@@ -265,16 +265,19 @@
   <div class="src-note" id="fxSrcNote"></div>
 </div>
 
-<div class="chart-panel" id="chartPanel" style="display:none;">
-  <div class="chart-head">
-    <div>
+<!-- 코인 상세 페이지. 코인을 누르면 오른쪽에서 밀려 들어오는 전체 화면 페이지(SPA — 주소는 #coin/<id>).
+     목록 위에 겹쳐 띄우므로 닫으면 보던 스크롤 자리 그대로 돌아온다. 여닫기·방문 기록은 chart.js -->
+<div class="coin-page" id="chartPanel" aria-hidden="true">
+ <div class="coin-page-inner">
+  <div class="coin-page-bar">
+    <button type="button" class="coin-back" id="chartCloseBtn" aria-label="뒤로">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="coin-page-title">
       <div class="name" id="chartCoinName">-</div>
       <div class="panel-sub" id="chartCoinSub"></div>
     </div>
-    <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
-      <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
-      <div class="chart-close" id="chartCloseBtn">✕</div>
-    </div>
+    <div class="price-big"><span class="roll-wrap" id="chartCoinPrice"></span></div>
   </div>
 
   <!-- 평소 화면: coinchart.js가 SVG로 직접 그리는 차트 -->
@@ -305,6 +308,7 @@
   </div>
 
   <div class="src-note" id="chartSrcNote"></div>
+ </div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

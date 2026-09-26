@@ -1,5 +1,7 @@
-// 코인을 누르면 뜨는 하단(넓은 화면에서는 오른쪽) 패널.
-// 패널 안에는 화면이 둘 있다:
+// 코인을 누르면 오른쪽에서 밀려 들어오는 코인 상세 페이지.
+// 페이지 이동 없이(SPA) 목록 위에 겹쳐 띄우고, 방문 기록에 #coin/<id>를 한 칸 쌓는다 —
+// 그래서 폰의 뒤로 가기·iOS 가장자리 스와이프로도 닫히고, 그 주소로 바로 열 수도 있다.
+// 페이지 안에는 화면이 둘 있다:
 //   1) 자체 차트 — coinchart.js가 SVG로 직접 그린다. 테마·글자 크기·표시 통화가 그대로 먹는다.
 //   2) 트레이딩뷰 상세 — 지표·드로잉툴이 필요할 때만 "상세"로 연다.
 // 트레이딩뷰 스크립트(tv.js)는 상세를 처음 누를 때 받아온다. 예전처럼 index.html에서
@@ -33,18 +35,47 @@ export function updateChartPrice(){
   flashOnChange(el.parentElement, c.id + ":" + state.displayCurrency, text, num);
 }
 
-// 시세/포트폴리오 어느 탭에서든 코인을 누르면 차트 패널이 뜬다.
-export async function selectCoin(id){
-  const c = state.coinsList.find(x=>x.id===id) || findCoinAnywhere(id);
-  if(!c) return;
-  state.selectedCoinId = id;
-  closeFxChart(); // 환율 그래프와 같은 자리를 쓰므로 둘 중 하나만 열린다
+// ---------- 페이지 여닫기 ----------
+const page = document.getElementById("chartPanel");
+const COIN_HASH = /^#coin\/(.+)$/;
+
+function showPage(){
+  if(page.classList.contains("open")) return;
+  page.scrollTop = 0;
+  page.setAttribute("aria-hidden", "false");
+  document.body.classList.add("coin-page-open");
+  page.classList.add("open");
+}
+
+function hidePage(){
+  state.selectedCoinId = null;
+  page.classList.remove("open");
+  page.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("coin-page-open");
+  closeCoinChart();
+  teardownTv();   // iframe은 놓아준다. 다음에 열 때 다시 만든다 (tvOpen은 그대로 둔다)
   renderGrid();
   renderMarketGrid();
-  const panel = document.getElementById("chartPanel");
-  panel.style.display = "block";
-  document.body.classList.add("chart-open");
+}
+
+// 시세/관심 코인/포트폴리오 어느 탭에서든 코인을 누르면 상세 페이지가 뜬다.
+// fromHistory: 뒤로·앞으로 가기나 주소(#coin/<id>)로 여는 경우 — 방문 기록을 또 쌓지 않는다.
+export async function selectCoin(id, fromHistory){
+  const c = state.coinsList.find(x=>x.id===id) || findCoinAnywhere(id);
+  if(!c) return false;
+  if(!fromHistory){
+    const url = "#coin/" + encodeURIComponent(id);
+    // 이미 페이지가 떠 있으면(그럴 일은 드물지만) 기록을 갈아끼워 뒤로 한 번에 목록으로 돌아가게
+    // pushed: 이 칸은 목록 위에 우리가 쌓은 것 — 닫을 때 뒤로 가기로 돌아가도 된다는 표시
+    if(history.state && history.state.coinPage) history.replaceState({ coinPage: id, pushed: history.state.pushed }, "", url);
+    else history.pushState({ coinPage: id, pushed: true }, "", url);
+  }
+  state.selectedCoinId = id;
+  closeFxChart(); // 환율 그래프가 떠 있었으면 닫는다
+  renderGrid();
+  renderMarketGrid();
   document.getElementById("chartCoinName").textContent = `${c.name} (${c.symbol.toUpperCase()})`;
+  showPage();
   if(state.displayCurrency === "krw" && !state.usdKrw) await ensureUsdKrw();
   // 차트가 그려지기 전 잠깐 채워두는 값. 곧 차트의 마지막 점으로 덮인다.
   document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtDisplayPrice(c.current_price) + '</span>';
@@ -58,18 +89,43 @@ export async function selectCoin(id){
     showSelfChart();
     openCoinChart(c);
   }
+  return true;
 }
 
+// 닫기(뒤로 버튼, 관심 코인에서 지운 코인 등). 우리가 쌓은 기록이 있으면 뒤로 가기로 닫아서
+// 방문 기록과 화면이 어긋나지 않게 한다 — 실제로 닫는 건 popstate에서 hidePage가 한다.
 export function closeChart(){
-  state.selectedCoinId = null;
-  document.getElementById("chartPanel").style.display = "none";
-  closeCoinChart();
-  teardownTv();   // iframe은 놓아준다. 다음에 열 때 다시 만든다 (tvOpen은 그대로 둔다)
-  document.body.classList.remove("chart-open");
-  renderGrid();
-  renderMarketGrid();
+  if(!state.selectedCoinId && !page.classList.contains("open")) return;
+  if(history.state && history.state.pushed) history.back();
+  else{
+    // 주소로 바로 열어 아래에 목록 칸이 없는 경우 — 여기서 뒤로 가면 사이트 밖으로 나가 버린다.
+    // 주소의 #coin/… 만 지우고 닫는다
+    if(COIN_HASH.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+    hidePage();
+  }
 }
 document.getElementById("chartCloseBtn").addEventListener("click", closeChart);
+
+window.addEventListener("popstate", e=>{
+  const id = e.state && e.state.coinPage;
+  if(id) selectCoin(id, true);         // 앞으로 가기로 다시 온 경우
+  else if(page.classList.contains("open")) hidePage();
+});
+
+// 주소창에 #coin/<id>를 직접 넣은 경우(문서는 그대로라 새로 불러오지 않는다)
+window.addEventListener("hashchange", ()=> openCoinFromHash());
+
+// 주소가 #coin/<id>로 열렸으면 그 코인 페이지를 띄운다. 시세 목록이 도착한 뒤에 불러야
+// 그 코인을 찾을 수 있다(main.js가 첫 로딩 뒤 부른다).
+export function openCoinFromHash(){
+  const m = location.hash.match(COIN_HASH);
+  if(!m || page.classList.contains("open")) return;
+  const id = decodeURIComponent(m[1]);
+  selectCoin(id, true).then(ok=>{
+    // 이 기록 칸에 표시를 달아 둬야 닫을 때·새로고침 뒤에도 같은 규칙으로 움직인다
+    if(ok) history.replaceState({ coinPage: id }, "", location.href);
+  });
+}
 
 // ---------- 두 화면 전환 ----------
 function showSelfChart(){

@@ -295,7 +295,7 @@ body.chart-open main{padding-bottom:60vh;}
   color:var(--muted); font-size:calc(18px * var(--fs)); font-weight:700; cursor:pointer; line-height:1;
   padding:9px; flex-shrink:0;
 }
-.chart-head .price-big{
+.chart-head .price-big, .coin-page-bar .price-big{
   font-family:var(--mono); font-size:calc(18px * var(--fs)); font-weight:700;
   /* 깜빡임 배경이 글자에 딱 붙지 않게 여백을 두되, 음수 마진으로 자리는 그대로 */
   border-radius:8px; padding:2px 8px; margin:-2px -8px;
@@ -305,6 +305,49 @@ body.chart-open main{padding-bottom:60vh;}
 .price-big.flash-down{animation:chgFlashDown 1.4s ease-out;}
 .src-note{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:8px;}
 #tvChartContainer{height:320px; border-radius:8px; overflow:hidden;}
+
+/* ---------- 코인 상세 페이지 ----------
+   목록 위에 겹쳐 뜨는 전체 화면 페이지. 오른쪽 바깥(translateX(100%))에 대기하다가 .open이 붙으면
+   미끄러져 들어온다. 닫을 때는 반대로 나간 뒤(transitionend) visibility로 숨긴다 — display:none으로
+   두면 여는 순간 transition이 먹지 않는다.
+   transform만 움직이므로 합성만 다시 한다(목록 행 수백 개를 다시 배치하지 않는다). */
+.coin-page{
+  position:fixed; inset:0; z-index:70; background:var(--bg);
+  overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  transform:translateX(100%); visibility:hidden;
+  transition:transform .3s cubic-bezier(.4,0,.2,1), visibility 0s linear .3s;
+  /* 페이지는 세로 공간이 넉넉하니 차트를 키운다 */
+  --coin-graph-h:clamp(240px, calc(100vh - 360px), 460px);
+}
+.coin-page.open{
+  transform:none; visibility:visible;
+  transition:transform .3s cubic-bezier(.4,0,.2,1), visibility 0s;
+}
+.coin-page-inner{
+  max-width:620px; margin:0 auto; padding:0 14px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+/* 위쪽 막대: [‹ 뒤로] [이름·등락] ....... [가격]. 페이지를 내려도 붙어 있다 */
+.coin-page-bar{
+  position:sticky; top:0; z-index:2; background:var(--bg);
+  display:flex; align-items:center; gap:6px;
+  padding:calc(var(--safe-top) + 8px) 0 10px; margin:0 -14px 10px; padding-left:4px; padding-right:14px;
+  border-bottom:1px solid var(--line);
+}
+.coin-page-title{flex:1; min-width:0;}
+.coin-page-title .name{font-size:calc(16px * var(--fs)); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.coin-back{
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  width:40px; height:40px; padding:0; border:none; background:none; color:var(--text); cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.coin-back:active{opacity:.5;}
+.coin-back svg{width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;}
+/* 페이지가 떠 있는 동안 뒤의 목록이 같이 스크롤되지 않게 */
+body.coin-page-open{overflow:hidden;}
+.coin-page #tvChartContainer{height:clamp(320px, calc(100vh - 220px), 560px);}
+@media (prefers-reduced-motion: reduce){
+  .coin-page, .coin-page.open{transition:none;}
+}
 
 /* 차트 위 도구줄: [기간 버튼들] ......... [라인|캔들] [상세] */
 .chart-tools{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
