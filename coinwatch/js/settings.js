@@ -8,6 +8,9 @@ import { ensureUsdKrw } from "./fx.js";
 import { saveState, storageDiagnostics } from "./persist.js";
 import { loadMarkets } from "./main.js";
 import { revealTopbar } from "./layout.js";
+import { APP_VERSION } from "./constants.js";
+
+document.getElementById("appVersion").textContent = APP_VERSION;
 
 // ---------- 탭 전환 ----------
 // 탭 순서는 마크업 순서를 그대로 따른다 (좌우 스와이프도 이 순서로 넘어감)
