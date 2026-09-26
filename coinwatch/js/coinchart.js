@@ -65,6 +65,7 @@ export function closeCoinChart(){
   geom = null;
   view = null;
   loadSeq++; // 닫는 사이에 도착할 응답은 버린다
+  scrubPos = null;
   document.getElementById("coinGraph").innerHTML = "";
   syncResetBtn();
 }
@@ -260,10 +261,16 @@ function scheduleDraw(){
 // 확대·이동은 SVG가 아니라 그 바깥 칸에 붙인다. SVG는 다시 그릴 때마다 통째로 갈아끼워지는데,
 // 거기에 붙이면 제스처 도중에 리스너와 그 상태(닿아 있는 손가락 목록)가 매 프레임 날아간다.
 const graphBox = document.getElementById("coinGraph");
+// 꾹 누르기 훑기: 십자선 조종기는 SVG마다 새로 생기므로(draw 끝에서 bindScrub) 최신 것을 들고 있고,
+// 훑는 중에 시세 갱신으로 다시 그려지면 새 SVG에서 같은 자리에 십자선을 다시 띄운다.
+let scrubCtl = null;
+let scrubPos = null;             // 꾹 누르기 훑기 중인 십자선 위치(화면 좌표). 아니면 null
 const gestureBusy = bindZoomPan(graphBox, {
   zoom: zoomView,
   pan: panView,
-  reset: resetZoom
+  reset: resetZoom,
+  scrubAt(x, y){ scrubPos = { x, y }; if(scrubCtl) scrubCtl.at(x, y); },
+  scrubEnd(){ scrubPos = null; if(scrubCtl) scrubCtl.hide(); }
 });
 document.getElementById("coinZoomReset").addEventListener("click", resetZoom);
 
@@ -406,13 +413,15 @@ function draw(res){
   renderSrcNote(res, all, vis, conv.cur);
 
   geom = { points: pts, xs, ys, W, H, padL, padT, iw, ih };
-  bindScrub(box.querySelector(".g-svg"), () => geom,
+  scrubCtl = bindScrub(box.querySelector(".g-svg"), () => geom,
     p => `${fmtStamp(p.t, true)}  ${fmtCur(p.c, conv.cur)}`,
     {
       busy: gestureBusy,
+      mouseOnly: true, // 손가락은 bindZoomPan이 맡는다 (한 손가락=이동, 꾹 누르기=훑기)
       // 가로선 높이 -> 그 높이의 가격. yAt의 역산이다.
       yLabel: y => fmtCur(bot + (1 - (y - padT) / ih) * (top - bot), conv.cur)
     });
+  if(scrubPos) scrubCtl.at(scrubPos.x, scrubPos.y);
 }
 
 function lineMarkup(xs, ys, color, padT, ih){

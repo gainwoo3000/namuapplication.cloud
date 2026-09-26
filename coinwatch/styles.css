@@ -43,6 +43,10 @@ body{
   margin:0; background:var(--bg); color:var(--text);
   font-family:var(--sans); -webkit-font-smoothing:antialiased;
 }
+/* 화면 글자는 선택·복사되지 않게. 휴대폰에서 길게 눌렀을 때 뜨는 복사 메뉴(-webkit-touch-callout)도 막는다.
+   검색창·수량 입력칸은 직접 치고 고치는 곳이라 예외로 둔다 */
+body{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+input, textarea{-webkit-user-select:text; user-select:text; -webkit-touch-callout:default;}
 .app{max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
 /* 헤더(코인 검색 포함)를 스크롤해도 화면 맨 위에 고정.
    헤더+탭을 한 덩어리(같은 배경, 중간 경계선 없음)로 둬서 사이가 갈라져 보이지 않게 한다.
@@ -414,7 +418,9 @@ body.chart-open main{padding-bottom:60vh;}
 .fx-graph{min-height:var(--fx-graph-h);}
 /* touch-action:none — 두 손가락으로 확대할 때 화면이 같이 줌되지 않게.
    확대·이동 제스처는 SVG가 아니라 이 칸에 걸려 있다(SVG는 다시 그릴 때마다 갈아끼워진다) */
-.coin-graph{min-height:var(--coin-graph-h); touch-action:none;}
+.coin-graph{min-height:var(--coin-graph-h); touch-action:none;
+  /* 꾹 눌러 값을 훑을 때 iOS의 글자 선택·돋보기·길게 누르기 메뉴가 끼어들지 않게 */
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
 .g-svg{display:block; touch-action:none;} /* touch-action:none — 그래프를 훑을 때 화면이 따라 스크롤되지 않게 */
 .g-line{fill:none; stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round;}
 .g-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 4;}

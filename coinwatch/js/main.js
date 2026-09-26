@@ -18,6 +18,13 @@ import "./swipe.js"; // 좌우 스와이프로 탭 넘기기
 import "./chart.js";
 import "./fxchart.js"; // 헤더 환율 버튼 -> 원/달러 추이 그래프
 
+// 글자 복사 막기. CSS(user-select:none)로 선택을 막아도 전체 선택(Cmd+A) 뒤 복사 같은 길이
+// 남아 있어서 복사 자체도 막는다. 입력칸 안의 글자는 사용자가 친 것이라 그대로 둔다.
+["copy", "cut"].forEach(type => document.addEventListener(type, e => {
+  if(e.target.closest && e.target.closest("input, textarea")) return;
+  e.preventDefault();
+}));
+
 // 거래소별 시세(exUsd/domestic)를 보강할 대상. 관심 코인뿐 아니라 모든 포트폴리오의
 // 보유 코인도 포함해야 한다 — 이 값이 없으면 포트폴리오 가치가 "-"로 나온다.
 // 거래소 API는 전체 티커를 한 번에 받아오는 방식이라 대상이 늘어도 요청 수는 그대로다.

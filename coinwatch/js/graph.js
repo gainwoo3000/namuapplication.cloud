@@ -87,19 +87,24 @@ export function crossMarkup(color, padT, ih, padL, iw){
 //                따라다니면 손가락이 뭘 하는 중인지 알 수 없어진다
 //   opts.yLabel: (선택) 가로선 높이(SVG 좌표)를 받아 오른쪽 축에 적을 값을 돌려주는 함수.
 //                없으면 가로선만 긋고 값은 안 적는다
+//   opts.mouseOnly: (선택) 참이면 손가락은 여기서 받지 않는다 — 코인 차트처럼 한 손가락이
+//                이동에 쓰이고 훑기는 꾹 눌러야 켜지는 곳. 그때는 bindZoomPan이 돌려받은
+//                조종기(at/hide)로 십자선을 움직인다.
+// 반환값: { at(clientX, clientY), hide() } — 바깥에서 십자선을 직접 옮기거나 숨기는 조종기
 export function bindScrub(svg, getGeom, label, opts){
-  if(!svg) return;
-  const { busy, yLabel } = opts || {};
+  const noop = { at(){}, hide(){} };
+  if(!svg) return noop;
+  const { busy, yLabel, mouseOnly } = opts || {};
   const cross = svg.querySelector(".g-cross");
   const vline = svg.querySelector(".g-cross-line");
   const hline = svg.querySelector(".g-cross-hline");
   const dot = svg.querySelector(".g-cross-dot");
   const tip = svg.querySelector(".g-cross-tip");
   const ytip = svg.querySelector(".g-cross-ytip");
-  if(!cross) return;
+  if(!cross) return noop;
 
-  const move = (e) => {
-    if(busy && busy()){ cross.style.display = "none"; return; }
+  const move = (e, force) => {
+    if(!force && busy && busy()){ cross.style.display = "none"; return; }
     const geom = getGeom();
     if(!geom) return;
     const r = svg.getBoundingClientRect();
@@ -132,31 +137,72 @@ export function bindScrub(svg, getGeom, label, opts){
     cross.style.display = "";
   };
   const end = () => { cross.style.display = "none"; };
+  const control = { at: (x, y) => move({ clientX: x, clientY: y }, true), hide: end };
+  const skip = e => mouseOnly && e.pointerType !== "mouse";
 
   svg.addEventListener("pointerdown", (e) => {
+    if(skip(e)) return;
     // 누르자마자 손을 떼면 그 사이 포인터가 사라져 capture가 던진다 — 훑기는 계속돼야 한다
     try{ svg.setPointerCapture(e.pointerId); }catch(err){ /* 붙잡지 못해도 무방 */ }
     move(e);
   });
-  svg.addEventListener("pointermove", (e) => { if(e.pointerType === "mouse" || e.pressure > 0 || e.buttons) move(e); });
-  svg.addEventListener("pointerup", end);
-  svg.addEventListener("pointercancel", end);
-  svg.addEventListener("pointerleave", end);
+  svg.addEventListener("pointermove", (e) => {
+    if(skip(e)) return;
+    if(e.pointerType === "mouse" || e.pressure > 0 || e.buttons) move(e);
+  });
+  svg.addEventListener("pointerup", e => { if(!skip(e)) end(); });
+  svg.addEventListener("pointercancel", e => { if(!skip(e)) end(); });
+  svg.addEventListener("pointerleave", e => { if(!skip(e)) end(); });
   // 그래프를 훑는 동안 화면이 같이 스크롤되지 않게
   svg.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  return control;
 }
 
 // ---------- 확대 / 이동 ----------
-const PINCH_MIN_DIST = 24; // 두 손가락 간격이 이보다 좁으면(px) 배율 계산을 쉰다
+const PINCH_MIN_DIST = 24;  // 두 손가락 간격이 이보다 좁으면(px) 배율 계산을 쉰다
+const LONG_PRESS_MS = 400;  // 이만큼 가만히 누르고 있으면 값 훑기로 들어간다
+const TAP_SLOP = 8;         // 누른 뒤 이보다 많이 움직이면(px) 꾹 누르기가 아니라 끌기로 본다
+
+// 짧은 진동 한 번.
+//   안드로이드: navigator.vibrate. (앱 WebView 안에서는 앱에 VIBRATE 권한이 있어야 울린다)
+//   iOS: vibrate가 아예 없다. 대신 iOS 18부터 사파리의 스위치형 체크박스(<input switch>)가
+//        토글될 때 시스템 햅틱을 울리므로, 숨겨 둔 스위치의 label을 눌러 그 햅틱을 빌려 쓴다.
+//        iOS 17 이하나 이 동작을 막은 환경에서는 조용히 아무 일도 안 일어난다.
+let hapticLabel = null;
+function haptic(){
+  try{
+    if(typeof navigator.vibrate === "function"){ navigator.vibrate(15); return; }
+    if(!hapticLabel){
+      hapticLabel = document.createElement("label");
+      hapticLabel.setAttribute("aria-hidden", "true");
+      hapticLabel.style.cssText = "position:fixed; left:-9999px; top:0; opacity:0; pointer-events:none;";
+      const sw = document.createElement("input");
+      sw.type = "checkbox";
+      sw.setAttribute("switch", "");
+      sw.tabIndex = -1;
+      hapticLabel.appendChild(sw);
+      // 이 클릭이 문서까지 올라가면 "바깥을 누르면 팝업 닫기" 처리기들이 반응한다
+      hapticLabel.addEventListener("click", e => e.stopPropagation());
+      document.body.appendChild(hapticLabel);
+    }
+    hapticLabel.click();
+  }catch(e){ /* 진동은 덤이다 — 실패해도 훑기는 그대로 */ }
+}
+
 // 손가락과 마우스에서 기대하는 동작이 서로 달라서 나눠 맡긴다.
-//   손가락: 한 손가락은 지금까지처럼 값 훑기, 두 손가락으로 벌리면 확대·같이 밀면 이동
-//   마우스: 그냥 올려두면 값 훑기(누를 필요 없음)라 드래그 자리가 비어 있다 -> 드래그는 이동,
+//   손가락: 한 손가락으로 끌면 이동, 두 손가락으로 벌리면 확대(같이 밀면 이동).
+//           꾹 누르면(LONG_PRESS_MS) 값 훑기 — 그동안 차트는 멈춰 있고, 십자선은 손가락
+//           바로 아래가 아니라 손가락이 움직인 만큼 따라간다(트랙패드처럼). 그래서 손가락에
+//           가리지 않고 값을 읽을 수 있다.
+//   마우스: 그냥 올려두면 값 훑기(누를 필요 없음, bindScrub이 맡는다) -> 드래그는 이동,
 //           휠은 커서 자리를 기준으로 확대
 // 양쪽 다 두 번 누르면 전체 보기로 돌아온다.
 //
 // h.zoom(factor, frac) — factor>1이면 확대. frac은 기준점의 가로 위치(0=왼쪽 끝, 1=오른쪽 끝)
 // h.pan(frac)          — 보이는 구간을 그 폭의 frac만큼 오른쪽으로 민다(음수면 왼쪽)
 // h.reset()            — 전체 보기
+// h.scrubAt(x, y)      — (선택) 꾹 누르기 훑기 중 십자선을 화면 좌표 (x, y)로
+// h.scrubEnd()         — (선택) 훑기 끝
 // 반환값 busy(): 지금 확대/이동 중인지 (bindScrub에 넘겨 훑기를 쉬게 한다)
 export function bindZoomPan(el, h){
   if(!el) return () => false;
@@ -165,12 +211,22 @@ export function bindZoomPan(el, h){
   let dragX = null;                  // 마우스 드래그 직전 위치
   let busyUntil = 0;                 // 제스처가 끝난 직후 잠깐은 훑기를 참는다
 
+  // 한 손가락 상태: "wait"(누른 직후, 끌기인지 꾹 누르기인지 모름) | "pan" | "scrub" | "done"
+  let one = null;                    // { id, mode, sx, sy, lx, ly, cx, cy, timer }
+
   const frac = x => {
     const r = el.getBoundingClientRect();
     return r.width ? (x - r.left) / r.width : 0.5;
   };
   const width = () => el.getBoundingClientRect().width || 1;
   const mark = () => { busyUntil = Date.now() + 120; };
+
+  const endOne = () => {
+    if(!one) return;
+    clearTimeout(one.timer);
+    if(one.mode === "scrub" && h.scrubEnd) h.scrubEnd();
+    one = null;
+  };
 
   el.addEventListener("wheel", e => {
     e.preventDefault(); // 그래프 위에서는 휠이 화면을 스크롤하지 않고 확대로 쓰인다
@@ -179,16 +235,32 @@ export function bindZoomPan(el, h){
     h.zoom(Math.pow(1.0016, -e.deltaY), frac(e.clientX));
   }, { passive: false });
 
+  // 꾹 누를 때 뜨는 길게 누르기 메뉴(이미지 저장 등)를 막는다
+  el.addEventListener("contextmenu", e => { if(one || active.size) e.preventDefault(); });
+
   // 누르기는 그래프 칸에서만 받지만, 움직임·떼기는 window에서 받는다.
-  // 그래프 칸은 세로로 짧아서 손가락을 위아래로 벌리면 금방 칸 밖으로 나가는데,
+  // 그래프 칸은 세로로 짧아서 손가락이 금방 칸 밖으로 나가는데,
   // 칸에서만 들으면 밖에서 뗀 손가락을 놓쳐 active에 영영 남는다
   // -> "두 손가락이 닿아 있음"으로 굳어서 확대도 훑기도 안 되는 먹통이 된다.
   el.addEventListener("pointerdown", e => {
     if(e.pointerType === "mouse"){ dragX = e.clientX; return; }
     // 첫 손가락(isPrimary)이면 다른 손가락은 없다 — 혹시 놓친 게 남아 있으면 여기서 비운다
-    if(e.isPrimary) active.clear();
+    if(e.isPrimary){ active.clear(); endOne(); }
     active.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if(active.size === 2){ pinchDist = 0; pinchMid = 0; mark(); }
+    if(active.size === 1){
+      const o = one = { id: e.pointerId, mode: "wait",
+        sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, cx: e.clientX, cy: e.clientY };
+      o.timer = setTimeout(() => {
+        if(one !== o || o.mode !== "wait") return;
+        o.mode = "scrub";                        // 누른 자리에서 십자선이 뜬다
+        haptic(); // 짧게 떨려서 훑기가 켜진 걸 알린다
+        if(h.scrubAt) h.scrubAt(o.cx, o.cy);
+      }, LONG_PRESS_MS);
+    }else if(active.size === 2){
+      endOne(); // 두 번째 손가락이 닿으면 끌기·훑기는 접고 핀치로
+      one = { id: null, mode: "done" };
+      pinchDist = 0; pinchMid = 0; mark();
+    }
   });
 
   window.addEventListener("pointermove", e => {
@@ -201,6 +273,34 @@ export function bindZoomPan(el, h){
     }
     if(!active.has(e.pointerId)) return;
     active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if(active.size === 1 && one && one.id === e.pointerId){
+      const dx = e.clientX - one.lx, dy = e.clientY - one.ly;
+      one.lx = e.clientX; one.ly = e.clientY;
+      if(one.mode === "wait"){
+        if(Math.hypot(e.clientX - one.sx, e.clientY - one.sy) <= TAP_SLOP) return;
+        clearTimeout(one.timer);
+        one.mode = "pan";
+        // 움직였다고 판단하기까지 흘려보낸 거리도 이동에 넣는다 — 안 그러면 처음에 살짝 멈칫한다
+        mark();
+        h.pan((one.sx - e.clientX) / width());
+        return;
+      }
+      if(one.mode === "pan"){
+        mark();
+        h.pan(-dx / width());
+        return;
+      }
+      if(one.mode === "scrub"){
+        // 차트는 그대로 두고 십자선만 손가락이 움직인 만큼 옮긴다. 칸 밖으로는 안 나가게 가둔다.
+        const r = el.getBoundingClientRect();
+        one.cx = Math.max(r.left, Math.min(r.right, one.cx + dx));
+        one.cy = Math.max(r.top, Math.min(r.bottom, one.cy + dy));
+        if(h.scrubAt) h.scrubAt(one.cx, one.cy);
+      }
+      return;
+    }
+
     if(active.size !== 2) return;
     mark();
     const [a, b] = [...active.values()];
@@ -221,10 +321,13 @@ export function bindZoomPan(el, h){
     if(e.pointerType === "mouse"){ dragX = null; return; }
     if(!active.delete(e.pointerId)) return;
     if(active.size < 2){ pinchDist = 0; pinchMid = 0; mark(); }
+    // 핀치 뒤 남은 한 손가락은 이동으로 이어가지 않는다("done") — 떼는 순간 화면이 튀지 않게
+    if(active.size === 0) endOne();
   };
   window.addEventListener("pointerup", lift);
   window.addEventListener("pointercancel", lift);
   el.addEventListener("dblclick", e => { e.preventDefault(); mark(); h.reset(); });
 
-  return () => active.size >= 2 || dragX !== null || Date.now() < busyUntil;
+  return () => active.size >= 2 || dragX !== null || Date.now() < busyUntil
+    || !!(one && one.mode === "pan");
 }
