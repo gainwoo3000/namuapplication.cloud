@@ -7,12 +7,13 @@
 | `GET /cmc/krw` | CoinMarketCap KRW 시세(시총 상위 200) | `CMC_TTL_SECONDS`(기본 600초) |
 | `GET /cg/markets` | CoinGecko 시총 1~500위 | `CG_MARKETS_TTL`(기본 60초) |
 | `GET /cg/search?q=<검색어>` | CoinGecko 코인 검색(순위 밖 포함) | `CG_SEARCH_TTL`(기본 3600초) |
-| `GET /upbit/krw` | 업비트 KRW 마켓 전체 현재가 `{심볼: 가격}` | 5초 |
+| `GET /upbit/krw` `/coinone/krw` | 거래소별 KRW 마켓 전체 현재가 `{심볼: 가격}` | 5초 |
+| `GET /bitflyer/usd` | 비트플라이어 엔화 마켓 현재가를 달러로 환산 `{심볼: 가격}` | 10초 |
 | `GET /upbit/candles?unit=&market=&count=` | 업비트 캔들 | 60초 |
 
 `/cg/*` 가 필요한 이유: CoinGecko 키 없는 공개 API는 공유 IP 기준 분당 몇 콜만 허용 → 브라우저에서 직접 부르면 조금만 몰려도 429가 나고, **429 응답엔 CORS 헤더가 없어 `fetch` 자체가 실패**한다. 워커가 대신 부르고 엣지에 캐시하면 사용자가 몰려도 업스트림 콜은 캐시 주기당 1회.
 
-`/upbit/*` 가 필요한 이유: 업비트는 `Origin` 헤더가 붙은 브라우저 요청을 `group=origin`이라는 아주 작은 한도로 따로 묶는다. 넘으면 429인데 역시 CORS 헤더가 없어 브라우저엔 CORS 에러로만 보인다.
+`/upbit/*` 가 필요한 이유: 업비트는 `Origin` 헤더가 붙은 브라우저 요청을 `group=origin`이라는 아주 작은 한도로 따로 묶는다. 넘으면 429인데 역시 CORS 헤더가 없어 브라우저엔 CORS 에러로만 보인다. 코인원·비트플라이어는 공개 시세 API에 CORS 헤더가 아예 없다. (코빗은 워커발 요청을 403/1106으로 막아서 중계 불가)
 
 ## 응답 예시
 

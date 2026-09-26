@@ -115,7 +115,8 @@ document.querySelectorAll(".grid-wrap.is-boot").forEach(el => el.classList.remov
 loadMarkets();
 loadFearGreed();
 ensureUsdKrw().then(renderFxMini);
-setInterval(refreshUsdKrw, 120000); // 2분마다 환율 갱신
+// 탭이 안 보일 때는 건너뛴다 (시세 갱신은 settings.js에서 같은 이유로 멈춤)
+setInterval(()=>{ if(!document.hidden) refreshUsdKrw(); }, 120000); // 2분마다 환율 갱신
 loadCmcKrw();
-setInterval(loadCmcKrw, 600000);
+setInterval(()=>{ if(!document.hidden) loadCmcKrw(); }, 600000);
 restartRefreshTimer();

@@ -8,7 +8,6 @@ export const CG_MARKETS_PROXY = API_BASE + "/cg/markets"; // 시총 1~500위 (�
 export const CG_SEARCH_PROXY = API_BASE + "/cg/search";   // 코인 검색 (순위 밖 포함, 엣지 캐시 1시간)
 export const FX_HISTORY_PROXY = API_BASE + "/fx/history"; // 원/달러 추이 (야후, 엣지 캐시 10분)
 export const FX_RATE_PROXY = API_BASE + "/fx/rate";       // 원/달러 현재가 (야후, 엣지 캐시 60초)
-export const UPBIT_KRW_PROXY = API_BASE + "/upbit/krw";   // 업비트 KRW 마켓 전체 현재가 (엣지 캐시 5초)
 export const UPBIT_CANDLES_PROXY = API_BASE + "/upbit/candles"; // 업비트 캔들 (엣지 캐시 60초)
 
 export const EX_LABEL = {binance:"바이낸스", okx:"OKX", bybit:"바이빗", coinbase:"코인베이스", kraken:"크라켄"};

@@ -116,10 +116,24 @@ document.getElementById("refreshOpts").addEventListener("click", (e)=>{
   saveState();
 });
 
+// 탭이 안 보이는 동안(다른 탭·앱으로 전환, 창 최소화)에는 시세 갱신을 멈춘다.
+// 켜 둔 채 잊어버린 탭 하나가 하루 종일 워커 요청을 보내는 걸 막기 위해서다.
+let lastRefreshAt = Date.now();
+function refreshTick(){
+  lastRefreshAt = Date.now();
+  loadMarkets();
+}
+
 export function restartRefreshTimer(){
   if(state.refreshTimer) clearInterval(state.refreshTimer);
-  state.refreshTimer = setInterval(loadMarkets, state.refreshSec*1000);
+  state.refreshTimer = document.hidden ? null : setInterval(refreshTick, state.refreshSec*1000);
 }
+
+document.addEventListener("visibilitychange", ()=>{
+  // 돌아왔을 때 갱신 주기가 이미 지났으면 다음 주기를 기다리지 않고 바로 받아온다
+  if(!document.hidden && Date.now() - lastRefreshAt >= state.refreshSec*1000) refreshTick();
+  restartRefreshTimer();
+});
 
 // ---------- 설정 › 저장 상태 ----------
 // "아이폰은 설정이 남는데 안드로이드는 풀린다" 같은 증상은 기기에서 직접 보지 않으면

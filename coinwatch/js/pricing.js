@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { fmtChg } from "./format.js";
-import { getBinanceMap, fetchCoinbaseRates, fetchKrakenPricesFor, fetchOkxMap, fetchBybitMap, fetchUpbitPricesFor, fetchBithumbPrices } from "./api.js";
+import { getBinanceMap, fetchCoinbaseRates, fetchKrakenPricesFor, fetchOkxMap, fetchBybitMap, fetchUpbitPricesFor, fetchBithumbPrices, fetchCoinonePricesFor, fetchBitflyerPricesFor } from "./api.js";
 import { renderGrid, buildCoinsList } from "./watchlist.js";
 import { renderPortfolio } from "./portfolio.js";
 import { updateChartPrice } from "./chart.js";
@@ -13,6 +13,7 @@ export function exchangeAvgFor(c, exchangeSet){
   if(c.domestic){
     if(set.has("upbit") && c.domestic.upbit) vals.push(c.domestic.upbit);
     if(set.has("bithumb") && c.domestic.bithumb) vals.push(c.domestic.bithumb);
+    if(set.has("coinone") && c.domestic.coinone) vals.push(c.domestic.coinone);
   }
   // 해외 거래소는 실시간 환율(usdKrw)로 원화 환산해서 같이 평균낸다
   if(c.exUsd && state.usdKrw){
@@ -21,6 +22,7 @@ export function exchangeAvgFor(c, exchangeSet){
     if(set.has("bybit") && c.exUsd.bybit) vals.push(c.exUsd.bybit * state.usdKrw);
     if(set.has("coinbase") && c.exUsd.coinbase) vals.push(c.exUsd.coinbase * state.usdKrw);
     if(set.has("kraken") && c.exUsd.kraken) vals.push(c.exUsd.kraken * state.usdKrw);
+    if(set.has("bitflyer") && c.exUsd.bitflyer) vals.push(c.exUsd.bitflyer * state.usdKrw);
   }
   if(vals.length === 0) return null;
   return vals.reduce((a,b)=>a+b,0) / vals.length;
@@ -93,12 +95,13 @@ export function intlPriceAvg(c){
 
 export async function enrichIntlPrices(list){
   const symbolsUpper = list.map(c=>c.symbol.toUpperCase());
-  const [binanceMap, coinbaseRates, krakenMap, okxMap, bybitMap] = await Promise.all([
+  const [binanceMap, coinbaseRates, krakenMap, okxMap, bybitMap, bitflyerMap] = await Promise.all([
     getBinanceMap(),
     fetchCoinbaseRates(),
     fetchKrakenPricesFor(symbolsUpper),
     fetchOkxMap(),
-    fetchBybitMap()
+    fetchBybitMap(),
+    fetchBitflyerPricesFor(symbolsUpper)
   ]);
   return list.map(c=>{
     const sym = c.symbol.toUpperCase();
@@ -108,6 +111,7 @@ export async function enrichIntlPrices(list){
     const kr = krakenMap[sym] || null;
     const okx = okxMap[sym] ? okxMap[sym].price : null;
     const bybit = bybitMap[sym] ? bybitMap[sym].price : null;
+    const bitflyer = bitflyerMap[sym] || null;
     const chg = binanceMap[c.id] ? parseFloat(binanceMap[c.id].priceChangePercent) : c.price_change_percentage_24h;
     // 등락률 아래 범위 바용 24시간 고저가. 가격을 거래소에서 가져오므로 고저가도 바이낸스 값을 우선.
     const t = binanceMap[c.id];
@@ -116,7 +120,9 @@ export async function enrichIntlPrices(list){
     const useBin = binHi > binLo;
     const withEx = {...c, baseUsdPrice: c.current_price, price_change_percentage_24h: chg,
       high_24h: useBin ? binHi : c.high_24h, low_24h: useBin ? binLo : c.low_24h,
-      exUsd:{ coinbase: cb, kraken: kr, binance: bin, okx, bybit }};
+      // bitflyer는 "나의 거래소"/포트폴리오 선택용. 엔화 시장이라 재팬 프리미엄이 끼므로
+      // "가격(USD)" 평균(intlPriceAvg)에는 넣지 않는다.
+      exUsd:{ coinbase: cb, kraken: kr, binance: bin, okx, bybit, bitflyer }};
     withEx.current_price = intlPriceAvg(withEx);
     return withEx;
   });
@@ -165,15 +171,17 @@ export function reapplyIntlFilter(){
 
 export async function enrichDomesticPrices(list){
   const symbolsUpper = list.map(c=>c.symbol.toUpperCase());
-  const [upbitMap, bithumbMap] = await Promise.all([
+  const [upbitMap, bithumbMap, coinoneMap] = await Promise.all([
     fetchUpbitPricesFor(symbolsUpper),
-    fetchBithumbPrices()
+    fetchBithumbPrices(),
+    fetchCoinonePricesFor(symbolsUpper)
   ]);
   return list.map(c=>{
     const sym = c.symbol.toUpperCase();
     return {...c, domestic:{
       upbit: upbitMap[sym] || null,
-      bithumb: bithumbMap[sym] || null
+      bithumb: bithumbMap[sym] || null,
+      coinone: coinoneMap[sym] || null
     }};
   });
 }

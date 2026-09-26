@@ -22,8 +22,12 @@
 //        원/달러 현재가(야후 meta). 헤더에 찍는 숫자와 그래프가 같은 출처를 보도록 두는 용도.
 //        엣지 캐시 60초.
 //
-//   GET /upbit/krw
-//     -> { "BTC":<원화 현재가>, ... }   업비트 KRW 마켓 전체 현재가. 엣지 캐시 5초.
+//   GET /upbit/krw   GET /coinone/krw
+//     -> { "BTC":<원화 현재가>, ... }   거래소별 KRW 마켓 전체 현재가. 엣지 캐시 5초.
+//
+//   GET /bitflyer/usd
+//     -> { "BTC":<달러 환산가>, ... }   비트플라이어 엔화 마켓 현재가를 야후 USD/JPY로 달러 환산.
+//        엣지 캐시 10초.
 //
 //   GET /upbit/candles?unit=<minutes/15|minutes/60|minutes/240|days|weeks>&market=KRW-BTC&count=<1~200>
 //     -> 업비트 캔들 원본 배열 그대로. 엣지 캐시 60초.
@@ -32,6 +36,8 @@
 //   - 업비트: Origin 헤더가 붙은(=브라우저) 요청은 "group=origin"이라는 아주 작은 한도로
 //     따로 묶는다. 넘으면 429인데 429에는 CORS 헤더가 없어 브라우저엔 CORS 에러로만 보인다.
 //     서버에서 부르면 Origin이 없어 일반 한도(초당 10회)를 쓴다.
+//   - 코인원·비트플라이어: 공개 시세 API에 CORS 헤더가 아예 없다.
+//   - 코빗은 여기서 중계할 수 없다: 코빗(Cloudflare 뒤)이 워커발 요청을 막는다(403, error code 1106).
 //   - CoinMarketCap: 브라우저에서 못 부른다 (CORS 없음 + 키 노출).
 //   - CoinGecko: 키 없는 공개 API는 공유 IP 기준으로 분당 몇 콜만 허용 → 브라우저에서 직접
 //     부르면 조금만 몰려도 429(그리고 429에는 CORS 헤더가 없어 fetch 자체가 실패)한다.
@@ -47,6 +53,8 @@ const CG = "https://api.coingecko.com/api/v3";
 const NAVER_FX = "https://api.stock.naver.com/marketindex/exchange/FX_USDKRW/prices";
 const NAVER_FX_PAGE = 60; // 네이버가 한 번에 주는 최대 행 수 — 61 이상을 요청하면 JSON이 아닌 에러가 온다
 const YAHOO_FX = "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X";
+const YAHOO_USDJPY = "https://query1.finance.yahoo.com/v8/finance/chart/JPY=X";
+const BITFLYER = "https://api.bitflyer.com/v1";
 // 기간 -> 야후 range/interval. 화면 폭이 500px 남짓이라 이보다 촘촘해도 눈에 안 보인다.
 const FX_RANGE = {
   1:   { range: "1d",  interval: "5m" },
@@ -78,7 +86,8 @@ export default {
     if (url.pathname === "/cg/search") return handleCgSearch(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/history") return handleFxHistory(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/rate") return handleFxRate(env, ctx, openCors("*"));
-    if (url.pathname === "/upbit/krw") return handleUpbitKrw(ctx, openCors("*"));
+    const route = url.pathname.slice(1);
+    if (TICKER_MAPS[route]) return handleTickerMap(route, ctx, openCors("*"));
     if (url.pathname === "/upbit/candles") return handleUpbitCandles(url, ctx, openCors("*"));
     return json({ error: "not_found" }, 404, openCors("*"));
   },
@@ -313,31 +322,71 @@ async function handleFxRate(env, ctx, cors) {
   }
 }
 
-// ---------- 업비트 ----------
-// 사용자마다 다른 코인 묶음으로 /ticker?markets=를 부르면 캐시가 안 맞는다.
-// KRW 마켓 전체를 한 번에 받아 심볼->가격 맵으로 캐시하고, 고르는 건 클라이언트가 한다.
-// 이 맵의 키가 곧 업비트 상장 목록이라 /market/all 도 따로 부를 필요가 없다.
-async function handleUpbitKrw(ctx, cors) {
+// ---------- 거래소 전체 현재가 맵 (업비트·코인원 원화, 비트플라이어 달러 환산) ----------
+// 사용자마다 다른 코인 묶음으로 부르면 캐시가 안 맞는다. 마켓 전체를 한 번에 받아
+// 심볼->가격 맵으로 캐시하고, 고르는 건 클라이언트가 한다. 맵의 키가 곧 상장 목록이다.
+// 셋 다 브라우저에서 직접 못 부른다: 업비트는 Origin 한도(429), 나머지는 CORS 헤더가 없다.
+const TICKER_MAPS = {
+  // 업비트: [{market:"KRW-BTC", trade_price:<숫자>}, ...]
+  "upbit/krw": {
+    ttl: 5,
+    async load() {
+      const out = {};
+      for (const t of await getJson(`${UPBIT}/ticker/all?quote_currencies=KRW`)) {
+        if (t && typeof t.market === "string") putPrice(out, t.market.replace("KRW-", ""), t.trade_price);
+      }
+      return out;
+    },
+  },
+  // 코인원: {tickers:[{target_currency:"btc", last:"113950000"}, ...]} — 값이 문자열
+  "coinone/krw": {
+    ttl: 5,
+    async load() {
+      const out = {};
+      const j = await getJson("https://api.coinone.co.kr/public/v2/ticker_new/KRW");
+      for (const t of (j && j.tickers) || []) putPrice(out, t.target_currency, t.last);
+      return out;
+    },
+  },
+  // 비트플라이어: 전체 티커 API가 없어 엔화 마켓(6개 남짓)을 하나씩 부른다.
+  // IP당 5분에 500회 한도라 캐시를 조금 길게(10초) 잡는다 — 갱신 1회당 목록 1 + 마켓 수만큼.
+  // 엔화 그대로 주면 클라이언트에 엔/원 환율이 따로 필요하므로 여기서 달러로 바꿔
+  // 다른 해외 거래소(exUsd)와 같은 모양으로 맞춘다.
+  "bitflyer/usd": {
+    ttl: 10,
+    async load() {
+      const markets = (await getJson(`${BITFLYER}/markets`))
+        .map((m) => m && m.product_code)
+        .filter((c) => typeof c === "string" && /^[A-Z0-9]+_JPY$/.test(c));
+      const [jpyPerUsd, tickers] = await Promise.all([
+        usdJpy(),
+        Promise.all(markets.map((c) => getJson(`${BITFLYER}/ticker?product_code=${c}`).catch(() => null))),
+      ]);
+      const out = {};
+      for (const t of tickers) {
+        if (t && t.state === "RUNNING") putPrice(out, t.product_code.slice(0, -4), t.ltp / jpyPerUsd);
+      }
+      return out;
+    },
+  },
+};
+
+async function handleTickerMap(route, ctx, cors) {
+  const { ttl, load } = TICKER_MAPS[route];
   const cache = caches.default;
-  const key = new Request("https://cache.internal/upbit-krw/v1");
+  const name = route.replace("/", "-");
+  const key = new Request(`https://cache.internal/${name}/v1`);
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
-  const lkgKey = new Request("https://cache.internal/upbit-krw/lkg1");
+  const lkgKey = new Request(`https://cache.internal/${name}/lkg1`);
   try {
-    const r = await fetch(`${UPBIT}/ticker/all?quote_currencies=KRW`, { headers: { accept: "application/json" } });
-    if (!r.ok) throw new Error("upbit http " + r.status);
-    const out = {};
-    for (const t of await r.json()) {
-      if (t && typeof t.market === "string" && typeof t.trade_price === "number") {
-        out[t.market.replace("KRW-", "")] = t.trade_price;
-      }
-    }
-    if (Object.keys(out).length === 0) throw new Error("upbit empty");
+    const out = await load();
+    if (Object.keys(out).length === 0) throw new Error(route + " empty");
 
     const body = JSON.stringify(out);
     const resp = new Response(body, {
-      headers: { "content-type": "application/json", "cache-control": "public, max-age=5" },
+      headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
     });
     const lkg = new Response(body, {
       headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
@@ -350,6 +399,37 @@ async function handleUpbitKrw(ctx, cors) {
     if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
     return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
+}
+
+// 1달러당 엔(야후 JPY=X). 비트플라이어 갱신마다 부르지 않게 60초 캐시.
+async function usdJpy() {
+  const cache = caches.default;
+  const key = new Request("https://cache.internal/usdjpy/v1");
+  const hit = await cache.match(key);
+  if (hit) return (await hit.json()).rate;
+
+  const r = await fetch(`${YAHOO_USDJPY}?range=1d&interval=1d`, {
+    headers: { "user-agent": "Mozilla/5.0", accept: "application/json" },
+  });
+  if (!r.ok) throw new Error("yahoo usdjpy http " + r.status);
+  const j = await r.json();
+  const rate = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta.regularMarketPrice;
+  if (!(rate > 0)) throw new Error("yahoo usdjpy empty");
+  await cache.put(key, new Response(JSON.stringify({ rate }), {
+    headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
+  }));
+  return rate;
+}
+
+async function getJson(u) {
+  const r = await fetch(u, { headers: { accept: "application/json", "user-agent": "Mozilla/5.0" } });
+  if (!r.ok) throw new Error(new URL(u).host + " http " + r.status);
+  return r.json();
+}
+
+function putPrice(out, sym, v) {
+  const n = Number(v);
+  if (typeof sym === "string" && sym && n > 0) out[sym.toUpperCase()] = n;
 }
 
 async function handleUpbitCandles(url, ctx, cors) {

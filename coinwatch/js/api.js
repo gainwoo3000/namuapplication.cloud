@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, UPBIT_KRW_PROXY, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
+import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, API_BASE, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -219,26 +219,39 @@ export async function fetchBybitMap(){
 }
 
 // ---------- 국내 거래소(업비트/빗썸/코인원) ----------
-// 업비트는 브라우저(Origin 헤더가 붙은) 요청을 아주 작은 한도로 묶고, 넘으면 CORS 헤더 없는
-// 429를 준다 → 워커를 거쳐 부른다. 워커가 KRW 마켓 전체 가격을 주므로 그 키가 곧 상장 목록이다.
-let upbitMapCache = { data: null, at: 0 };
-async function getUpbitMap(){
-  if(upbitMapCache.data && Date.now() - upbitMapCache.at < EX_MAP_TTL) return upbitMapCache.data;
+// 업비트는 브라우저(Origin 헤더가 붙은) 요청을 아주 작은 한도로 묶고 넘으면 CORS 헤더 없는
+// 429를 주고, 코인원은 CORS 헤더가 아예 없다 → 둘 다 워커를 거쳐 부른다.
+// 워커가 KRW 마켓 전체를 {심볼: 원화가}로 주므로 그 키가 곧 상장 목록이다. 빗썸만 직접 부른다.
+const proxyMapCache = {};
+async function getProxyMap(route){
+  const hit = proxyMapCache[route];
+  if(hit && Date.now() - hit.at < EX_MAP_TTL) return hit.data;
   try{
-    const res = await fetch(`${UPBIT_KRW_PROXY}?t=${Math.floor(Date.now() / 5000)}`);
-    if(!res.ok) throw new Error("upbit proxy http " + res.status);
+    const res = await fetch(`${API_BASE}/${route}?t=${Math.floor(Date.now() / 5000)}`);
+    if(!res.ok) throw new Error(route + " proxy http " + res.status);
     const data = await res.json();
-    upbitMapCache = { data, at: Date.now() };
-    state.upbitMarketSet = new Set(Object.keys(data));
+    proxyMapCache[route] = { data, at: Date.now() };
     return data;
-  }catch(e){ return upbitMapCache.data || {}; }
+  }catch(e){ return (hit && hit.data) || {}; }
 }
 
-export async function fetchUpbitPricesFor(symbolsUpper){
-  const map = await getUpbitMap();
+function pickPrices(map, symbolsUpper){
   const out = {};
   symbolsUpper.forEach(s=>{ if(map[s] != null) out[s] = map[s]; });
   return out;
+}
+
+export async function fetchUpbitPricesFor(symbolsUpper){
+  return pickPrices(await getProxyMap("upbit/krw"), symbolsUpper);
+}
+export async function fetchCoinonePricesFor(symbolsUpper){
+  return pickPrices(await getProxyMap("coinone/krw"), symbolsUpper);
+}
+
+// 비트플라이어(일본): 엔화 마켓뿐이라 워커가 달러로 환산해 준다 → 해외 거래소(exUsd)와 같은 취급.
+// CORS 헤더가 없어 역시 워커를 거친다.
+export async function fetchBitflyerPricesFor(symbolsUpper){
+  return pickPrices(await getProxyMap("bitflyer/usd"), symbolsUpper);
 }
 
 export async function fetchBithumbPrices(){

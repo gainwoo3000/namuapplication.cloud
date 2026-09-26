@@ -19,7 +19,6 @@ export const state = {
   displayCurrency: "usd", // "usd" | "krw" - 나의 거래소/가격 컬럼 표시 통화
   fontScale: 1,           // 글자 크기 배율 (CSS --fs). 1 | 1.12 | 1.24
   krakenPairMap: null,    // 심볼 -> 크라켄 페어 키 (최초 1회 캐싱)
-  upbitMarketSet: null,   // 업비트에 상장된 심볼 집합 (최초 1회 캐싱)
   enrichedCache: {},      // id -> 마지막으로 보강된 가격/등락률/거래소별 시세
   virtualCoins: {},       // id -> 검색으로 추가한, 시총 500위 밖이라 기본 풀에 없는 코인(새로고침에도 유지)
   cmcKrwMap: {},          // 심볼(대문자) -> KRW. CoinMarketCap(프록시 경유) — 국내 거래소에 없는 코인 메꿈용
