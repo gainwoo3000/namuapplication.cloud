@@ -16,6 +16,17 @@ export function flashChg(cellEl, dir){
   cellEl._flashTimer = setTimeout(()=>cellEl.classList.remove("flash-up", "flash-down"), 1500);
 }
 
+// 같은 대상(key: 코인·통화 등)의 값이 바뀌었을 때만 flashChg로 깜빡인다.
+// 대상이 바뀌면(다른 코인을 열거나 원↔달러 전환) 기준만 새로 잡고 깜빡이지 않는다 —
+// 단위가 다른 숫자끼리 비교해 엉뚱하게 번쩍이지 않게. 화면 글자가 그대로면(표시 자릿수 아래
+// 변화) 눈에 보이는 게 없으니 깜빡이지 않는다.
+export function flashOnChange(el, key, text, num){
+  if(!el) return;
+  const base = el._flashBase;
+  if(base && base.key === key && base.text !== text) flashChg(el, num - base.num);
+  el._flashBase = { key, text, num };
+}
+
 export function rollUpdate(wrapEl, newText, up){
   if(!wrapEl) return;
   newText = String(newText);

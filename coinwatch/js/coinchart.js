@@ -8,7 +8,7 @@ import { state } from "./state.js";
 import { COIN_RANGES, CANDLE_SOURCE_LABEL, STABLECOINS } from "./constants.js";
 import { fetchCoinCandles } from "./api.js";
 import { fmtPrice, fmtKrw } from "./format.js";
-import { prevValues, rollNumberByKey } from "./animate.js";
+import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
 import { medianGap, fmtGap, niceTicks, crossMarkup, bindScrub, bindZoomPan } from "./graph.js";
 import { saveState } from "./persist.js";
@@ -454,6 +454,10 @@ function renderPrice(v, cur){
     return;
   }
   rollNumberByKey("chart:price", el, fmtCur(v, cur), v);
+  // 현재가가 바뀌면 올랐으면 초록, 내렸으면 빨강으로 배경이 번쩍 (등락률 칸과 같은 방식).
+  // 확대해서 과거 구간을 보는 중에는 숫자가 현재가가 아니라 그 구간의 끝값이라 건너뛴다.
+  // 기간도 키에 넣는다 — 기간마다 캔들 출처(거래소)가 달라 바꾸는 순간 값이 조금 달라질 수 있다.
+  if(!view) flashOnChange(el.parentElement, key() + ":" + cur, fmtCur(v, cur), v);
 }
 
 function renderDelta(vis, cur){

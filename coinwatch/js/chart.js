@@ -6,7 +6,7 @@
 // 통째로 불러오면 차트를 한 번도 안 여는 사람까지 매번 그 스크립트를 내려받는다.
 import { state } from "./state.js";
 import { TV_RANGE_MAP } from "./constants.js";
-import { prevValues, rollNumberByKey } from "./animate.js";
+import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { fmtDisplayPrice, displayPriceNum, fmtChg, chgClass } from "./format.js";
 import { findCoinAnywhere, renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
@@ -27,8 +27,10 @@ export function updateChartPrice(){
   if(!tvOpen){ refreshCoinChart(); return; }
   const c = state.coinsList.find(x=>x.id===state.selectedCoinId) || findCoinAnywhere(state.selectedCoinId);
   if(!c) return;
-  rollNumberByKey("chart:price", document.getElementById("chartCoinPrice"),
-    fmtDisplayPrice(c.current_price), displayPriceNum(c.current_price));
+  const el = document.getElementById("chartCoinPrice");
+  const text = fmtDisplayPrice(c.current_price), num = displayPriceNum(c.current_price);
+  rollNumberByKey("chart:price", el, text, num);
+  flashOnChange(el.parentElement, c.id + ":" + state.displayCurrency, text, num);
 }
 
 // 시세/포트폴리오 어느 탭에서든 코인을 누르면 차트 패널이 뜬다.

@@ -291,7 +291,14 @@ body.chart-open main{padding-bottom:60vh;}
   color:var(--muted); font-size:calc(18px * var(--fs)); font-weight:700; cursor:pointer; line-height:1;
   padding:9px; flex-shrink:0;
 }
-.chart-head .price-big{font-family:var(--mono); font-size:calc(18px * var(--fs)); font-weight:700;}
+.chart-head .price-big{
+  font-family:var(--mono); font-size:calc(18px * var(--fs)); font-weight:700;
+  /* 깜빡임 배경이 글자에 딱 붙지 않게 여백을 두되, 음수 마진으로 자리는 그대로 */
+  border-radius:8px; padding:2px 8px; margin:-2px -8px;
+}
+/* 현재가가 바뀌면 등락률 칸처럼 초록/빨강 배경이 번졌다가 서서히 사라짐 */
+.price-big.flash-up{animation:chgFlashUp 1.4s ease-out;}
+.price-big.flash-down{animation:chgFlashDown 1.4s ease-out;}
 .src-note{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:8px;}
 #tvChartContainer{height:320px; border-radius:8px; overflow:hidden;}
 

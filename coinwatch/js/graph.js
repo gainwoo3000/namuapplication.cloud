@@ -147,6 +147,7 @@ export function bindScrub(svg, getGeom, label, opts){
 }
 
 // ---------- 확대 / 이동 ----------
+const PINCH_MIN_DIST = 24; // 두 손가락 간격이 이보다 좁으면(px) 배율 계산을 쉰다
 // 손가락과 마우스에서 기대하는 동작이 서로 달라서 나눠 맡긴다.
 //   손가락: 한 손가락은 지금까지처럼 값 훑기, 두 손가락으로 벌리면 확대·같이 밀면 이동
 //   마우스: 그냥 올려두면 값 훑기(누를 필요 없음)라 드래그 자리가 비어 있다 -> 드래그는 이동,
@@ -159,8 +160,8 @@ export function bindScrub(svg, getGeom, label, opts){
 // 반환값 busy(): 지금 확대/이동 중인지 (bindScrub에 넘겨 훑기를 쉬게 한다)
 export function bindZoomPan(el, h){
   if(!el) return () => false;
-  const active = new Map();          // pointerId -> clientX (지금 닿아 있는 손가락)
-  let pinchDist = 0, pinchMid = 0;   // 직전 프레임의 두 손가락 간격/중점
+  const active = new Map();          // pointerId -> {x, y} (지금 닿아 있는 손가락)
+  let pinchDist = 0, pinchMid = 0;   // 직전 프레임의 두 손가락 간격/중점(가로)
   let dragX = null;                  // 마우스 드래그 직전 위치
   let busyUntil = 0;                 // 제스처가 끝난 직후 잠깐은 훑기를 참는다
 
@@ -178,13 +179,19 @@ export function bindZoomPan(el, h){
     h.zoom(Math.pow(1.0016, -e.deltaY), frac(e.clientX));
   }, { passive: false });
 
+  // 누르기는 그래프 칸에서만 받지만, 움직임·떼기는 window에서 받는다.
+  // 그래프 칸은 세로로 짧아서 손가락을 위아래로 벌리면 금방 칸 밖으로 나가는데,
+  // 칸에서만 들으면 밖에서 뗀 손가락을 놓쳐 active에 영영 남는다
+  // -> "두 손가락이 닿아 있음"으로 굳어서 확대도 훑기도 안 되는 먹통이 된다.
   el.addEventListener("pointerdown", e => {
     if(e.pointerType === "mouse"){ dragX = e.clientX; return; }
-    active.set(e.pointerId, e.clientX);
+    // 첫 손가락(isPrimary)이면 다른 손가락은 없다 — 혹시 놓친 게 남아 있으면 여기서 비운다
+    if(e.isPrimary) active.clear();
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if(active.size === 2){ pinchDist = 0; pinchMid = 0; mark(); }
   });
 
-  el.addEventListener("pointermove", e => {
+  window.addEventListener("pointermove", e => {
     if(e.pointerType === "mouse"){
       if(dragX === null || !e.buttons) return;
       mark();
@@ -193,14 +200,18 @@ export function bindZoomPan(el, h){
       return;
     }
     if(!active.has(e.pointerId)) return;
-    active.set(e.pointerId, e.clientX);
+    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if(active.size !== 2) return;
     mark();
     const [a, b] = [...active.values()];
-    const dist = Math.abs(a - b), mid = (a + b) / 2;
-    // 첫 프레임은 기준만 잡는다 (비교할 직전 값이 없다)
-    if(pinchDist > 0 && dist > 0){
-      h.zoom(dist / pinchDist, frac(mid));
+    // 간격은 가로만이 아니라 실제 거리로 잰다. 가로만 재면 위아래로 벌릴 때 간격이 0~몇 px라
+    // 1px만 흔들려도 배율이 몇 배씩 튄다. 어느 방향으로 벌려도 같은 만큼 확대되게.
+    const dist = Math.hypot(a.x - b.x, a.y - b.y), mid = (a.x + b.x) / 2;
+    // 첫 프레임은 기준만 잡는다 (비교할 직전 값이 없다). 손가락이 거의 겹치면 비율이 불안정해 건너뛴다.
+    if(pinchDist >= PINCH_MIN_DIST && dist >= PINCH_MIN_DIST){
+      // 한 프레임에 튀는 폭을 묶어 둔다 — 손가락이 잠깐 미끄러져도 화면이 널뛰지 않게
+      const factor = Math.max(0.8, Math.min(1.25, dist / pinchDist));
+      h.zoom(factor, frac(mid));
       h.pan((pinchMid - mid) / width()); // 벌리면서 같이 밀면 이동도 함께
     }
     pinchDist = dist; pinchMid = mid;
@@ -208,12 +219,11 @@ export function bindZoomPan(el, h){
 
   const lift = e => {
     if(e.pointerType === "mouse"){ dragX = null; return; }
-    active.delete(e.pointerId);
-    if(active.size < 2){ pinchDist = 0; pinchMid = 0; }
+    if(!active.delete(e.pointerId)) return;
+    if(active.size < 2){ pinchDist = 0; pinchMid = 0; mark(); }
   };
-  el.addEventListener("pointerup", lift);
-  el.addEventListener("pointercancel", lift);
-  el.addEventListener("pointerleave", e => { if(e.pointerType === "mouse") dragX = null; });
+  window.addEventListener("pointerup", lift);
+  window.addEventListener("pointercancel", lift);
   el.addEventListener("dblclick", e => { e.preventDefault(); mark(); h.reset(); });
 
   return () => active.size >= 2 || dragX !== null || Date.now() < busyUntil;
