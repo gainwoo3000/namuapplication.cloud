@@ -12,6 +12,7 @@ export const state = {
   refreshSec: 30,
   currentDays: 1,        // 코인 차트 기간 버튼 (COIN_RANGES의 days)
   chartStyle: "line",    // 코인 차트 모양: "line" | "candle" (설정과 함께 저장된다)
+  showVolume: true,      // 코인 차트 아래 거래량 막대 (차트 도구줄에서 켜고 끈다, 저장된다)
   refreshTimer: null,
   usdKrw: null,
   lastSource: "binance",

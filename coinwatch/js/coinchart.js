@@ -7,7 +7,7 @@
 import { state } from "./state.js";
 import { COIN_RANGES, CANDLE_SOURCE_LABEL, STABLECOINS } from "./constants.js";
 import { fetchCoinCandles } from "./api.js";
-import { fmtPrice, fmtKrw } from "./format.js";
+import { fmtPrice, fmtKrw, fmtChg, chgClass } from "./format.js";
 import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
 import { medianGap, fmtGap, niceTicks, crossMarkup, bindScrub, bindZoomPan } from "./graph.js";
@@ -55,6 +55,7 @@ export function openCoinChart(c){
   coin = c;
   geom = null;
   view = null; // 다른 코인을 열면 확대는 풀고 시작한다
+  scrubPos = null; gestureBusy.release(); // 십자선도 걷고 시작한다
   renderRangeOpts();
   renderStyleToggle();
   loadAndDraw();
@@ -66,6 +67,7 @@ export function closeCoinChart(){
   view = null;
   loadSeq++; // 닫는 사이에 도착할 응답은 버린다
   scrubPos = null;
+  gestureBusy.release(); // 떠 있던 십자선은 다음에 열 차트로 넘어가지 않게
   document.getElementById("coinGraph").innerHTML = "";
   syncResetBtn();
 }
@@ -97,6 +99,7 @@ function renderRangeOpts(){
       if(!opt) return;
       state.currentDays = Number(opt.dataset.days);
       view = null; // 기간을 바꾸면 확대도 푼다
+      scrubPos = null; gestureBusy.release(); // 떠 있던 십자선도 (가리키던 봉이 바뀌므로)
       markActive(row, "days", state.currentDays);
       loadAndDraw();
     });
@@ -182,7 +185,7 @@ async function loadAndDraw(quiet){
 // 덮어써서 "차트 끝 = 패널 위 큰 숫자"가 되게 한다 (환율 그래프의 withLivePoint와 같은 원칙).
 // 현재가가 마지막 봉과 5% 넘게 벌어지면(=출처가 어긋났거나 값이 이상하면) 손대지 않는다.
 function withLivePrice(candles, conv){
-  const out = candles.map(k => ({ t: k.t, o: conv.fn(k.o), h: conv.fn(k.h), l: conv.fn(k.l), c: conv.fn(k.c) }));
+  const out = candles.map(k => ({ t: k.t, o: conv.fn(k.o), h: conv.fn(k.h), l: conv.fn(k.l), c: conv.fn(k.c), v: k.v }));
   const last = out[out.length - 1];
   // 현재가는 늘 USD 기준(coinsList)이라 표시 통화로 맞춰준다
   const live = conv.cur === "KRW"
@@ -269,10 +272,26 @@ const gestureBusy = bindZoomPan(graphBox, {
   zoom: zoomView,
   pan: panView,
   reset: resetZoom,
-  scrubAt(x, y){ scrubPos = { x, y }; if(scrubCtl) scrubCtl.at(x, y); },
+  scrubAt(x, y){ scrubPos = { x, y }; return scrubCtl ? scrubCtl.at(x, y) : undefined; },
   scrubEnd(){ scrubPos = null; if(scrubCtl) scrubCtl.hide(); }
 });
 document.getElementById("coinZoomReset").addEventListener("click", resetZoom);
+
+// 거래량 막대 켜기/끄기. 켜도 차트 칸 높이는 그대로고, 가격 부분이 그만큼 줄어든다
+// (칸이 늘었다 줄었다 하면 아래 내용이 튄다).
+const volBtn = document.getElementById("coinVolBtn");
+function syncVolBtn(){
+  volBtn.classList.toggle("active", state.showVolume);
+  volBtn.setAttribute("aria-pressed", String(state.showVolume));
+}
+volBtn.addEventListener("click", () => {
+  state.showVolume = !state.showVolume;
+  syncVolBtn();
+  saveState();
+  const cached = coin && cache[key()];
+  if(cached) draw(cached);
+});
+syncVolBtn();
 
 // ---------- 그리기 ----------
 // 칸 높이는 CSS(--coin-graph-h)가 정한다. 커스텀 속성을 getComputedStyle로 읽으면 min()/calc()가
@@ -361,8 +380,15 @@ function draw(res){
   const head = (hi - lo) * 0.12;                                // 선이 위아래 테두리에 달라붙지 않게 여유
   const top = hi + head, bot = lo - head;
 
-  const padL = 8, padT = 18, padB = 22;
-  const ih = H - padT - padB;
+  // 캔들로 볼 때는 위쪽에 캔들 정보(최고·최저 / 시작·마지막) 두 줄 자리를 비워 둔다.
+  // 날짜 툴팁은 그 위 맨 윗줄로 올라간다.
+  const padL = 8, padT = candle ? OHLC_BAND_H : 18, padB = 22;
+  const ihAll = H - padT - padB;
+  // 거래량은 가격 아래 칸을 따로 떼어 그린다. 받아온 데이터에 거래량이 없으면(옛 캐시 등) 자리를 안 뗀다.
+  const withVol = state.showVolume && vis.some(p => p.v > 0);
+  const volH = withVol ? Math.round(ihAll * VOL_RATIO) : 0;
+  const volGap = withVol ? 6 : 0;
+  const ih = ihAll - volH - volGap;               // 가격 부분 높이
   // 눈금은 일정한 단위(200만원, 2천달러, 0.002달러…)로 끊는다. 개수는 칸 높이에 맞춰
   // 52px마다 하나 꼴 — 칸이 작아도 최소 네 줄은 긋는다(한두 줄이면 없느니만 못하다).
   const { values: ticks, labels } = ticksFor(bot, top, Math.max(4, Math.round(ih / 52)), conv.cur);
@@ -405,19 +431,37 @@ function draw(res){
       <g clip-path="url(#ccClip)">
         ${candle ? candleMarkup(pts, xs, yAt, iw / (span + 1)) : lineMarkup(xs, ys, color, padT, ih)}
       </g>
+      ${withVol ? volumeMarkup(pts, vis, xs, padL, padT + ih + volGap, iw, volH, iw / (span + 1), candle) : ""}
+      ${candle ? `<g class="cc-ohlc">${ohlcMarkup(padL, W)}</g>` : ""}
       <text class="g-axis" x="${padL}" y="${H - 6}">${fmtStamp(vis[0].t)}</text>
       <text class="g-axis" x="${padL + iw}" y="${H - 6}" text-anchor="end">${fmtStamp(vis[vis.length - 1].t)}</text>
-      ${crossMarkup(color, padT, ih, padL, iw)}
+      ${crossMarkup(color, padT, ih + volGap + volH, padL, iw)}
     </svg>`;
 
   renderSrcNote(res, all, vis, conv.cur);
 
-  geom = { points: pts, xs, ys, W, H, padL, padT, iw, ih };
-  scrubCtl = bindScrub(box.querySelector(".g-svg"), () => geom,
-    p => `${fmtStamp(p.t, true)}  ${fmtCur(p.c, conv.cur)}`,
+  // 캔들 정보 줄: 십자선이 없을 때는 보이는 구간의 마지막 봉, 있으면 가리킨 봉.
+  // %는 바로 전 봉의 종가 대비 (전 봉이 없는 맨 첫 봉은 자기 시작가 대비).
+  const svg = box.querySelector(".g-svg");
+  const showOhlc = k => {
+    if(!candle) return;
+    const idx = k == null ? all.indexOf(vis[vis.length - 1]) : ds + k;
+    const p = all[idx];
+    if(p) fillOhlc(svg, p, idx > 0 ? all[idx - 1].c : p.o, conv.cur);
+  };
+  showOhlc(null);
+
+  // 거래량을 켜 두면 툴팁 날짜 옆에 그 봉의 거래량도 적는다
+  const sym = coin.symbol.toUpperCase();
+  const volText = p => withVol && p.v > 0 ? `  거래량 ${fmtVol(p.v)} ${sym}` : "";
+  geom = { points: pts, xs, ys, W, H, padL, padT, iw, ih, tipY: candle ? 12 : null };
+  scrubCtl = bindScrub(svg, () => geom,
+    // 캔들이면 가격은 아래 정보 줄에 있으니 툴팁엔 날짜만
+    p => candle ? `${fmtStamp(p.t, true)}${volText(p)}` : `${fmtStamp(p.t, true)}  ${fmtCur(p.c, conv.cur)}${volText(p)}`,
     {
       busy: gestureBusy,
       mouseOnly: true, // 손가락은 bindZoomPan이 맡는다 (한 손가락=이동, 꾹 누르기=훑기)
+      onPoint: showOhlc,
       // 가로선 높이 -> 그 높이의 가격. yAt의 역산이다.
       yLabel: y => fmtCur(bot + (1 - (y - padT) / ih) * (top - bot), conv.cur)
     });
@@ -447,6 +491,61 @@ function candleMarkup(pts, xs, yAt, slot){
            `<rect class="${cls}" x="${(x - bw / 2).toFixed(1)}" y="${bodyY.toFixed(1)}" ` +
            `width="${bw.toFixed(1)}" height="${bodyH.toFixed(1)}"/>`;
   }).join("");
+}
+
+// ---------- 거래량 ----------
+const VOL_RATIO = 0.2;           // 거래량 칸이 차지하는 비율 (가격+거래량 전체 높이 중)
+
+// 막대 높이는 보이는 구간의 최대 거래량 기준. 색은 그 봉이 올랐는지(캔들이면 시작가 대비,
+// 선이면 전 봉 대비)를 따른다. 오른쪽 위에 보이는 구간의 최대 거래량을 적는다.
+function volumeMarkup(pts, vis, xs, padL, y0, iw, volH, slot, candle){
+  const maxV = Math.max(...vis.map(p => p.v || 0));
+  if(!(maxV > 0)) return "";
+  // 선 모드에서는 시각 비례라 봉 자리가 고르지 않다 — 평균 간격으로 폭을 잡는다
+  const bw = Math.max(1, Math.min(slot * 0.66, 14));
+  const bars = pts.map((p, i) => {
+    if(!(p.v > 0)) return "";
+    const h = Math.max(1, (p.v / maxV) * volH);
+    const rising = candle ? p.c >= p.o : (i === 0 || p.c >= pts[i - 1].c);
+    return `<rect class="g-vol ${rising ? "up" : "down"}" x="${(xs[i] - bw / 2).toFixed(1)}" ` +
+           `y="${(y0 + volH - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}"/>`;
+  }).join("");
+  return `<clipPath id="ccVolClip"><rect x="${padL}" y="${y0}" width="${iw}" height="${volH}"/></clipPath>
+    <g clip-path="url(#ccVolClip)">${bars}</g>
+    <text class="g-axis" x="${padL + iw + 6}" y="${(y0 + 8).toFixed(1)}">${fmtVol(maxV)}</text>`;
+}
+
+// 거래량 표기. 코인 개수라 1억 개가 넘는 밈코인부터 0.01개 단위 비트코인까지 폭이 넓다.
+function fmtVol(v){
+  if(v >= 1e8) return (v / 1e8).toFixed(v >= 1e9 ? 0 : 1) + "억";
+  if(v >= 1e4) return (v / 1e4).toFixed(v >= 1e5 ? 0 : 1) + "만";
+  if(v >= 100) return Math.round(v).toLocaleString();
+  return v.toFixed(v >= 1 ? 2 : 4);
+}
+
+// ---------- 캔들 정보 줄 (최고·최저 / 시작·마지막) ----------
+const OHLC_BAND_H = 50;          // 캔들 모드의 위쪽 여백: 날짜 툴팁 한 줄 + 정보 두 줄
+const OHLC_ITEMS = [["h", "최고"], ["l", "최저"], ["o", "시작"], ["c", "마지막"]];
+
+// 자리만 만들어 둔다 — 값은 fillOhlc가 채운다(십자선이 움직일 때마다 SVG를 다시 그리지 않게)
+function ohlcMarkup(padL, W){
+  const colX = [padL, Math.round(W / 2)];
+  return OHLC_ITEMS.map(([k], n) =>
+    `<text class="cc-ohlc-item" data-k="${k}" x="${colX[n % 2]}" y="${n < 2 ? 28 : 43}"></text>`
+  ).join("");
+}
+
+// "최고 113,950,000원 (+0.15%)" — 원화는 ₩ 대신 뒤에 "원". %만 오르내림 색.
+function fillOhlc(svg, p, base, cur){
+  if(!svg) return;
+  const money = v => cur === "KRW" ? fmtKrw(v).replace("₩", "") + "원" : fmtPrice(v);
+  for(const [k, name] of OHLC_ITEMS){
+    const el = svg.querySelector(`.cc-ohlc-item[data-k="${k}"]`);
+    if(!el) continue;
+    const pct = base > 0 ? (p[k] - base) / base * 100 : null;
+    el.innerHTML = `<tspan class="cc-ohlc-name">${name}</tspan> ${money(p[k])}` +
+      (pct == null ? "" : ` <tspan class="${chgClass(pct)}">(${fmtChg(pct)})</tspan>`);
+  }
 }
 
 // ---------- 패널 위쪽 숫자 / 아래쪽 출처 줄 ----------

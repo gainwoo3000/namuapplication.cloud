@@ -331,6 +331,8 @@ body.chart-open main{padding-bottom:60vh;}
 .detail-btn.back{margin-bottom:10px;}
 /* 확대 중일 때만 뜨는 전체 보기 버튼 — 지금 보고 있는 게 일부라는 표시도 겸한다 */
 .detail-btn.zoom-reset{border-color:var(--gold); color:var(--gold-ink);}
+/* 거래량 켜짐 — 라인/캔들 토글의 선택 칸과 같은 금색 */
+.detail-btn.vol-btn.active{border-color:var(--gold); color:var(--gold-ink);}
 
 /* Fear & Greed index + 환율 (header, compact) */
 .header-metrics{display:flex; gap:16px; align-items:flex-start; flex-shrink:0;}
@@ -432,6 +434,16 @@ body.chart-open main{padding-bottom:60vh;}
 .g-wick{stroke-width:1;}
 .g-wick.up{stroke:var(--up);}
 .g-wick.down{stroke:var(--down);}
+/* 거래량 막대 — 가격 봉보다 흐리게 깔아 눈이 가격에 먼저 가게 */
+.g-vol{opacity:0.45;}
+.g-vol.up{fill:var(--up);}
+.g-vol.down{fill:var(--down);}
+/* 캔들 정보 줄 (최고·최저 / 시작·마지막). SVG 글자라 색은 color가 아니라 fill로 준다 */
+.cc-ohlc-item{fill:var(--text); font-size:10.5px; font-family:var(--mono); font-weight:600;}
+.cc-ohlc-item .cc-ohlc-name{fill:var(--muted); font-weight:500;}
+.cc-ohlc-item .up{fill:var(--up);}
+.cc-ohlc-item .down{fill:var(--down);}
+.cc-ohlc-item .flat{fill:var(--muted);}
 /* paint-order로 글자 뒤에 패널색 테두리를 깔아, 선·면 위에 겹쳐도 읽힌다 */
 .g-cross-tip{
   fill:var(--text); font-size:11px; font-weight:700; font-family:var(--mono);

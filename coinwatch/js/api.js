@@ -369,29 +369,30 @@ export async function fetchCmcKrw(){
 }
 
 // ---------- 코인 캔들(차트용) ----------
-// 어느 거래소에서 받든 { t:<unix초>, o,h,l,c } 배열(오래된 -> 최신)로 맞춰서 돌려준다.
+// 어느 거래소에서 받든 { t:<unix초>, o,h,l,c, v } 배열(오래된 -> 최신)로 맞춰서 돌려준다.
+// v는 거래량(코인 개수 기준). 거래소마다 단위가 같도록 원화·달러 거래대금이 아니라 수량을 쓴다.
 // 거래소마다 정렬 방향과 필드 순서가 제각각이라 어댑터를 하나씩 둔다.
 const CANDLE_FETCHERS = {
-  // 바이낸스: 오래된 -> 최신, [openTime(ms), o, h, l, c, ...]
+  // 바이낸스: 오래된 -> 최신, [openTime(ms), o, h, l, c, 거래량, ...]
   async binance(sym, spec){
     const r = await fetch(`${BINANCE}/klines?symbol=${sym}USDT&interval=${spec.i}&limit=${spec.n}`);
     if(!r.ok) return null;
     const rows = await r.json();
-    return rows.map(k => ({ t: k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
+    return rows.map(k => ({ t: k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
   },
-  // OKX: 최신 -> 오래된, [ts(ms), o, h, l, c, ...]
+  // OKX: 최신 -> 오래된, [ts(ms), o, h, l, c, 거래량, ...]
   async okx(sym, spec){
     const r = await fetch(`https://www.okx.com/api/v5/market/candles?instId=${sym}-USDT&bar=${spec.i}&limit=${spec.n}`);
     if(!r.ok) return null;
     const j = await r.json();
-    return (j.data || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] })).reverse();
+    return (j.data || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] })).reverse();
   },
-  // 바이빗: 최신 -> 오래된, [start(ms), o, h, l, c, ...]
+  // 바이빗: 최신 -> 오래된, [start(ms), o, h, l, c, 거래량, ...]
   async bybit(sym, spec){
     const r = await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}USDT&interval=${spec.i}&limit=${spec.n}`);
     if(!r.ok) return null;
     const j = await r.json();
-    return ((j.result && j.result.list) || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4] })).reverse();
+    return ((j.result && j.result.list) || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] })).reverse();
   },
   // 업비트: 최신 -> 오래된, 객체. 값은 원화라 quote가 KRW가 된다
   async upbit(sym, spec){
@@ -401,7 +402,7 @@ const CANDLE_FETCHERS = {
     if(!Array.isArray(rows)) return null;
     return rows.map(k => ({
       t: Date.parse(k.candle_date_time_utc + "Z") / 1000,
-      o: k.opening_price, h: k.high_price, l: k.low_price, c: k.trade_price
+      o: k.opening_price, h: k.high_price, l: k.low_price, c: k.trade_price, v: k.candle_acc_trade_volume
     })).reverse();
   },
   // 빗썸: 오래된 -> 최신, [ts(ms), 시가, 종가, 고가, 저가, 거래량] — 고저가 자리가 다른 곳과 다르다.
@@ -411,7 +412,7 @@ const CANDLE_FETCHERS = {
     if(!r.ok) return null;
     const j = await r.json();
     if(j.status !== "0000" || !Array.isArray(j.data)) return null;
-    return j.data.slice(-spec.n).map(k => ({ t: +k[0] / 1000, o: +k[1], c: +k[2], h: +k[3], l: +k[4] }));
+    return j.data.slice(-spec.n).map(k => ({ t: +k[0] / 1000, o: +k[1], c: +k[2], h: +k[3], l: +k[4], v: +k[5] }));
   }
 };
 

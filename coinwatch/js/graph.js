@@ -87,6 +87,8 @@ export function crossMarkup(color, padT, ih, padL, iw){
 //                따라다니면 손가락이 뭘 하는 중인지 알 수 없어진다
 //   opts.yLabel: (선택) 가로선 높이(SVG 좌표)를 받아 오른쪽 축에 적을 값을 돌려주는 함수.
 //                없으면 가로선만 긋고 값은 안 적는다
+//   opts.onPoint: (선택) 십자선이 가리키는 점의 순번이 바뀔 때마다 불린다. 숨길 때는 null.
+//                코인 차트가 캔들 정보(최고·최저·시작·마지막) 줄을 바꿔 쓰는 데 쓴다
 //   opts.mouseOnly: (선택) 참이면 손가락은 여기서 받지 않는다 — 코인 차트처럼 한 손가락이
 //                이동에 쓰이고 훑기는 꾹 눌러야 켜지는 곳. 그때는 bindZoomPan이 돌려받은
 //                조종기(at/hide)로 십자선을 움직인다.
@@ -94,7 +96,7 @@ export function crossMarkup(color, padT, ih, padL, iw){
 export function bindScrub(svg, getGeom, label, opts){
   const noop = { at(){}, hide(){} };
   if(!svg) return noop;
-  const { busy, yLabel, mouseOnly } = opts || {};
+  const { busy, yLabel, mouseOnly, onPoint } = opts || {};
   const cross = svg.querySelector(".g-cross");
   const vline = svg.querySelector(".g-cross-line");
   const hline = svg.querySelector(".g-cross-hline");
@@ -118,7 +120,8 @@ export function bindScrub(svg, getGeom, label, opts){
     // 라벨이 오른쪽 끝에서 잘리지 않도록 절반을 넘어가면 왼쪽으로 붙인다
     const rightHalf = px > geom.padL + geom.iw / 2;
     tip.setAttribute("x", rightHalf ? px - 8 : px + 8);
-    tip.setAttribute("y", geom.padT - 5);
+    // 기본은 그래프 칸 바로 위. 그 자리를 다른 걸로 쓰는 그래프는 geom.tipY로 옮긴다
+    tip.setAttribute("y", geom.tipY != null ? geom.tipY : geom.padT - 5);
     tip.setAttribute("text-anchor", rightHalf ? "end" : "start");
     tip.textContent = label(geom.points[i], i);
 
@@ -135,8 +138,14 @@ export function bindScrub(svg, getGeom, label, opts){
       }
     }
     cross.style.display = "";
+    if(onPoint) onPoint(i);
+    return i;
   };
-  const end = () => { cross.style.display = "none"; };
+  const end = () => {
+    cross.style.display = "none";
+    if(onPoint) onPoint(null);
+  };
+  // at()은 가리킨 점의 순번을 돌려준다 — 순번이 바뀔 때마다 톡 진동을 주는 데 쓴다
   const control = { at: (x, y) => move({ clientX: x, clientY: y }, true), hide: end };
   const skip = e => mouseOnly && e.pointerType !== "mouse";
 
@@ -161,17 +170,21 @@ export function bindScrub(svg, getGeom, label, opts){
 // ---------- 확대 / 이동 ----------
 const PINCH_MIN_DIST = 24;  // 두 손가락 간격이 이보다 좁으면(px) 배율 계산을 쉰다
 const LONG_PRESS_MS = 400;  // 이만큼 가만히 누르고 있으면 값 훑기로 들어간다
-const TAP_SLOP = 8;         // 누른 뒤 이보다 많이 움직이면(px) 꾹 누르기가 아니라 끌기로 본다
+const TAP_SLOP = 8;         // 누른 뒤 이보다 많이 움직이면(px) 탭·꾹 누르기가 아니라 끌기로 본다
+const LIFT_OFFSET = 60;     // 꾹 누르면 십자선을 손가락보다 이만큼(px) 위에 띄운다 — 손가락에 가리지 않게
+const PRESS_BUZZ_MS = 35;   // 훑기가 켜질 때 진동 길이 (안드로이드)
+const TICK_BUZZ_MS = 10;    // 십자선이 봉 하나를 넘어갈 때마다 톡 (안드로이드)
+const TICK_GAP_MS = 35;     // 톡과 톡 사이 최소 간격 — 빠르게 훑을 때 진동이 뭉개지지 않고 모터도 쉬게
 
 // 짧은 진동 한 번.
-//   안드로이드: navigator.vibrate. (앱 WebView 안에서는 앱에 VIBRATE 권한이 있어야 울린다)
+//   안드로이드: navigator.vibrate(ms). (앱 WebView 안에서는 앱에 VIBRATE 권한이 있어야 울린다)
 //   iOS: vibrate가 아예 없다. 대신 iOS 18부터 사파리의 스위치형 체크박스(<input switch>)가
 //        토글될 때 시스템 햅틱을 울리므로, 숨겨 둔 스위치의 label을 눌러 그 햅틱을 빌려 쓴다.
-//        iOS 17 이하나 이 동작을 막은 환경에서는 조용히 아무 일도 안 일어난다.
+//        세기는 시스템이 정해서 ms는 무시된다. iOS 17 이하에서는 조용히 아무 일도 안 일어난다.
 let hapticLabel = null;
-function haptic(){
+function haptic(ms){
   try{
-    if(typeof navigator.vibrate === "function"){ navigator.vibrate(15); return; }
+    if(typeof navigator.vibrate === "function"){ navigator.vibrate(ms); return; }
     if(!hapticLabel){
       hapticLabel = document.createElement("label");
       hapticLabel.setAttribute("aria-hidden", "true");
@@ -191,9 +204,10 @@ function haptic(){
 
 // 손가락과 마우스에서 기대하는 동작이 서로 달라서 나눠 맡긴다.
 //   손가락: 한 손가락으로 끌면 이동, 두 손가락으로 벌리면 확대(같이 밀면 이동).
-//           꾹 누르면(LONG_PRESS_MS) 값 훑기 — 그동안 차트는 멈춰 있고, 십자선은 손가락
-//           바로 아래가 아니라 손가락이 움직인 만큼 따라간다(트랙패드처럼). 그래서 손가락에
-//           가리지 않고 값을 읽을 수 있다.
+//           꾹 누르면(LONG_PRESS_MS) 값 훑기 — 십자선이 손가락보다 조금 위에 뜨고, 그 뒤로는
+//           손가락 바로 아래가 아니라 손가락이 움직인 만큼 따라간다(트랙패드처럼).
+//           손을 떼도 십자선은 남는다. 그 상태에서 다시 끌면 이동이 아니라 십자선이 이어서
+//           움직이고, 제자리에서 톡 치면 십자선이 사라진다(그 뒤로는 다시 끌어서 이동).
 //   마우스: 그냥 올려두면 값 훑기(누를 필요 없음, bindScrub이 맡는다) -> 드래그는 이동,
 //           휠은 커서 자리를 기준으로 확대
 // 양쪽 다 두 번 누르면 전체 보기로 돌아온다.
@@ -201,18 +215,26 @@ function haptic(){
 // h.zoom(factor, frac) — factor>1이면 확대. frac은 기준점의 가로 위치(0=왼쪽 끝, 1=오른쪽 끝)
 // h.pan(frac)          — 보이는 구간을 그 폭의 frac만큼 오른쪽으로 민다(음수면 왼쪽)
 // h.reset()            — 전체 보기
-// h.scrubAt(x, y)      — (선택) 꾹 누르기 훑기 중 십자선을 화면 좌표 (x, y)로
-// h.scrubEnd()         — (선택) 훑기 끝
+// h.scrubAt(x, y)      — (선택) 십자선을 화면 좌표 (x, y)로. 가리킨 점의 순번을 돌려주면
+//                        순번이 바뀔 때마다 톡 진동이 울린다
+// h.scrubEnd()         — (선택) 십자선 숨기기
 // 반환값 busy(): 지금 확대/이동 중인지 (bindScrub에 넘겨 훑기를 쉬게 한다)
+//   busy.release(): 떠 있는 십자선 상태를 버린다 (차트를 닫거나 다른 코인을 열 때)
 export function bindZoomPan(el, h){
-  if(!el) return () => false;
+  if(!el){ const none = () => false; none.release = () => {}; return none; }
   const active = new Map();          // pointerId -> {x, y} (지금 닿아 있는 손가락)
   let pinchDist = 0, pinchMid = 0;   // 직전 프레임의 두 손가락 간격/중점(가로)
   let dragX = null;                  // 마우스 드래그 직전 위치
   let busyUntil = 0;                 // 제스처가 끝난 직후 잠깐은 훑기를 참는다
 
-  // 한 손가락 상태: "wait"(누른 직후, 끌기인지 꾹 누르기인지 모름) | "pan" | "scrub" | "done"
-  let one = null;                    // { id, mode, sx, sy, lx, ly, cx, cy, timer }
+  // 떠 있는 십자선의 화면 위치. null이면 없음. 손을 떼도 남는다.
+  let cur = null;
+  let lastIdx = null, lastTickAt = 0;
+  // 한 손가락 상태:
+  //   "wait"   누른 직후, 끌기인지 꾹 누르기인지 모름 (십자선 없을 때)
+  //   "tap"    누른 직후, 끌기인지 탭인지 모름 (십자선 떠 있을 때)
+  //   "pan" | "scrub" | "done"(핀치 뒤 남은 손가락 — 무시)
+  let one = null;                    // { id, mode, sx, sy, lx, ly, timer }
 
   const frac = x => {
     const r = el.getBoundingClientRect();
@@ -221,10 +243,23 @@ export function bindZoomPan(el, h){
   const width = () => el.getBoundingClientRect().width || 1;
   const mark = () => { busyUntil = Date.now() + 120; };
 
-  const endOne = () => {
-    if(!one) return;
-    clearTimeout(one.timer);
-    if(one.mode === "scrub" && h.scrubEnd) h.scrubEnd();
+  const showAt = (x, y, silent) => {
+    const r = el.getBoundingClientRect();
+    cur = { x: Math.max(r.left, Math.min(r.right, x)), y: Math.max(r.top, Math.min(r.bottom, y)) };
+    const idx = h.scrubAt ? h.scrubAt(cur.x, cur.y) : undefined;
+    // 봉 하나를 넘어갈 때마다 톡 — 빠르게 훑으면 또로로록
+    if(!silent && idx !== undefined && lastIdx !== null && idx !== lastIdx){
+      const now = Date.now();
+      if(now - lastTickAt >= TICK_GAP_MS){ lastTickAt = now; haptic(TICK_BUZZ_MS); }
+    }
+    lastIdx = idx === undefined ? null : idx;
+  };
+  const hide = () => {
+    cur = null; lastIdx = null;
+    if(h.scrubEnd) h.scrubEnd();
+  };
+  const dropOne = () => {
+    if(one) clearTimeout(one.timer);
     one = null;
   };
 
@@ -245,19 +280,27 @@ export function bindZoomPan(el, h){
   el.addEventListener("pointerdown", e => {
     if(e.pointerType === "mouse"){ dragX = e.clientX; return; }
     // 첫 손가락(isPrimary)이면 다른 손가락은 없다 — 혹시 놓친 게 남아 있으면 여기서 비운다
-    if(e.isPrimary){ active.clear(); endOne(); }
+    if(e.isPrimary){ active.clear(); dropOne(); }
     active.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if(active.size === 1){
-      const o = one = { id: e.pointerId, mode: "wait",
-        sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, cx: e.clientX, cy: e.clientY };
-      o.timer = setTimeout(() => {
-        if(one !== o || o.mode !== "wait") return;
-        o.mode = "scrub";                        // 누른 자리에서 십자선이 뜬다
-        haptic(); // 짧게 떨려서 훑기가 켜진 걸 알린다
-        if(h.scrubAt) h.scrubAt(o.cx, o.cy);
-      }, LONG_PRESS_MS);
+      const o = one = { id: e.pointerId, mode: cur ? "tap" : "wait",
+        sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY };
+      if(o.mode === "wait"){
+        o.timer = setTimeout(() => {
+          if(one !== o || o.mode !== "wait") return;
+          o.mode = "scrub";
+          haptic(PRESS_BUZZ_MS); // 훑기가 켜진 걸 알린다
+          // 손가락 바로 아래가 아니라 조금 위에 띄운다. 위쪽 여백이 모자라면 아래로.
+          const r = el.getBoundingClientRect();
+          const y = o.ly - LIFT_OFFSET >= r.top ? o.ly - LIFT_OFFSET : o.ly + LIFT_OFFSET;
+          showAt(o.lx, y, true);
+        }, LONG_PRESS_MS);
+      }
     }else if(active.size === 2){
-      endOne(); // 두 번째 손가락이 닿으면 끌기·훑기는 접고 핀치로
+      // 두 번째 손가락이 닿으면 끌기·훑기는 접고 핀치로. 떠 있던 십자선도 걷는다
+      // (확대하면 그 자리의 값이 바뀌어 남겨 둬 봐야 엉뚱한 곳을 가리킨다).
+      dropOne();
+      if(cur) hide();
       one = { id: null, mode: "done" };
       pinchDist = 0; pinchMid = 0; mark();
     }
@@ -277,8 +320,9 @@ export function bindZoomPan(el, h){
     if(active.size === 1 && one && one.id === e.pointerId){
       const dx = e.clientX - one.lx, dy = e.clientY - one.ly;
       one.lx = e.clientX; one.ly = e.clientY;
+      const moved = Math.hypot(e.clientX - one.sx, e.clientY - one.sy) > TAP_SLOP;
       if(one.mode === "wait"){
-        if(Math.hypot(e.clientX - one.sx, e.clientY - one.sy) <= TAP_SLOP) return;
+        if(!moved) return;
         clearTimeout(one.timer);
         one.mode = "pan";
         // 움직였다고 판단하기까지 흘려보낸 거리도 이동에 넣는다 — 안 그러면 처음에 살짝 멈칫한다
@@ -286,17 +330,22 @@ export function bindZoomPan(el, h){
         h.pan((one.sx - e.clientX) / width());
         return;
       }
+      if(one.mode === "tap"){
+        if(!moved) return;
+        // 십자선이 떠 있을 때 끌면 이동이 아니라 십자선을 이어서 움직인다.
+        // 흘려보낸 거리만큼 한 번에 옮겨 멈칫하지 않게.
+        one.mode = "scrub";
+        showAt(cur.x + (e.clientX - one.sx), cur.y + (e.clientY - one.sy));
+        return;
+      }
       if(one.mode === "pan"){
         mark();
         h.pan(-dx / width());
         return;
       }
-      if(one.mode === "scrub"){
+      if(one.mode === "scrub" && cur){
         // 차트는 그대로 두고 십자선만 손가락이 움직인 만큼 옮긴다. 칸 밖으로는 안 나가게 가둔다.
-        const r = el.getBoundingClientRect();
-        one.cx = Math.max(r.left, Math.min(r.right, one.cx + dx));
-        one.cy = Math.max(r.top, Math.min(r.bottom, one.cy + dy));
-        if(h.scrubAt) h.scrubAt(one.cx, one.cy);
+        showAt(cur.x + dx, cur.y + dy);
       }
       return;
     }
@@ -321,13 +370,19 @@ export function bindZoomPan(el, h){
     if(e.pointerType === "mouse"){ dragX = null; return; }
     if(!active.delete(e.pointerId)) return;
     if(active.size < 2){ pinchDist = 0; pinchMid = 0; mark(); }
+    if(active.size > 0) return;
+    // 십자선이 떠 있을 때 제자리에서 톡 치고 떼면 십자선을 걷는다.
+    // 훑다가 뗀 경우(scrub)는 그대로 남긴다.
+    if(one && one.mode === "tap" && e.type === "pointerup") hide();
     // 핀치 뒤 남은 한 손가락은 이동으로 이어가지 않는다("done") — 떼는 순간 화면이 튀지 않게
-    if(active.size === 0) endOne();
+    dropOne();
   };
   window.addEventListener("pointerup", lift);
   window.addEventListener("pointercancel", lift);
   el.addEventListener("dblclick", e => { e.preventDefault(); mark(); h.reset(); });
 
-  return () => active.size >= 2 || dragX !== null || Date.now() < busyUntil
+  const busy = () => active.size >= 2 || dragX !== null || Date.now() < busyUntil
     || !!(one && one.mode === "pan");
+  busy.release = () => { dropOne(); cur = null; lastIdx = null; };
+  return busy;
 }
