@@ -5,7 +5,7 @@
 // 그래서 환율 그래프(fxchart.js)와 같은 방식으로 SVG에 직접 그린다. 지표·드로잉툴이
 // 필요한 사람을 위해 "상세" 버튼으로 여는 트레이딩뷰는 chart.js에 그대로 남겨뒀다.
 import { state } from "./state.js";
-import { COIN_RANGES, CANDLE_SOURCE_LABEL, STABLECOINS } from "./constants.js";
+import { COIN_RANGES, CANDLE_SOURCE_LABEL } from "./constants.js";
 import { fetchCoinCandles } from "./api.js";
 import { fmtPrice, fmtKrw, fmtChg, chgClass } from "./format.js";
 import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
@@ -48,7 +48,24 @@ function converter(quote){
     ? { cur: "KRW", fn: v => v * rate }
     : { cur: "USD", fn: v => v / rate };
 }
-const fmtCur = (v, cur) => cur === "KRW" ? fmtKrw(v) : fmtPrice(v);
+// 보이는 구간이 아주 좁을 때(스테이블코인: $0.9995~$1.0005) 더 보여 줄 소수 자릿수. null이면 평소대로.
+// 평소 형식은 1 이상에서 달러 2자리·원화 0자리라 그대로 두면 눈금·툴팁·큰 숫자가 전부 "$1"이 된다.
+let fineDigits = null;
+const fmtCur = (v, cur) => {
+  if(fineDigits != null && Math.abs(v) >= 1){
+    const s = v.toLocaleString(undefined, { minimumFractionDigits: fineDigits, maximumFractionDigits: fineDigits });
+    return (cur === "KRW" ? "₩" : "$") + s;
+  }
+  return cur === "KRW" ? fmtKrw(v) : fmtPrice(v);
+};
+
+// 구간 폭의 약 1/40까지 읽히도록 자릿수를 정한다. 평소 자릿수로 충분하면 null.
+function pickFineDigits(lo, hi, cur){
+  if(!(hi > lo) || lo < 1) return null;           // 1 미만은 평소에도 6자리까지 보여 준다
+  const base = cur === "KRW" || hi >= 1000 ? 0 : 2;
+  const need = Math.min(6, Math.ceil(-Math.log10((hi - lo) / 40)));
+  return need > base ? need : null;
+}
 
 // ---------- 열고 닫기 ----------
 export function openCoinChart(c){
@@ -155,12 +172,6 @@ function message(text, note){
 // (주기 갱신에서 차트가 깜빡이면 안 된다).
 async function loadAndDraw(quiet){
   if(!coin) return;
-
-  // 스테이블코인은 어느 기간을 봐도 ≈$1에 납작하게 붙는다 — 그릴 값이 없다
-  if(!coin.tvSymbol && STABLECOINS.has(coin.symbol.toUpperCase())){
-    message("스테이블코인이라 가격이 항상 ≈ $1 — 시세 차트를 생략했어요.", "가격 기준: 스테이블코인 (달러 페그)");
-    return;
-  }
 
   const cached = cache[key()];
   if(cached){ draw(cached); return; }
@@ -310,6 +321,7 @@ function graphHeight(box){
 // 그 가격대에서 화면에 실제로 드러나는 최소 단위. fmtKrw는 1원 이상이면 정수로,
 // fmtPrice는 1000달러 이상이면 정수·1달러 이상이면 센트까지만 보여준다.
 function displayUnit(v, cur){
+  if(fineDigits != null && v >= 1) return Math.pow(10, -fineDigits);
   if(cur === "KRW") return v >= 1 ? 1 : 1e-6;
   if(v >= 1000) return 1;
   if(v >= 1) return 0.01;
@@ -366,6 +378,8 @@ function draw(res){
   const ds = Math.max(0, Math.floor(i0) - 1), de = Math.min(n - 1, Math.ceil(i1) + 1);
   const pts = all.slice(ds, de + 1);
 
+  // 자릿수는 숫자를 하나라도 적기 전에 정한다 (등락·큰 숫자·눈금·툴팁이 모두 같은 규칙을 따르게)
+  fineDigits = pickFineDigits(Math.min(...vis.map(p => p.l)), Math.max(...vis.map(p => p.h)), conv.cur);
   renderDelta(vis, conv.cur);
   renderPrice(vis[vis.length - 1].c, conv.cur);
 
@@ -538,7 +552,7 @@ function ohlcMarkup(padL, W){
 // "최고 113,950,000원 (+0.15%)" — 원화는 ₩ 대신 뒤에 "원". %만 오르내림 색.
 function fillOhlc(svg, p, base, cur){
   if(!svg) return;
-  const money = v => cur === "KRW" ? fmtKrw(v).replace("₩", "") + "원" : fmtPrice(v);
+  const money = v => cur === "KRW" ? fmtCur(v, cur).replace("₩", "") + "원" : fmtCur(v, cur);
   for(const [k, name] of OHLC_ITEMS){
     const el = svg.querySelector(`.cc-ohlc-item[data-k="${k}"]`);
     if(!el) continue;
@@ -593,8 +607,10 @@ function renderSrcNote(res, all, vis, cur){
   // 받아온 통화와 보여주는 통화가 다르면(환율 환산) 그 사실을 밝힌다
   const converted = (res.quote === "USD") !== (cur === "USD") ? " · 환율 환산" : "";
   const count = view ? `${vis.length}/${all.length}개` : `${all.length}개`;
+  // 페어 표기: 국내는 원화, 크라켄은 달러, 나머지 해외는 테더 페어
+  const pairQuote = res.quote === "KRW" ? "/KRW" : res.source === "kraken" ? "/USD" : "/USDT";
   document.getElementById("chartSrcNote").textContent =
-    `${src} ${coin.symbol.toUpperCase()}${res.quote === "KRW" ? "/KRW" : "/USDT"}${converted}` +
+    `${src} ${coin.symbol.toUpperCase()}${pairQuote}${converted}` +
     ` · ${gap} 간격 · ${count} · ${last.live ? "현재가" : "최종"} ${stamp} 기준`;
 }
 

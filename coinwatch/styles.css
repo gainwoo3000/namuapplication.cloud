@@ -68,11 +68,11 @@ body.topbar-hidden{
   height:var(--safe-top); background:var(--panel); pointer-events:none;
 }
 header{
-  padding:16px 16px 8px;
-  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px;
+  display:flex; align-items:baseline; gap:10px; /* 제목 옆에 갱신 시각 */
 }
 header h1{font-size:calc(17px * var(--fs)); font-weight:700; margin:0; letter-spacing:-0.2px;}
-header .sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:2px;}
+header .sub{font-size:calc(11px * var(--fs)); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
 .tabs{
   display:flex; gap:2px; padding:6px 12px; border-bottom:1px solid var(--line);
   background:transparent;
@@ -104,7 +104,7 @@ body.chart-open main{padding-bottom:60vh;}
 @keyframes edgeBounceRight{30%{transform:translateX(14px);} to{transform:none;}}
 @media (prefers-reduced-motion: reduce){
   .view.slide-left, .view.slide-right, .edge-bounce-left, .edge-bounce-right{animation:none;}
-  .topbar, .market-search{transition:none;}
+  .topbar, .market-search, .grid-head{transition:none;}
 }
 
 /* Watchlist toolbar */
@@ -165,7 +165,9 @@ body.chart-open main{padding-bottom:60vh;}
 .pg-gap{color:var(--muted); padding:0 2px; font-size:calc(12px * var(--fs));}
 
 /* Ticker grid */
-.grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel);}
+/* overflow:clip — hidden과 달리 스크롤 칸을 만들지 않아서, 안의 머리줄(.grid-head)이 sticky로
+   화면에 붙을 수 있다(hidden이면 이 상자 안에서만 붙으려다 아무 효과가 없다). 둥근 모서리 자르기는 똑같다. */
+.grid-wrap{border:1px solid var(--line); border-radius:12px; overflow:hidden; overflow:clip; background:var(--panel);}
 .grid-row{
   display:grid; grid-template-columns: 0.9fr 1.2fr 1.2fr 0.5fr; gap:14px;
   padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer;
@@ -181,6 +183,16 @@ body.chart-open main{padding-bottom:60vh;}
 .grid-row:active{background:var(--panel-2);}
 .grid-row.selected{background:#1E2A22; border-left:3px solid var(--up);}
 .grid-head{color:var(--muted); font-size:calc(11px * var(--fs)); font-weight:600;}
+/* 표 머리줄(코인·가격·1일 등락률)은 내려도 위에 붙어 있다.
+   붙는 자리: 관심 코인 탭은 헤더(탭 줄) 바로 아래, 시세 탭은 그 아래 검색창(--search-h)까지 지나서.
+   헤더가 숨을 때 검색창과 같은 만큼(--search-shift) 같이 올라간다. */
+.grid-head{
+  position:sticky; top:var(--topbar-h, 96px); z-index:30; background:var(--panel);
+  cursor:default;
+  transform:translateY(var(--search-shift, 0px));
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+}
+.grid-wrap.market .grid-head{top:calc(var(--topbar-h, 96px) + var(--search-h, 58px));}
 .grid-head .myx-head{text-align:right;}
 .myx-head-sub{display:block; font-size:calc(10px * var(--fs)); font-weight:400; color:var(--muted); margin-top:1px;}
 /* 로고가 이름 칸을 먹으므로 이름·심볼은 줄바꿈 대신 말줄임 (행 높이가 들쭉날쭉해지지 않게) */
@@ -342,6 +354,27 @@ body.chart-open main{padding-bottom:60vh;}
 }
 .coin-back:active{opacity:.5;}
 .coin-back svg{width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;}
+/* 차트 아래 요약 카드 세 장 (시가총액 · 1일 · 52주) */
+.coin-stats{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:14px;}
+.stat-card{
+  border:1px solid var(--line); border-radius:12px; background:var(--panel);
+  padding:12px 10px; min-width:0;
+}
+.stat-label{font-size:calc(11px * var(--fs)); color:var(--muted); font-weight:600;}
+.stat-value{
+  font-family:var(--mono); font-size:calc(15px * var(--fs)); font-weight:700; margin-top:6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.stat-value.up{color:var(--up);} .stat-value.down{color:var(--down);} .stat-value.flat{color:var(--muted);}
+.stat-sub{font-size:calc(10px * var(--fs)); color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.stat-card .range-bar{margin-top:9px;}
+/* 막대 양 끝 아래의 최저가(왼쪽)·최고가(오른쪽) */
+.range-ends{
+  display:flex; justify-content:space-between; gap:6px; margin-top:4px;
+  font-family:var(--mono); font-size:calc(9.5px * var(--fs)); color:var(--text); opacity:.8;
+  white-space:nowrap; min-height:1.2em;
+}
+.range-ends > span{overflow:hidden; text-overflow:ellipsis;}
 /* 페이지가 떠 있는 동안 뒤의 목록이 같이 스크롤되지 않게 */
 body.coin-page-open{overflow:hidden;}
 .coin-page #tvChartContainer{height:clamp(320px, calc(100vh - 220px), 560px);}
@@ -377,34 +410,60 @@ body.coin-page-open{overflow:hidden;}
 /* 거래량 켜짐 — 라인/캔들 토글의 선택 칸과 같은 금색 */
 .detail-btn.vol-btn.active{border-color:var(--gold); color:var(--gold-ink);}
 
-/* Fear & Greed index + 환율 (header, compact) */
-.header-metrics{display:flex; gap:16px; align-items:flex-start; flex-shrink:0;}
-.fng-mini{text-align:right; line-height:1.25; flex-shrink:0;}
-.fng-mini-cap{display:block; font-size:calc(10px * var(--fs)); color:var(--muted);}
-.fng-mini-body{font-family:var(--mono); font-size:calc(13px * var(--fs)); font-weight:800;}
-#fxMini .fng-mini-body{color:var(--gold-ink);}
-/* 값 한 줄의 자리표시. 진짜 값과 같은 칸을 번갈아 쓰므로 둘 다 같은 높이를 못박아 두면
-   값이 도착해도 캡션 아래가 밀리지 않는다 (17px = 13px 글자의 한 줄 높이) */
-.fng-mini-body, .mini-sk{ display:block; height:calc(17px * var(--fs)); line-height:calc(17px * var(--fs)); }
-.mini-sk{ border-radius:4px; }
-.fng-mini:not(.is-loading) .mini-sk{ display:none; }
-.fng-mini.is-loading .fng-mini-body{ display:none; }
-/* 폭은 들어올 문구만큼 — "₩1,385.20", "62 · 탐욕" */
-#fxMini  .mini-sk{ width:calc(70px * var(--fs)); }
-#fngMini .mini-sk{ width:calc(66px * var(--fs)); }
-/* 아직 못 누르는 동안에는 누를 수 있다는 힌트(꺾쇠)도 내린다 */
-.fx-mini-btn.is-loading .fng-mini-cap::after{ content:none; }
-.fx-mini-btn:disabled{ cursor:default; }
-/* 환율은 눌러서 추이 그래프를 여는 버튼이다. 옆의 공포·탐욕 지수와 높이·정렬이
-   어긋나지 않도록 버튼 기본 스타일을 전부 지우고 .fng-mini 규칙만 남긴다 */
+/* 지수 띠 — 헤더 아래 가로로 긴 한 줄: [환율 1,354.40 ▼0.82% │ 공포탐욕 74 탐욕 ▲3 │ 시총 $2.89T ▼1.91%]
+   증권 앱의 지수 줄처럼 테두리 상자 없이 화면 폭을 꽉 채우는 납작한 띠. 칸마다 내용 폭만큼 쓰고
+   남는 폭은 칸 사이에 고르게 나눈다. 글자를 크게 해서 넘치면 옆으로 밀어 볼 수 있다. */
+.ticker-strip{
+  height:calc(30px * var(--fs));
+  background:var(--bg); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  font-size:calc(12px * var(--fs)); white-space:nowrap; overflow:hidden;
+}
+.tk-track{display:flex; height:100%;}
+/* 다 들어갈 때: 띠 폭을 꽉 채우고 세 칸을 고르게 벌린다 */
+.tk-group{
+  display:flex; align-items:center; justify-content:space-between; flex:none;
+  min-width:100%; height:100%; padding:0 16px; box-sizing:border-box;
+}
+/* 넘칠 때(.marquee): 세 칸을 붙여 놓고, 같은 묶음을 하나 더 이어 붙인 트랙 전체를 한 묶음 폭
+   (--tk-dist)만큼 왼쪽으로 민 뒤 처음으로 돌아가기를 반복 — 이음매 없이 계속 흐르는 것처럼 보인다.
+   양 끝은 흐리게 해서 글자가 칼로 자른 듯 잘려 보이지 않게. */
+.ticker-strip.marquee{
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+          mask-image:linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+}
+.ticker-strip.marquee .tk-group{min-width:0; justify-content:flex-start; padding:0 34px 0 0;}
+/* 묶음과 묶음 사이 이음매에도 구분선 */
+.ticker-strip.marquee .tk-group::after{content:""; width:1px; height:12px; background:var(--line); margin-left:34px;}
+.ticker-strip.marquee .tk-track{animation:tkScroll var(--tk-dur, 16s) linear infinite; will-change:transform;}
+.ticker-strip.marquee:hover .tk-track{animation-play-state:paused;}
+@keyframes tkScroll{to{transform:translateX(calc(-1 * var(--tk-dist, 0px)));}}
+/* 움직임 줄이기를 켠 사람에게는 흘려보내지 않고 손가락으로 밀어 보게 한다 */
+@media (prefers-reduced-motion: reduce){
+  .ticker-strip{overflow-x:auto; scrollbar-width:none;}
+  .ticker-strip::-webkit-scrollbar{display:none;}
+}
+.tk-item{display:flex; align-items:baseline; gap:5px; flex:none;}
+.tk-sep{flex:none; width:1px; height:12px; background:var(--line); margin:0 10px;}
+/* 한쪽을 못 받아 그 칸이 숨으면 구분선만 덩그러니 남지 않게 */
+.tk-item[style*="none"] + .tk-sep, .tk-sep:has(+ .tk-item[style*="none"]){display:none;}
+.tk-label{color:var(--muted); font-size:calc(11px * var(--fs));}
+.tk-val{font-family:var(--mono); font-weight:800; color:var(--text);}
+#fxMini .tk-val{color:var(--gold-ink);}
+.tk-cls{font-weight:700; font-size:calc(11px * var(--fs));}
+.tk-chg{font-family:var(--mono); font-size:calc(11px * var(--fs)); font-weight:600; color:var(--muted);}
+.tk-chg.up{color:var(--up);} .tk-chg.down{color:var(--down);}
+/* 값이 오기 전: 값 자리에 자리표시 한 줄. 라벨은 고정 문구라 그대로 둔다 */
+.tk-item .mini-sk{display:none; width:calc(64px * var(--fs)); height:calc(11px * var(--fs)); border-radius:4px; align-self:center;}
+.tk-item.is-loading .mini-sk{display:block;}
+.tk-item.is-loading .tk-val, .tk-item.is-loading .tk-cls, .tk-item.is-loading .tk-chg{display:none;}
+/* 환율 칸은 눌러서 추이 그래프를 연다 — 버튼 티는 내지 않고 띠의 한 칸 그대로 보이게 */
 .fx-mini-btn{
   appearance:none; -webkit-appearance:none; background:none; border:none;
-  padding:0; margin:0; font:inherit; color:inherit; cursor:pointer;
+  padding:0; margin:0; font:inherit; color:inherit; cursor:pointer; text-align:left;
   -webkit-tap-highlight-color:transparent;
 }
 .fx-mini-btn:active{opacity:.55;}
-/* 누를 수 있다는 힌트 — 캡션 끝의 작은 꺾쇠 */
-.fx-mini-btn .fng-mini-cap::after{content:" ›"; font-weight:700; opacity:.75;}
+.fx-mini-btn:disabled{cursor:default;}
 
 /* 원/달러 추이 그래프 패널 (.chart-panel 스타일을 코인 차트와 공유) */
 .panel-sub{font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:3px; font-family:var(--mono);}

@@ -42,7 +42,7 @@ export function renderGrid(){
   }
   lastGridSignature = sig;
   const wrap = document.getElementById("gridWrap");
-  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소 <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소 <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">1일 등락률</div></div>`;
   if(state.coinsList.length === 0){
     // 목록이 비어 있는 이유가 둘이다 — 아직 안 불러왔거나(자리표시), 정말로 다 뺐거나(안내).
     // allTickers가 비었으면 아직 시세를 못 받은 것이다.

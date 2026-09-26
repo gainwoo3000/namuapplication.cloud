@@ -17,6 +17,19 @@ if(topbar){
   sync();
 }
 
+// 시세 탭 검색창 높이를 --search-h로. 시세 표 머리줄이 그 아래에 붙는다(.grid-wrap.market .grid-head).
+// 붙어 있을 때 검색창은 --topbar-h부터 자기 높이(위 여백 10px 포함)만큼 차지하므로 그 아래가 머리줄 자리다.
+const search = document.querySelector(".market-search");
+if(search){
+  const syncSearch = () => {
+    if(!search.offsetParent) return; // 다른 탭이라 숨어 있으면 0으로 재지 않게
+    const h = Math.floor(search.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--search-h", h + "px");
+  };
+  new ResizeObserver(syncSearch).observe(search, { box: "border-box" });
+  syncSearch();
+}
+
 // ---------- 스크롤에 따라 헤더 숨김/복귀 ----------
 // 아래로 내리면 헤더(+탭)가 같이 위로 올라가 사라지고, 조금이라도 위로 올리면 다시 내려온다.
 // 시세 탭 검색창은 헤더가 사라진 만큼 같이 올라가 화면 맨 위에 붙는다(같은 --topbar-shift를 씀).
@@ -45,4 +58,68 @@ window.addEventListener("scroll", ()=>{
 export function revealTopbar(){
   lastY = Math.max(0, window.scrollY);
   setHidden(false);
+}
+
+// ---------- 헤더 지수 띠: 넘치면 전광판처럼 흘려보내기 ----------
+// 세 칸(환율·공포탐욕·시총)이 띠 폭에 다 들어가면 가만히 두고, 넘치면(좁은 화면·큰 글자)
+// 묶음을 하나 복제해 이어 붙이고 트랙을 천천히 왼쪽으로 흘린다(CSS .marquee).
+// 값이 바뀌면(fx.js/fng.js/mcap.js가 원본을 고친다) 복제본도 다시 떠서 똑같이 보이게 한다.
+const MARQUEE_SPEED = 25; // px/초 — 천천히
+const strip = document.getElementById("tickerStrip");
+const group = document.getElementById("tkGroup");
+if(strip && group){
+  const track = group.parentElement;
+  let clone = null, queued = false;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // 칸들을 붙여 놓았을 때의 폭 (다 들어갈 땐 space-between으로 벌어져 있어 그대로 재면 안 된다)
+  const naturalWidth = () => {
+    let w = 32; // 가만히 있을 때의 좌우 여백 16px × 2
+    for(const el of group.children){
+      if(el.offsetWidth === 0) continue; // 못 받아서 숨긴 칸
+      const cs = getComputedStyle(el);
+      w += el.offsetWidth + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+    }
+    return w;
+  };
+
+  const makeClone = () => {
+    const c = group.cloneNode(true);
+    c.removeAttribute("id");
+    c.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    c.setAttribute("aria-hidden", "true");
+    c.querySelectorAll("button").forEach(b => b.tabIndex = -1);
+    return c;
+  };
+
+  const sync = () => {
+    queued = false;
+    const need = !reducedMotion.matches && naturalWidth() > strip.clientWidth + 1;
+    if(!need){
+      if(clone){ clone.remove(); clone = null; }
+      strip.classList.remove("marquee");
+      return;
+    }
+    strip.classList.add("marquee");
+    const fresh = makeClone();
+    if(clone) clone.replaceWith(fresh); else track.appendChild(fresh);
+    clone = fresh;
+    const dist = group.offsetWidth; // 한 묶음 폭(뒤 여백·이음매 구분선 포함) — 이만큼 밀면 복제본이 제자리에 온다
+    track.style.setProperty("--tk-dist", dist + "px");
+    track.style.setProperty("--tk-dur", (dist / MARQUEE_SPEED).toFixed(1) + "s");
+  };
+  const schedule = () => { if(!queued){ queued = true; requestAnimationFrame(sync); } };
+
+  // 원본 값이 바뀔 때(글자·자리표시·숨김)마다 다시 잰다. 복제본을 바꾸는 건 group 밖이라 다시 불리지 않는다.
+  new MutationObserver(schedule).observe(group, { subtree: true, childList: true, characterData: true, attributes: true });
+  new ResizeObserver(schedule).observe(strip);
+  reducedMotion.addEventListener && reducedMotion.addEventListener("change", schedule);
+  // 흐르는 복제본의 환율 칸을 눌러도 추이 그래프가 열리게 원본을 대신 누른다
+  track.addEventListener("click", e => {
+    if(clone && clone.contains(e.target) && e.target.closest(".fx-mini-btn")){
+      const fx = document.getElementById("fxMini");
+      if(fx && !fx.disabled) fx.click();
+    }
+  });
+  schedule();
 }

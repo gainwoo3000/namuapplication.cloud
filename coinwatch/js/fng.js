@@ -13,7 +13,8 @@ function fngColor(v){
 export async function loadFearGreed(){
   const box = document.getElementById("fngMini");
   try{
-    const res = await fetch("https://api.alternative.me/fng/?limit=1");
+    // limit=2: 오늘과 어제 — 띠에 "어제 대비" 변화(▲3)를 적는다
+    const res = await fetch("https://api.alternative.me/fng/?limit=2");
     if(!res.ok) throw new Error("fng http " + res.status);
     const data = await res.json();
     const d = data.data && data.data[0];
@@ -25,8 +26,17 @@ export async function loadFearGreed(){
     const clsEl = document.getElementById("fngClass");
     clsEl.textContent = FNG_LABEL[d.value_classification] || d.value_classification || "-";
     clsEl.style.color = fngColor(v);
+    const y = data.data[1];
+    const chgEl = document.getElementById("fngChg");
+    const diff = y ? v - Math.round(Number(y.value)) : null;
+    if(diff == null || isNaN(diff)){
+      chgEl.textContent = "";
+    }else{
+      chgEl.textContent = diff > 0 ? "▲" + diff : diff < 0 ? "▼" + (-diff) : "0";
+      chgEl.className = "tk-chg " + (diff > 0 ? "up" : diff < 0 ? "down" : "flat");
+    }
     box.classList.remove("is-loading"); // 자리표시를 걷고 진짜 값을 드러낸다
-    box.style.display = "block";
+    box.style.display = "";
   }catch(e){
     if(box) box.style.display = "none";
   }

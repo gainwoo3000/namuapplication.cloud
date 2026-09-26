@@ -9,12 +9,14 @@
 import { state } from "./state.js";
 import { TV_RANGE_MAP } from "./constants.js";
 import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
-import { fmtDisplayPrice, displayPriceNum, fmtChg, chgClass } from "./format.js";
+import { fmtDisplayPrice, displayPriceNum, fmtChg, chgClass, fmtKrw, fmtPrice } from "./format.js";
 import { findCoinAnywhere, renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
 import { ensureUsdKrw } from "./fx.js";
 import { closeFxChart } from "./fxchart.js";
 import { openCoinChart, closeCoinChart, refreshCoinChart } from "./coinchart.js";
+import { fetchCoinCandles } from "./api.js";
+import { range24hPct } from "./rangebar.js";
 
 // 트레이딩뷰 상세를 보고 있는지. 코인을 바꿔도, 패널을 닫았다 열어도 그대로 따라간다 —
 // 지표를 보려고 상세를 켠 사람은 다음 코인도 상세로 보고 싶어한다.
@@ -26,8 +28,9 @@ let tvOpen = false;
 // 여기서 따로 건드리지 않고 다시 그리기만 시킨다.
 export function updateChartPrice(){
   if(!state.selectedCoinId) return;
-  if(!tvOpen){ refreshCoinChart(); return; }
   const c = state.coinsList.find(x=>x.id===state.selectedCoinId) || findCoinAnywhere(state.selectedCoinId);
+  if(c) renderCoinStats(c); // 시세 갱신마다 카드의 1일 등락률·시가총액도 새 값으로
+  if(!tvOpen){ refreshCoinChart(); return; }
   if(!c) return;
   const el = document.getElementById("chartCoinPrice");
   const text = fmtDisplayPrice(c.current_price), num = displayPriceNum(c.current_price);
@@ -80,6 +83,7 @@ export async function selectCoin(id, fromHistory){
   // 차트가 그려지기 전 잠깐 채워두는 값. 곧 차트의 마지막 점으로 덮인다.
   document.getElementById("chartCoinPrice").innerHTML = '<span class="roll-cur">' + fmtDisplayPrice(c.current_price) + '</span>';
   prevValues["chart:price"] = displayPriceNum(c.current_price);
+  renderCoinStats(c);
   if(tvOpen){
     // 상세를 보던 중이면 새 코인도 상세로 연다
     closeCoinChart();   // 자체 차트가 옛 코인을 붙들고 있지 않게 정리
@@ -127,6 +131,103 @@ export function openCoinFromHash(){
   });
 }
 
+// ---------- 차트 아래 요약 카드 ----------
+// 시가총액은 CoinGecko(달러) 값을 표시 통화로 바꿔 쓰고, 1일 등락률은 시세 목록과 같은 값(거래소 24시간).
+// 52주 등락률은 1년 봉을 따로 받아 첫 봉 종가 대비 마지막 봉 종가로 잰다 — 차트가 보고 있는 기간과
+// 상관없이 늘 같은 기준. 코인마다 10분 동안은 다시 받지 않는다.
+const yearCache = {};             // 코인 id -> { at, pct, short } (pct가 null이면 받을 수 없던 코인)
+const YEAR_TTL = 10 * 60 * 1000;
+
+function fmtBigKrw(v){
+  if(v >= 1e12) return "₩" + (v / 1e12).toLocaleString(undefined, { maximumFractionDigits: v >= 1e14 ? 0 : 1 }) + "조";
+  if(v >= 1e8)  return "₩" + Math.round(v / 1e8).toLocaleString() + "억";
+  return "₩" + Math.round(v).toLocaleString();
+}
+function fmtBigUsd(v){
+  if(v >= 1e12) return "$" + (v / 1e12).toFixed(2) + "T";
+  if(v >= 1e9)  return "$" + (v / 1e9).toFixed(v >= 1e11 ? 0 : 1) + "B";
+  if(v >= 1e6)  return "$" + (v / 1e6).toFixed(v >= 1e8 ? 0 : 1) + "M";
+  return "$" + Math.round(v).toLocaleString();
+}
+
+function setChg(el, pct){
+  el.textContent = pct == null ? "-" : fmtChg(pct);
+  el.className = "stat-value " + (pct == null ? "" : chgClass(pct));
+}
+
+// 막대 양 끝 가격. 카드 폭이 좁아 원화 큰 값은 줄여 쓴다(₩1.14억, ₩364만). 달러는 그대로.
+// quote: 값이 들어 있는 통화("USD"|"KRW") — 표시 통화와 다르면 환율로 바꾼다.
+function fmtEnd(v, quote){
+  if(v == null || !(v > 0)) return "";
+  const rate = state.usdKrw;
+  if(state.displayCurrency === "krw"){
+    const krw = quote === "KRW" ? v : (rate > 0 ? v * rate : null);
+    if(krw == null) return fmtPrice(v);
+    if(krw >= 1e8) return "₩" + (krw / 1e8).toFixed(2) + "억";
+    if(krw >= 1e6) return "₩" + Math.round(krw / 1e4).toLocaleString() + "만";
+    return fmtKrw(krw);
+  }
+  const usd = quote === "USD" ? v : (rate > 0 ? v / rate : null);
+  return usd == null ? fmtKrw(v) : fmtPrice(usd);
+}
+function setEnds(loId, hiId, lo, hi, quote){
+  document.getElementById(loId).textContent = fmtEnd(lo, quote);
+  document.getElementById(hiId).textContent = fmtEnd(hi, quote);
+}
+
+// 표의 등락률 막대와 같은 모양. pos(0~100)가 없으면 자리는 두고 숨긴다. 점 색은 등락 방향(up/down).
+function setBar(el, pos, pct){
+  el.className = "range-bar" + (pos == null ? " is-empty" : "") + (pct == null ? "" : " " + chgClass(pct));
+  el.firstElementChild.style.left = (pos == null ? 50 : pos) + "%";
+}
+
+function renderCoinStats(c){
+  const cap = c.marketCap;
+  const krw = state.displayCurrency === "krw" && state.usdKrw > 0;
+  document.getElementById("statMcap").textContent =
+    cap > 0 ? (krw ? fmtBigKrw(cap * state.usdKrw) : fmtBigUsd(cap)) : "-";
+  document.getElementById("statMcapSub").textContent = c.rank ? "시총 " + c.rank + "위" : "";
+  setChg(document.getElementById("stat1d"), c.price_change_percentage_24h ?? null);
+  setBar(document.getElementById("stat1dBar"), range24hPct(c), c.price_change_percentage_24h ?? null);
+  setEnds("stat1dLo", "stat1dHi", c.low_24h, c.high_24h, "USD"); // 시세 목록의 고저가는 달러 기준
+
+  const el52 = document.getElementById("stat52w"), sub52 = document.getElementById("stat52wSub");
+  const bar52 = document.getElementById("stat52wBar");
+  const hit = yearCache[c.id];
+  if(hit && hit.at){
+    setChg(el52, hit.pct);
+    setBar(bar52, hit.pos, hit.pct);
+    setEnds("stat52wLo", "stat52wHi", hit.lo, hit.hi, hit.quote);
+    sub52.textContent = hit.pct == null ? "데이터 없음" : hit.short ? "상장 이후 최저 ~ 최고" : "52주 최저 ~ 최고";
+    if(Date.now() - hit.at < YEAR_TTL) return;
+  }else{
+    setChg(el52, null);          // 처음 받는 중
+    setBar(bar52, null, null);
+    setEnds("stat52wLo", "stat52wHi", null, null);
+    sub52.textContent = "";
+  }
+  if(hit && hit.loading) return;  // 이미 받는 중이면 또 부르지 않는다
+  yearCache[c.id] = { ...(hit || {}), loading: true };
+  fetchCoinCandles(c, 365).then(res=>{
+    const k = res && res.candles;
+    const first = k && k[0], last = k && k[k.length - 1];
+    const pct = first && last && first.c > 0 ? (last.c / first.c - 1) * 100 : null;
+    // 받아온 기간이 1년에 한참 못 미치면 상장한 지 1년이 안 된 코인이다
+    const short = !!(first && last && last.t - first.t < 330 * 86400);
+    // 52주 최저~최고 사이 현재가 위치 (막대의 점). 같은 봉 묶음 안에서만 비교하니 통화와 무관하다.
+    let pos = null, lo = null, hi = null;
+    if(k && k.length){
+      lo = Math.min(...k.map(p => p.l)); hi = Math.max(...k.map(p => p.h));
+      if(hi > lo) pos = Math.max(0, Math.min(100, (last.c - lo) / (hi - lo) * 100));
+    }
+    yearCache[c.id] = { at: Date.now(), pct, short, pos, lo, hi, quote: res && res.quote };
+  }).catch(()=>{
+    yearCache[c.id] = { at: Date.now(), pct: null, short: false, pos: null };
+  }).then(()=>{
+    if(state.selectedCoinId === c.id) renderCoinStats(c); // 그 사이 다른 코인으로 넘어갔으면 그리지 않는다
+  });
+}
+
 // ---------- 두 화면 전환 ----------
 function showSelfChart(){
   tvOpen = false;
@@ -158,6 +259,7 @@ document.getElementById("tvBackBtn").addEventListener("click", ()=>{
 function guessTvSymbol(c){
   if(c.tvSymbol) return c.tvSymbol;
   const sym = c.symbol.toUpperCase();
+  if(sym === "USDT") return "KRAKEN:USDTUSD"; // USDT/USDT 페어는 없다
   const ex = c.exUsd || {};
   if(ex.binance)  return "BINANCE:"  + sym + "USDT";
   if(ex.okx)      return "OKX:"      + sym + "USDT";

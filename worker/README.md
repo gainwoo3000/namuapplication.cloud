@@ -7,6 +7,7 @@
 | `GET /cmc/krw` | CoinMarketCap KRW 시세(시총 상위 200) | `CMC_TTL_SECONDS`(기본 600초) |
 | `GET /cg/markets` | CoinGecko 시총 1~500위 | `CG_MARKETS_TTL`(기본 60초) |
 | `GET /cg/search?q=<검색어>` | CoinGecko 코인 검색(순위 밖 포함) | `CG_SEARCH_TTL`(기본 3600초) |
+| `GET /cg/global` | CoinGecko 시장 전체 시가총액·24시간 변화율 | `CG_GLOBAL_TTL`(기본 1800초) |
 | `GET /upbit/krw` `/coinone/krw` | 거래소별 KRW 마켓 전체 현재가 `{심볼: 가격}` | 5초 |
 | `GET /bitflyer/usd` | 비트플라이어 엔화 마켓 현재가를 달러로 환산 `{심볼: 가격}` | 10초 |
 | `GET /upbit/candles?unit=&market=&count=` | 업비트 캔들 | 60초 |

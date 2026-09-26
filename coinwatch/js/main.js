@@ -7,6 +7,7 @@ import { renderPortfolio } from "./portfolio.js";
 import { updateChartPrice, openCoinFromHash } from "./chart.js";
 import { ensureUsdKrw, refreshUsdKrw, renderFxMini } from "./fx.js";
 import { loadFearGreed } from "./fng.js";
+import { loadMarketCap } from "./mcap.js";
 import { loadState, applyLoadedUIState, requestPersistentStorage } from "./persist.js";
 import { restartRefreshTimer, renderStorageDiag } from "./settings.js";
 import "./layout.js";
@@ -122,6 +123,8 @@ document.querySelectorAll(".grid-wrap.is-boot").forEach(el => el.classList.remov
 // 첫 목록이 오면, 주소로 코인 페이지(#coin/<id>)가 열려 있었는지 본다
 loadMarkets().then(openCoinFromHash);
 loadFearGreed();
+loadMarketCap();
+setInterval(()=>{ if(!document.hidden) loadMarketCap(); }, 600000); // 10분마다 (워커가 30분 캐시)
 ensureUsdKrw().then(renderFxMini);
 // 탭이 안 보일 때는 건너뛴다 (시세 갱신은 settings.js에서 같은 이유로 멈춤)
 setInterval(()=>{ if(!document.hidden) refreshUsdKrw(); }, 120000); // 2분마다 환율 갱신

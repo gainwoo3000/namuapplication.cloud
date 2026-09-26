@@ -1,6 +1,6 @@
 // 앱 버전 — 코드를 고칠 때마다 손으로 올린다. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
-export const APP_VERSION = "v.260926.1659";
+export const APP_VERSION = "v.260926.1822";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).
 // 바이낸스 응답이 실패하면 CoinGecko(키 없는 공개 API, 분당 호출 제한 있음)로 자동 대체.
@@ -12,6 +12,7 @@ export const CG_MARKETS_PROXY = API_BASE + "/cg/markets"; // 시총 1~500위 (�
 export const CG_SEARCH_PROXY = API_BASE + "/cg/search";   // 코인 검색 (순위 밖 포함, 엣지 캐시 1시간)
 export const FX_HISTORY_PROXY = API_BASE + "/fx/history"; // 원/달러 추이 (야후, 엣지 캐시 10분)
 export const FX_RATE_PROXY = API_BASE + "/fx/rate";       // 원/달러 현재가 (야후, 엣지 캐시 60초)
+export const CG_GLOBAL_PROXY = API_BASE + "/cg/global";   // 시장 전체 시가총액 (CoinGecko, 엣지 캐시 30분)
 export const UPBIT_CANDLES_PROXY = API_BASE + "/upbit/candles"; // 업비트 캔들 (엣지 캐시 60초)
 
 export const EX_LABEL = {binance:"바이낸스", okx:"OKX", bybit:"바이빗", coinbase:"코인베이스", kraken:"크라켄"};
@@ -56,21 +57,22 @@ export const COIN_RANGES = [
 // 있어서, 화면에 적는 "n시간 간격"은 미리 적어두지 않고 받아온 점에서 계산한다(graph.fmtGap).
 //   binance/okx/bybit: {i: 봉 크기, n: 개수}
 //   upbit:  {p: /candles/ 뒤 경로, n: 개수}  — 한 번에 최대 200개
+//   kraken: {i: 봉 크기(분), n: 꼬리에서 잘라 쓸 개수} — 한 번에 최근 720개를 준다. 12시간봉이 없어 3개월은 일봉
 //   bithumb: {i: 봉 크기, n: 꼬리에서 잘라 쓸 개수} — 전체 이력을 통째로 주므로 잘라서 쓴다
 //            week:true면 받은 일봉을 주봉으로 묶는다 (빗썸엔 주봉이 없다)
 // "전체"는 주봉을 거래소가 한 번에 주는 만큼 받는다: 바이낸스·바이빗 1000개(≈19년이라 사실상 전체),
 // OKX 300개(≈5.7년), 업비트 200개(≈3.8년 — 워커가 한 번에 200개까지만 중계한다), 빗썸은 일봉 전체.
 export const CANDLE_SPEC = {
-  1:   { binance:{i:"15m",n:96 },  okx:{i:"15m",n:96 },  bybit:{i:"15", n:96 },  upbit:{p:"minutes/15", n:96 },  bithumb:{i:"30m",n:48 } },
-  7:   { binance:{i:"1h", n:168},  okx:{i:"1H", n:168},  bybit:{i:"60", n:168},  upbit:{p:"minutes/60", n:168},  bithumb:{i:"1h", n:168} },
-  30:  { binance:{i:"4h", n:180},  okx:{i:"4H", n:180},  bybit:{i:"240",n:180},  upbit:{p:"minutes/240",n:180},  bithumb:{i:"6h", n:120} },
-  90:  { binance:{i:"12h",n:180},  okx:{i:"12H",n:180},  bybit:{i:"720",n:180},  upbit:{p:"days",       n:90 },  bithumb:{i:"12h",n:180} },
-  365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} },
-  [ALL_DAYS]: { binance:{i:"1w",n:1000}, okx:{i:"1W",n:300}, bybit:{i:"W",n:1000}, upbit:{p:"weeks",n:200}, bithumb:{i:"24h",n:Infinity,week:true} }
+  1:   { binance:{i:"15m",n:96 },  okx:{i:"15m",n:96 },  bybit:{i:"15", n:96 },  kraken:{i:15,  n:96 },  upbit:{p:"minutes/15", n:96 },  bithumb:{i:"30m",n:48 } },
+  7:   { binance:{i:"1h", n:168},  okx:{i:"1H", n:168},  bybit:{i:"60", n:168},  kraken:{i:60,  n:168},  upbit:{p:"minutes/60", n:168},  bithumb:{i:"1h", n:168} },
+  30:  { binance:{i:"4h", n:180},  okx:{i:"4H", n:180},  bybit:{i:"240",n:180},  kraken:{i:240, n:180},  upbit:{p:"minutes/240",n:180},  bithumb:{i:"6h", n:120} },
+  90:  { binance:{i:"12h",n:180},  okx:{i:"12H",n:180},  bybit:{i:"720",n:180},  kraken:{i:1440,n:90 },  upbit:{p:"days",       n:90 },  bithumb:{i:"12h",n:180} },
+  365: { binance:{i:"1d", n:365},  okx:{i:"1W", n:53 },  bybit:{i:"D",  n:365},  kraken:{i:1440,n:365},  upbit:{p:"weeks",      n:53 },  bithumb:{i:"24h",n:365} },
+  [ALL_DAYS]: { binance:{i:"1w",n:1000}, okx:{i:"1W",n:300}, bybit:{i:"W",n:1000}, kraken:{i:10080,n:720}, upbit:{p:"weeks",n:200}, bithumb:{i:"24h",n:Infinity,week:true} }
 };
 
 export const CANDLE_SOURCE_LABEL = {
-  binance:"바이낸스", okx:"OKX", bybit:"바이빗", upbit:"업비트", bithumb:"빗썸"
+  binance:"바이낸스", okx:"OKX", bybit:"바이빗", kraken:"크라켄", upbit:"업비트", bithumb:"빗썸"
 };
 
 // "상세" 버튼으로 여는 트레이딩뷰 위젯의 interval/range 매핑 (기간 버튼 값 기준)
@@ -82,12 +84,6 @@ export const TV_RANGE_MAP = {
   365: { interval: "D",   range: "12M" },
   [ALL_DAYS]: { interval: "W", range: "ALL" }
 };
-
-// 차트가 의미 없는(항상 ≈$1) 스테이블코인들 — 어차피 선이 $1에 납작하게 붙는다
-export const STABLECOINS = new Set([
-  "USDT","USDC","DAI","USDE","USD1","FDUSD","TUSD","USDD","PYUSD","USDP","GUSD",
-  "USDS","BUSD","USDL","USDG","USD0","USDX","USR","LUSD","FRAX","USDB","USDTB","RLUSD","EURC","EURT"
-]);
 
 export const FNG_LABEL = {
   "Extreme Fear":"극도의 공포",

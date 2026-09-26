@@ -41,7 +41,7 @@
      js/에 파일을 새로 만들면 아래 목록에도 추가할 것. -->
 <script>
   (function(){
-    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "persist.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
+    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "mcap.js", "persist.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
     for(var i = 0; i < mods.length; i++){
       var l = document.createElement("link");
       l.rel = "modulepreload";
@@ -57,27 +57,44 @@
 <div class="app">
   <div class="topbar">
     <header>
-      <div>
-        <h1>코인워치캡</h1>
-        <div class="sub" id="updatedAt">불러오는 중…</div>
-      </div>
-      <div class="header-metrics">
-        <!-- 값이 도착하기 전에는 .is-loading이 켜져 있어 값 줄 자리에 자리표시가 깔린다.
-             캡션은 고정 문구라 그대로 두고 값 줄만 바꾼다. 받아오기에 실패하면 fx.js/fng.js가
-             지금까지처럼 통째로 감춘다. 환율은 값이 없으면 열어봐야 빈 그래프라 그때까진 눌리지 않게 둔다 -->
-        <button type="button" class="fng-mini fx-mini-btn is-loading" id="fxMini" disabled
-                aria-label="원/달러 환율 추이 그래프 열기">
-          <span class="fng-mini-cap">원/달러 환율</span>
-          <span class="fng-mini-body">₩<span id="fxRate">-</span></span>
-          <span class="sk mini-sk" aria-hidden="true"></span>
-        </button>
-        <div class="fng-mini is-loading" id="fngMini">
-          <span class="fng-mini-cap">공포·탐욕 지수</span>
-          <span class="fng-mini-body"><span id="fngVal">-</span> · <span id="fngClass">-</span></span>
-          <span class="sk mini-sk" aria-hidden="true"></span>
-        </div>
-      </div>
+      <!-- 제목 옆에 마지막 갱신 시각 -->
+      <h1>코인워치캡</h1>
+      <div class="sub" id="updatedAt">불러오는 중…</div>
     </header>
+
+    <!-- 지수 띠: 증권 앱 맨 위의 지수 줄처럼 가로로 긴 한 줄 [환율 │ 공포탐욕 │ 시총].
+         값이 오기 전에는 .is-loading이 값 자리에 자리표시를 깐다. 받아오기에 실패하면
+         fx.js/fng.js/mcap.js가 그 칸만 감춘다. 환율 칸을 누르면 원/달러 추이 그래프가 열린다 -->
+    <!-- 폭에 다 안 들어가면(좁은 화면) layout.js가 .marquee를 켜고 tk-group을 한 벌 복제해 붙여
+         전광판처럼 천천히 왼쪽으로 흘려 보낸다. 다 들어가면 가만히 둔다. -->
+    <div class="ticker-strip" id="tickerStrip">
+     <div class="tk-track">
+      <div class="tk-group" id="tkGroup">
+      <button type="button" class="tk-item fx-mini-btn is-loading" id="fxMini" disabled
+              aria-label="원/달러 환율 추이 그래프 열기">
+        <span class="tk-label">환율</span>
+        <span class="tk-val" id="fxRate">-</span>
+        <span class="tk-chg" id="fxChg"></span>
+        <span class="sk mini-sk" aria-hidden="true"></span>
+      </button>
+      <span class="tk-sep" aria-hidden="true"></span>
+      <div class="tk-item is-loading" id="fngMini">
+        <span class="tk-label">공포탐욕</span>
+        <span class="tk-val" id="fngVal">-</span>
+        <span class="tk-cls" id="fngClass">-</span>
+        <span class="tk-chg" id="fngChg"></span>
+        <span class="sk mini-sk" aria-hidden="true"></span>
+      </div>
+      <span class="tk-sep" aria-hidden="true"></span>
+      <div class="tk-item is-loading" id="mcapMini">
+        <span class="tk-label">시총</span>
+        <span class="tk-val" id="mcapVal">-</span>
+        <span class="tk-chg" id="mcapChg"></span>
+        <span class="sk mini-sk" aria-hidden="true"></span>
+      </div>
+      </div>
+     </div>
+    </div>
 
     <div class="tabs">
       <div class="tab active" data-tab="market">시세</div>
@@ -308,6 +325,30 @@
   </div>
 
   <div class="src-note" id="chartSrcNote"></div>
+
+  <!-- 차트 아래 요약 카드 (chart.js renderCoinStats) -->
+  <div class="coin-stats">
+    <div class="stat-card">
+      <div class="stat-label">시가총액</div>
+      <div class="stat-value" id="statMcap">-</div>
+      <div class="stat-sub" id="statMcapSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">1일 등락률</div>
+      <div class="stat-value" id="stat1d">-</div>
+      <!-- 표의 등락률 아래와 같은 막대: 왼쪽 끝 24시간 최저 ~ 오른쪽 끝 최고, 점 = 현재가 -->
+      <span class="range-bar is-empty" id="stat1dBar"><span class="range-dot"></span></span>
+      <div class="range-ends"><span id="stat1dLo"></span><span id="stat1dHi"></span></div>
+      <div class="stat-sub">24시간 최저 ~ 최고</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">52주 등락률</div>
+      <div class="stat-value" id="stat52w">-</div>
+      <span class="range-bar is-empty" id="stat52wBar"><span class="range-dot"></span></span>
+      <div class="range-ends"><span id="stat52wLo"></span><span id="stat52wHi"></span></div>
+      <div class="stat-sub" id="stat52wSub"></div>
+    </div>
+  </div>
  </div>
 </div>
 <script type="module" src="js/main.js"></script>

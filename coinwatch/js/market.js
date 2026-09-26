@@ -107,7 +107,7 @@ export function renderMarketGrid(){
     return;
   }
   lastMarketSig = sig;
-  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">1일 등락률</div></div>`;
   if(list.length === 0){
     // 검색 결과가 없는 것과 아직 안 불러온 것은 다르다 — 후자만 자리표시를 깐다
     wrap.innerHTML = html + (marketQuery

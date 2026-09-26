@@ -15,6 +15,7 @@ export const state = {
   showVolume: true,      // 코인 차트 아래 거래량 막대 (차트 도구줄에서 켜고 끈다, 저장된다)
   refreshTimer: null,
   usdKrw: null,
+  usdKrwPrev: null,      // 원/달러 전일 종가 (헤더 띠의 등락률용, 워커 /fx/rate가 줄 때만)
   lastSource: "binance",
   myExchanges: new Set(["upbit","bithumb"]), // "나의 거래소" 평균에 포함할 국내 거래소
   displayCurrency: "usd", // "usd" | "krw" - 나의 거래소/가격 컬럼 표시 통화

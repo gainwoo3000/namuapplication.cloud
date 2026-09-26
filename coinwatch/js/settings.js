@@ -9,6 +9,7 @@ import { saveState, storageDiagnostics } from "./persist.js";
 import { loadMarkets } from "./main.js";
 import { revealTopbar } from "./layout.js";
 import { APP_VERSION } from "./constants.js";
+import { renderMcapMini } from "./mcap.js";
 
 document.getElementById("appVersion").textContent = APP_VERSION;
 
@@ -76,6 +77,7 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   document.querySelectorAll("#currencyOpts .opt").forEach(o=>o.classList.remove("active"));
   opt.classList.add("active");
   state.displayCurrency = opt.dataset.cur;
+  renderMcapMini(); // 헤더 띠의 시총도 표시 통화를 따른다
   if(!state.usdKrw) await ensureUsdKrw();
   renderGrid(); // gridSignature에 displayCurrency가 포함돼 있어 자동으로 헤더까지 다시 그려짐
   renderMarketGrid();

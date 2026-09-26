@@ -4,12 +4,15 @@
 //     -> { updated:<ms>, data:{ "BTC":{krw,rank}, ... } }        시총 상위 200개, CoinMarketCap
 //
 //   GET /cg/markets
-//     -> [ {symbol,name,current_price,price_change_percentage_24h,market_cap_rank,high_24h,low_24h}, ... ]
+//     -> [ {symbol,name,current_price,price_change_percentage_24h,market_cap_rank,market_cap,high_24h,low_24h}, ... ]
 //        시총 1~500위, CoinGecko. 엣지 캐시 CG_MARKETS_TTL(기본 60초).
 //
 //   GET /cg/search?q=<검색어>
 //     -> { coins:[ {id,symbol,name,rank,price,change24h}, ... ] }
 //        CoinGecko 코인 검색(순위 밖 코인 포함). 엣지 캐시 CG_SEARCH_TTL(기본 3600초).
+//
+//   GET /cg/global
+//     -> { mcap:<달러 전체 시가총액>, chg:<24시간 변화율%>, at:<unix초> }   엣지 캐시 CG_GLOBAL_TTL(기본 1800초)
 //
 //   GET /fx/history?days=<1|30|90|180|365>
 //     -> { source:"yahoo"|"naver", interval:"5분"|"1시간"|"1일", points:[ {t:<unix초>, v:1389}, ... ] }
@@ -18,7 +21,7 @@
 //        엣지 캐시 FX_TTL(기본 600초, 1일 구간은 120초).
 //
 //   GET /fx/rate
-//     -> { rate:1385.95, at:<unix초> }
+//     -> { rate:1385.95, prev:1390.10, at:<unix초> }   prev = 전 거래일 종가
 //        원/달러 현재가(야후 meta). 헤더에 찍는 숫자와 그래프가 같은 출처를 보도록 두는 용도.
 //        엣지 캐시 60초.
 //
@@ -84,6 +87,7 @@ export default {
     if (url.pathname === "/cmc/krw") return handleCmc(env, ctx, openCors(strictOrigin));
     if (url.pathname === "/cg/markets") return handleCgMarkets(env, ctx, openCors("*"));
     if (url.pathname === "/cg/search") return handleCgSearch(url, env, ctx, openCors("*"));
+    if (url.pathname === "/cg/global") return handleCgGlobal(env, ctx, openCors("*"));
     if (url.pathname === "/fx/history") return handleFxHistory(url, env, ctx, openCors("*"));
     if (url.pathname === "/fx/rate") return handleFxRate(env, ctx, openCors("*"));
     const route = url.pathname.slice(1);
@@ -134,7 +138,8 @@ async function handleCmc(env, ctx, cors) {
 async function handleCgMarkets(env, ctx, cors) {
   const cache = caches.default;
   // 응답에 담는 필드가 바뀌면 v를 올린다 — 안 올리면 옛 모양의 캐시가 만료될 때까지 그대로 나간다
-  const key = new Request("https://cache.internal/cg-markets/v2");
+  // v3: market_cap 추가 (코인 상세 페이지의 시가총액 카드)
+  const key = new Request("https://cache.internal/cg-markets/v3");
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
@@ -159,6 +164,7 @@ async function handleCgMarkets(env, ctx, cors) {
         current_price: c.current_price,
         price_change_percentage_24h: c.price_change_percentage_24h,
         market_cap_rank: c.market_cap_rank ?? null,
+        market_cap: c.market_cap ?? null, // 달러 기준 시가총액 (코인 상세 페이지 카드)
         image: c.image ?? null, // 표 왼쪽 코인 로고
         high_24h: c.high_24h ?? null, // 등락률 아래 24시간 범위 바에 사용
         low_24h: c.low_24h ?? null,
@@ -172,10 +178,48 @@ async function handleCgMarkets(env, ctx, cors) {
       headers: { "content-type": "application/json", "cache-control": "public, max-age=86400" },
     });
     ctx.waitUntil(cache.put(key, resp.clone()));
-    ctx.waitUntil(cache.put(new Request("https://cache.internal/cg-markets/lkg"), lkg));
+    ctx.waitUntil(cache.put(new Request("https://cache.internal/cg-markets/lkg3"), lkg));
     return withHeaders(resp, { ...cors, "x-cache": "MISS" });
   } catch (err) {
-    const lkg = await cache.match(new Request("https://cache.internal/cg-markets/lkg"));
+    const lkg = await cache.match(new Request("https://cache.internal/cg-markets/lkg3"));
+    if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
+    return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
+  }
+}
+
+// ---------- CoinGecko: 시장 전체 시가총액 ----------
+// 헤더 지수 띠의 "시총" 칸. 몇 분 늦어도 티가 안 나는 값이라 길게(기본 30분) 캐시한다 —
+// 무료 한도(월 1만 콜)를 시세 목록(/cg/markets)과 나눠 쓰기 때문.
+async function handleCgGlobal(env, ctx, cors) {
+  const cache = caches.default;
+  const key = new Request("https://cache.internal/cg-global/v1");
+  const hit = await cache.match(key);
+  if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
+
+  const lkgKey = new Request("https://cache.internal/cg-global/lkg1");
+  const ttl = Number(env.CG_GLOBAL_TTL || "1800");
+  try {
+    const r = await cgFetch(env, `${CG}/global`);
+    if (!r.ok) throw new Error("cg global " + r.status);
+    const d = (await r.json()).data || {};
+    const mcap = d.total_market_cap && d.total_market_cap.usd;
+    if (!(mcap > 0)) throw new Error("cg global empty");
+    const body = JSON.stringify({
+      mcap,                                                   // 달러 기준 전체 시가총액
+      chg: d.market_cap_change_percentage_24h_usd ?? null,    // 24시간 변화율(%)
+      at: d.updated_at || Math.floor(Date.now() / 1000),
+    });
+    const resp = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}` },
+    });
+    const lkg = new Response(body, {
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=86400" },
+    });
+    ctx.waitUntil(cache.put(key, resp.clone()));
+    ctx.waitUntil(cache.put(lkgKey, lkg));
+    return withHeaders(resp, { ...cors, "x-cache": "MISS" });
+  } catch (err) {
+    const lkg = await cache.match(lkgKey);
     if (lkg) return withHeaders(lkg, { ...cors, "x-cache": "STALE" });
     return json({ error: "upstream_unavailable", detail: String(err) }, 502, cors);
   }
@@ -288,11 +332,12 @@ async function handleFxHistory(url, env, ctx, cors) {
 // 그래프 끝점이 서로 다른 출처라서 벌어지는 일이 없다.
 async function handleFxRate(env, ctx, cors) {
   const cache = caches.default;
-  const key = new Request("https://cache.internal/fx-rate/v1");
+  // v2: prev(전일 종가) 추가 — 헤더 띠의 환율 등락률
+  const key = new Request("https://cache.internal/fx-rate/v2");
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, { ...cors, "x-cache": "HIT" });
 
-  const lkgKey = new Request("https://cache.internal/fx-rate/lkg1");
+  const lkgKey = new Request("https://cache.internal/fx-rate/lkg2");
   try {
     // interval=1d면 응답이 가장 작다 — 필요한 건 meta의 현재가뿐이다
     const r = await fetch(`${YAHOO_FX}?range=1d&interval=1d`, {
@@ -304,7 +349,9 @@ async function handleFxRate(env, ctx, cors) {
     const rate = meta && meta.regularMarketPrice;
     if (!(rate > 0)) throw new Error("yahoo rate empty");
 
-    const body = JSON.stringify({ rate, at: meta.regularMarketTime || Math.floor(Date.now() / 1000) });
+    // chartPreviousClose: range=1d일 때 전 거래일 종가. 헤더에서 "전일 대비"를 계산한다.
+    const prev = meta.chartPreviousClose > 0 ? meta.chartPreviousClose : null;
+    const body = JSON.stringify({ rate, prev, at: meta.regularMarketTime || Math.floor(Date.now() / 1000) });
     const resp = new Response(body, {
       headers: { "content-type": "application/json", "cache-control": "public, max-age=60" },
     });
@@ -561,7 +608,8 @@ function thinPoints(points, max) {
 
 // CoinGecko 호출. CG_KEY(Demo 키)가 있으면 헤더로 붙여 한도를 늘린다.
 function cgFetch(env, u) {
-  const headers = { accept: "application/json" };
+  // User-Agent가 없으면 CoinGecko가 403으로 막는다(키 없이 부를 때). 키가 있어도 붙여 둔다.
+  const headers = { accept: "application/json", "user-agent": "coinwatch-api/1.0" };
   if (env.CG_KEY) headers["x-cg-demo-api-key"] = env.CG_KEY;
   return fetch(u, { headers });
 }

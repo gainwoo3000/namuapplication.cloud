@@ -49,6 +49,7 @@ export async function loadFromGecko(){
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null,
+      marketCap: c.market_cap ?? null, // 달러 기준 시가총액 — 코인 상세 페이지 카드
       image: c.image || null, // 표 왼쪽 로고. 워커가 image를 안 내려주면 심볼 기준 아이콘으로 대체된다.
       // 등락률 아래 24시간 범위 바에 사용. 거래소에 상장된 코인은 곧바로
       // applyExchangeTickers()가 실시간 값으로 덮어쓰고, 여기 값은 그 외 코인용.
@@ -277,6 +278,8 @@ export async function fetchUsdKrw(){
       const r = await fetch(`${FX_RATE_PROXY}?t=${Math.floor(Date.now() / 60000)}`);
       if(!r.ok) return null;
       const d = await r.json();
+      // 전일 종가 — 헤더 띠의 "전일 대비" 등락률. 이 출처만 준다(폴백들은 현재가뿐이라 그땐 비운다).
+      state.usdKrwPrev = d && d.prev > 0 ? d.prev : null;
       return d && d.rate;
     },
     // 2) manana.kr — 야후 USD/KRW를 그대로 중계하는 제3자. 워커가 막혔을 때의 폴백.
@@ -394,6 +397,19 @@ const CANDLE_FETCHERS = {
     const j = await r.json();
     return ((j.result && j.result.list) || []).map(k => ({ t: +k[0] / 1000, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] })).reverse();
   },
+  // 크라켄: 오래된 -> 최신, [time(초), o, h, l, c, vwap, 거래량, 체결수]. 달러(USD) 페어라
+  // 테더처럼 ○○/USDT 페어가 있을 수 없는 코인도 USDT/USD로 받을 수 있다.
+  // 결과 키가 요청한 이름과 다르다(USDTUSD -> USDTZUSD, XBTUSD -> XXBTZUSD) — 첫 키를 쓴다.
+  async kraken(sym, spec){
+    const pair = (KRAKEN_ALIAS[sym] || sym) + "USD";
+    const r = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${spec.i}`);
+    if(!r.ok) return null;
+    const j = await r.json();
+    if(!j || (j.error && j.error.length) || !j.result) return null;
+    const rows = j.result[Object.keys(j.result).find(k => k !== "last")];
+    if(!Array.isArray(rows)) return null;
+    return rows.slice(-spec.n).map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[6] }));
+  },
   // 업비트: 최신 -> 오래된, 객체. 값은 원화라 quote가 KRW가 된다
   async upbit(sym, spec){
     const r = await fetch(`${UPBIT_CANDLES_PROXY}?unit=${spec.p}&market=KRW-${sym}&count=${spec.n}`);
@@ -438,7 +454,9 @@ function toWeekly(days){
   return out;
 }
 
-const CANDLE_QUOTE = { binance:"USD", okx:"USD", bybit:"USD", upbit:"KRW", bithumb:"KRW" };
+const CANDLE_QUOTE = { binance:"USD", okx:"USD", bybit:"USD", kraken:"USD", upbit:"KRW", bithumb:"KRW" };
+// 크라켄은 몇몇 코인을 옛 이름으로 부른다
+const KRAKEN_ALIAS = { BTC: "XBT", DOGE: "XDG" };
 
 // 그 코인이 실제로 거래되는 곳만, 시세 탭과 같은 우선순위로 훑는다.
 // (거래소 정보가 아직 없으면 바이낸스부터 순서대로 찔러본다)
@@ -448,10 +466,14 @@ function candleSourcesFor(c){
   if(ex.binance)  known.push("binance");
   if(ex.okx)      known.push("okx");
   if(ex.bybit)    known.push("bybit");
+  if(ex.kraken)   known.push("kraken");
   if(dom.upbit)   known.push("upbit");
   if(dom.bithumb) known.push("bithumb");
+  // 테더 자신은 ○○/USDT 페어가 있을 수 없다(USDTUSDT) — 달러 페어(크라켄 USDT/USD)를 맨 앞에
+  if((c.symbol || "").toUpperCase() === "USDT") known.unshift("kraken");
   // 보강 전이라 거래소를 모를 때도 차트가 비지 않도록 나머지를 뒤에 붙인다
-  return known.concat(["binance","okx","bybit","upbit","bithumb"].filter(s => !known.includes(s)));
+  const all = ["binance","okx","bybit","kraken","upbit","bithumb"];
+  return [...new Set(known)].concat(all.filter(s => !known.includes(s)));
 }
 
 // 반환: { source:"binance", quote:"USD"|"KRW", candles:[...] } — 전부 실패하면 null

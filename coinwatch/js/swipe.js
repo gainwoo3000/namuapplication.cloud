@@ -10,7 +10,7 @@ let sx = 0, sy = 0, startAt = 0, tracking = false;
 // 차트(트레이딩뷰는 가로 드래그를 직접 쓴다)·다이얼로그·스크롤되는 검색 결과 위에서는 무시
 function blocked(target){
   if(!target || !target.closest) return false;
-  return !!(target.closest(".chart-panel") || target.closest(".coin-page") || target.closest(".dialog-overlay")
+  return !!(target.closest(".chart-panel") || target.closest(".coin-page") || target.closest(".ticker-strip") || target.closest(".dialog-overlay")
     || target.closest(".drop-panel") || target.closest(".pf-coin-results")
     || target.closest("#addCoinResults"));
 }
