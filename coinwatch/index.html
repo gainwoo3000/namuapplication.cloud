@@ -31,21 +31,44 @@
 <link rel="dns-prefetch" href="https://www.okx.com">
 <link rel="dns-prefetch" href="https://api.bithumb.com">
 <link rel="dns-prefetch" href="https://api.alternative.me">
-<link rel="stylesheet" href="styles.css">
+<!-- 배포 버전. 코드를 바꿀 때마다 여기만 올린다(설정 › 버전에도 이 값이 뜬다).
+     이 값을 JS·CSS 주소 뒤에 ?v=로 붙여서, 배포 직후 브라우저가 캐시해 둔 예전 JS와 새 HTML이
+     섞여 앱이 멈추는 일을 막는다. JS 모듈끼리의 import("./state.js")에는 주소를 붙일 수 없으니
+     import map으로 "js/x.js → js/x.js?v=버전"을 한꺼번에 바꿔 준다.
+     import map은 모듈을 하나라도 받기 전에 있어야 해서 여기(<head> 앞쪽)에 둔다.
+     js/에 파일을 새로 만들면 APP_MODULES에도 추가할 것(빠지면 그 파일만 캐시 무효화가 안 된다). -->
+<script>
+  window.APP_VERSION = "v.260927.1544";
+  window.APP_MODULES = ["main.js", "animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "mcap.js", "persist.js", "signals.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "sheet.js", "skeleton.js", "state.js", "swipe.js", "trades.js", "watchlist.js"];
+  (function(){
+    var q = "?v=" + encodeURIComponent(window.APP_VERSION);
+    // import map을 모르는 옛 브라우저(iOS 16.3 이하 등)는 모듈 주소에 버전을 안 붙인다 —
+    // 미리 받기(modulepreload)만 ?v가 붙으면 같은 파일을 두 번 받게 되므로
+    window.APP_MODULE_QUERY = HTMLScriptElement.supports && HTMLScriptElement.supports("importmap") ? q : "";
+    if(window.APP_MODULE_QUERY){
+      var map = { imports: {} };
+      for(var i = 0; i < window.APP_MODULES.length; i++){
+        map.imports["./js/" + window.APP_MODULES[i]] = "./js/" + window.APP_MODULES[i] + q;
+      }
+      document.write('<script type="importmap">' + JSON.stringify(map) + '<\/script>');
+    }
+    document.write('<link rel="stylesheet" href="styles.css' + q + '">');
+  })();
+</script>
 <!-- JS 모듈은 import를 따라가며 하나씩 발견된다(main -> watchlist -> coinchart -> graph …).
      그대로 두면 4단계 계단식으로 받아서, 단계마다 왕복 한 번씩 늦어진다(한국 접속이 미국 LAX를 거치는
      지금은 왕복 한 번이 1초 가까이 된다). 그래서 나머지 모듈을 한꺼번에 미리 받게 한다.
      단, <head>에 modulepreload를 그냥 적으면 첫 요청부터 CSS와 대역폭을 나눠 써서 CSS가 늦게 오고,
      그만큼 첫 화면(LCP)이 늦어진다(측정: 느린 4G에서 약 0.4초). 이 스크립트는 CSS를 다 받은 뒤에야
      실행되므로(앞선 스타일시트를 기다리는 게 규칙) 그때 한꺼번에 건다.
-     js/에 파일을 새로 만들면 아래 목록에도 추가할 것. -->
+     목록은 위의 APP_MODULES를 같이 쓴다. -->
 <script>
   (function(){
-    var mods = ["animate.js", "api.js", "chart.js", "coinchart.js", "constants.js", "dialog.js", "fng.js", "format.js", "fx.js", "fxchart.js", "graph.js", "layout.js", "logo.js", "market.js", "mcap.js", "persist.js", "signals.js", "portfolio.js", "pricing.js", "rangebar.js", "search.js", "settings.js", "skeleton.js", "state.js", "swipe.js", "watchlist.js"];
-    for(var i = 0; i < mods.length; i++){
+    var mods = window.APP_MODULES;
+    for(var i = 1; i < mods.length; i++){ // 0번 main.js는 바로 아래 <script type="module">이 받는다
       var l = document.createElement("link");
       l.rel = "modulepreload";
-      l.href = "js/" + mods[i];
+      l.href = "js/" + mods[i] + window.APP_MODULE_QUERY;
       document.head.appendChild(l);
     }
   })();
@@ -60,6 +83,10 @@
       <!-- 제목 옆에 마지막 갱신 시각 -->
       <h1>코인워치캡</h1>
       <div class="sub" id="updatedAt">불러오는 중…</div>
+      <!-- 누르면 돌기만 한다. 시세는 15초마다 알아서 갱신되지만, 직접 눌러 보고 싶은 사람을 위한 버튼 -->
+      <button type="button" class="refresh-btn" id="refreshBtn" aria-label="새로고침">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
+      </button>
     </header>
 
     <!-- 지수 띠: 증권 앱 맨 위의 지수 줄처럼 가로로 긴 한 줄 [환율 │ 공포탐욕 │ 시총].
@@ -156,28 +183,53 @@
           <label><input type="checkbox" class="pfex-check" value="bitflyer"> 비트플라이어 (일본)</label>
         </div>
       </div>
+      <!-- 거래 추가: 매수/매도 · 코인 · 수량 · 단가 · 날짜. 보유 수량은 거래 합계로 계산된다 -->
       <div class="pf-add">
-        <div class="pf-pick-wrap">
-          <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
-          <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
+        <div class="pf-add-row">
+          <div class="pf-side" role="group" aria-label="거래 유형">
+            <button type="button" class="pf-side-btn buy active" data-side="buy">매수</button>
+            <button type="button" class="pf-side-btn sell" data-side="sell">매도</button>
+          </div>
+          <div class="pf-pick-wrap">
+            <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
+            <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
+          </div>
         </div>
-        <input type="number" id="pfAmount" placeholder="수량" step="any">
-        <button id="pfAddBtn">추가</button>
-      </div>
-      <hr style="height: 1px; background-color: var(--line); border: none;">
-      <div class="pf-list-head">
-        <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기">보유 코인 <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
-        <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
-      </div>
-      <div class="grid-wrap portfolio" id="pfList">
-        <div class="grid-row grid-head">
-          <div>코인</div><div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div>
+        <div class="pf-add-row">
+          <input type="number" id="pfAmount" placeholder="수량" step="any" min="0" inputmode="decimal">
+          <input type="number" id="pfPrice" placeholder="단가 ($)" step="any" min="0" inputmode="decimal">
+          <input type="date" id="pfDate" aria-label="거래 날짜">
+          <button id="pfAddBtn">추가</button>
         </div>
-        <div class="empty">보유 코인을 추가하면 여기에 표시됩니다.</div>
       </div>
-      <div class="pf-total">
+      <div class="pf-summary">
         <div class="label">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>
+      </div>
+      <div class="pf-sections" role="tablist">
+        <button type="button" class="pf-sec active" data-sec="holdings" role="tab">보유량</button>
+        <button type="button" class="pf-sec" data-sec="trades" role="tab">거래</button>
+      </div>
+      <div id="pfHoldingsSec">
+        <div class="pf-list-head">
+          <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기">보유 코인 <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
+          <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
+        </div>
+        <div class="grid-wrap portfolio" id="pfList">
+          <div class="grid-row grid-head">
+            <div>코인</div><div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div>
+          </div>
+          <div class="empty">거래를 추가하면 보유 코인이 여기에 표시됩니다.</div>
+        </div>
+      </div>
+      <div id="pfTradesSec" hidden>
+        <!-- 누르면 아래에서 선택 창이 올라온다 (sheet.js) -->
+        <div class="pf-filter">
+          <button type="button" class="pf-chip" id="pfTypeBtn">모든 유형 ▾</button>
+          <button type="button" class="pf-chip" id="pfCoinBtn">모든 코인 ▾</button>
+        </div>
+        <div id="pfCoinCards"></div>
+        <div id="pfTradeList"></div>
       </div>
       <div class="desc">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다.</div>
     </section>
@@ -238,14 +290,6 @@
         <div class="opt-row" id="themeOpts">
           <div class="opt active" data-theme="dark">다크</div>
           <div class="opt" data-theme="light">라이트</div>
-        </div>
-      </div>
-      <div class="setting-group">
-        <div class="setting-title">갱신 주기</div>
-        <div class="opt-row" id="refreshOpts">
-          <div class="opt" data-sec="15">15초</div>
-          <div class="opt active" data-sec="30">30초</div>
-          <div class="opt" data-sec="60">60초</div>
         </div>
       </div>
       <div class="setting-group">
@@ -391,6 +435,7 @@
   <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
-<script type="module" src="js/main.js"></script>
+<!-- src="js/main.js"로 적으면 import map을 거치지 않아 ?v가 안 붙는다. import 문으로 불러야 바뀐 주소로 받는다 -->
+<script type="module">import "./js/main.js";</script>
 </body>
 </html>

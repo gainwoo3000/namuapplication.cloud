@@ -8,8 +8,9 @@ import { ensureUsdKrw } from "./fx.js";
 import { saveState, storageDiagnostics } from "./persist.js";
 import { loadMarkets } from "./main.js";
 import { revealTopbar } from "./layout.js";
-import { APP_VERSION } from "./constants.js";
+import { APP_VERSION, REFRESH_SEC } from "./constants.js";
 import { renderMcapMini } from "./mcap.js";
+import { skeletonRows } from "./skeleton.js";
 
 document.getElementById("appVersion").textContent = APP_VERSION;
 
@@ -111,15 +112,40 @@ document.getElementById("themeOpts").addEventListener("click", (e)=>{
   saveState();
 });
 
-document.getElementById("refreshOpts").addEventListener("click", (e)=>{
-  const opt = e.target.closest(".opt");
-  if(!opt) return;
-  document.querySelectorAll("#refreshOpts .opt").forEach(o=>o.classList.remove("active"));
-  opt.classList.add("active");
-  state.refreshSec = Number(opt.dataset.sec);
-  restartRefreshTimer();
-  saveState();
+// 헤더 새로고침 버튼: 시세는 REFRESH_SEC마다 알아서 갱신되므로 요청은 보내지 않는다.
+// 버튼이 돌고, 목록들이 잠깐 자리표시(스켈레톤)로 바뀌었다가 가진 값으로 다시 그려진다 — 새로고침하는 "느낌"만.
+const refreshBtn = document.getElementById("refreshBtn");
+const FAKE_REFRESH_MS = 700;
+// 표 id → 자리표시 모양(skeleton.js GRID_SPEC)
+const FAKE_TARGETS = { marketWrap: "market", gridWrap: "ticker", pfList: "portfolio" };
+let fakeRefreshTimer = null;
+
+refreshBtn.addEventListener("click", ()=>{
+  refreshBtn.classList.remove("spin");
+  void refreshBtn.offsetWidth; // 연달아 눌러도 처음부터 다시 돌게
+  refreshBtn.classList.add("spin");
+
+  if(state.allTickers.length === 0) return; // 아직 첫 로딩 중이면 이미 자리표시가 떠 있다
+  state.fakeRefreshing = true;
+  state.fakeRefreshSeq++;
+  for(const [id, kind] of Object.entries(FAKE_TARGETS)){
+    const wrap = document.getElementById(id);
+    if(!wrap) continue;
+    // 머리줄은 두고 행만 같은 개수의 자리표시로 — 개수가 같아야 페이지 길이·스크롤 위치가 안 튄다
+    const n = wrap.querySelectorAll(".grid-row:not(.grid-head)").length;
+    if(n === 0) continue; // "관심 코인이 없습니다" 같은 안내는 그대로
+    const head = wrap.querySelector(".grid-head");
+    wrap.innerHTML = (head ? head.outerHTML : "") + skeletonRows(kind, n);
+  }
+  clearTimeout(fakeRefreshTimer);
+  fakeRefreshTimer = setTimeout(()=>{
+    state.fakeRefreshing = false;
+    renderMarketGrid();
+    renderGrid();
+    renderPortfolio();
+  }, FAKE_REFRESH_MS);
 });
+refreshBtn.addEventListener("animationend", ()=> refreshBtn.classList.remove("spin"));
 
 // 탭이 안 보이는 동안(다른 탭·앱으로 전환, 창 최소화)에는 시세 갱신을 멈춘다.
 // 켜 둔 채 잊어버린 탭 하나가 하루 종일 워커 요청을 보내는 걸 막기 위해서다.
@@ -131,12 +157,12 @@ function refreshTick(){
 
 export function restartRefreshTimer(){
   if(state.refreshTimer) clearInterval(state.refreshTimer);
-  state.refreshTimer = document.hidden ? null : setInterval(refreshTick, state.refreshSec*1000);
+  state.refreshTimer = document.hidden ? null : setInterval(refreshTick, REFRESH_SEC*1000);
 }
 
 document.addEventListener("visibilitychange", ()=>{
   // 돌아왔을 때 갱신 주기가 이미 지났으면 다음 주기를 기다리지 않고 바로 받아온다
-  if(!document.hidden && Date.now() - lastRefreshAt >= state.refreshSec*1000) refreshTick();
+  if(!document.hidden && Date.now() - lastRefreshAt >= REFRESH_SEC*1000) refreshTick();
   restartRefreshTimer();
 });
 

@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { skeletonRows } from "./skeleton.js";
+import { skeletonRows, skeletonResultRows } from "./skeleton.js";
 import { prevValues, rollUpdate, rollNumberByKey, flashChg, collapseRow } from "./animate.js";
 import { fmtChg, chgClass, fmtDisplayPrice, displayPriceNum, fmtDisplayMyx, displayMyxNum } from "./format.js";
 import { myExchangeValue, myxPremiumText, premiumPct } from "./pricing.js";
@@ -30,11 +30,11 @@ function gridSignature(){
   // 로딩 여부도 넣는다 — 목록이 빈 채로 시세만 도착하면(관심 코인을 다 뺀 경우) ids가 그대로라
   // 시그니처가 안 바뀌어 자리표시가 "관심 코인이 없습니다"로 넘어가지 못한다
   const loading = state.allTickers.length === 0;
-  return state.editMode + "|" + state.visibleCount + "|" + state.selectedCoinId + "|" + state.displayCurrency + "|" + loading + "|" + ids;
+  return state.fakeRefreshSeq + "|" + state.editMode + "|" + state.visibleCount + "|" + state.selectedCoinId + "|" + state.displayCurrency + "|" + loading + "|" + ids;
 }
 
 export function renderGrid(){
-  if(state.rowAnimating) return; // 삭제 애니메이션 중에는 재렌더 보류
+  if(state.rowAnimating || state.fakeRefreshing) return; // 삭제 애니메이션·가짜 새로고침 중에는 재렌더 보류
   const sig = gridSignature();
   if(sig === lastGridSignature){
     updateGridValues(); // 목록 구조는 그대로, 가격/등락률만 롤링 애니메이션으로 갱신
@@ -199,18 +199,22 @@ document.getElementById("addCoinBtn").addEventListener("click", (e)=>{
 
 document.getElementById("addCoinSearch").addEventListener("input", (e)=>{
   const q = e.target.value.trim();
-  renderAddResults(q); // 로컬 풀(시총 500위) 결과는 즉시 표시
   clearTimeout(addSearchDebounce);
-  if(q.length < 2) return;
+  addSearchPending = q.length >= 2 ? q : null; // 2글자부터 순위 밖까지 찾아본다
+  renderAddResults(q); // 로컬 풀(시총 500위) 결과는 즉시 표시
+  if(!addSearchPending) return;
   addSearchDebounce = setTimeout(async ()=>{
-    const extResults = await searchExternalCoins(q);
+    let extResults = [];
+    try{ extResults = await searchExternalCoins(q); }catch(err){ /* 실패하면 로컬 결과만 */ }
     if(document.getElementById("addCoinSearch").value.trim() === q){
+      addSearchPending = null;
       renderAddResults(q, extResults); // 시총 500위 밖 코인 결과를 합쳐서 다시 렌더
     }
   }, 350);
 });
 
 let addSearchDebounce = null;
+let addSearchPending = null; // 순위 밖 검색 결과를 기다리는 검색어(없으면 null)
 let currentAddResults = []; // renderAddResults가 만든 목록(로컬+외부 혼합), 클릭 시 이 배열로 조회
 
 function renderAddResults(query, extResults){
@@ -227,7 +231,10 @@ function renderAddResults(query, extResults){
     ...extOnly.map(c=>({kind:"ext", coin:c}))
   ];
   if(currentAddResults.length === 0){
-    box.innerHTML = '<div class="add-empty">일치하는 코인이 없습니다.</div>';
+    // 순위 밖 검색이 아직 안 끝났으면 "없음"이라고 단정하지 않고 자리표시를 깐다
+    box.innerHTML = addSearchPending === query
+      ? skeletonResultRows(3, true)
+      : '<div class="add-empty">일치하는 코인이 없습니다.</div>';
     return;
   }
   box.innerHTML = currentAddResults.map((entry, idx)=>{

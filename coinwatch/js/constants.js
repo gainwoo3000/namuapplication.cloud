@@ -1,6 +1,7 @@
 // 앱 버전 — 코드를 고칠 때마다 손으로 올린다. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
-export const APP_VERSION = "v.260926.2043";
+// 값은 index.html 맨 위 window.APP_VERSION 한 곳에 적는다 — JS·CSS 주소의 ?v=(캐시 무효화)에도 같이 쓰인다.
+export const APP_VERSION = window.APP_VERSION || "-";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).
 // 바이낸스 응답이 실패하면 CoinGecko(키 없는 공개 API, 분당 호출 제한 있음)로 자동 대체.
@@ -132,6 +133,8 @@ export const FX_SOURCE_LABEL = {
   naver: "네이버 금융"
 };
 
+// 시세 자동 갱신 주기(초). 설정에서 고르던 것을 15초로 고정했다
+export const REFRESH_SEC = 15;
 export const MARKET_PAGE_SIZE = 100; // 1페이지 = 1~100위, 2페이지 = 101~200위 …
 export const MAX_PORTFOLIOS = 10;
 

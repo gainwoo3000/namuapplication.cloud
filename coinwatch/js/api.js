@@ -1,4 +1,4 @@
-import { BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, API_BASE, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
+import { REFRESH_SEC, BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, API_BASE, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
 
 // ---------- 시세 그리드 ----------
@@ -98,7 +98,8 @@ async function fetchBinanceMap(){
 
 // 바이낸스 24시간 티커 맵을 짧게 캐시해서 여러 곳(검색 가격 채우기 등)에서 재사용
 let binanceMapCache = { data: null, at: 0 };
-const BINANCE_MAP_TTL = 30000;
+// 갱신 주기보다 조금 짧게 — 한 주기 안의 중복 호출은 막고, 다음 주기에는 새로 받는다
+const BINANCE_MAP_TTL = REFRESH_SEC * 1000 - 3000;
 export async function getBinanceMap(){
   if(binanceMapCache.data && Date.now() - binanceMapCache.at < BINANCE_MAP_TTL) return binanceMapCache.data;
   try{
@@ -166,7 +167,7 @@ export async function fetchKrakenPricesFor(symbolsUpper){
 // OKX/바이빗 맵도 바이낸스처럼 짧게 캐시한다. 한 갱신 주기 안에서
 // applyExchangeTickers(시세 목록)와 enrichIntlPrices(관심 코인)가 각각 부르기 때문에,
 // 캐시가 없으면 같은 데이터를 주기마다 두 번씩 받아오게 된다.
-const EX_MAP_TTL = 30000;
+const EX_MAP_TTL = BINANCE_MAP_TTL;
 let okxMapCache = { data: null, at: 0 };
 let bybitMapCache = { data: null, at: 0 };
 

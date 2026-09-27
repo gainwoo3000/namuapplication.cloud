@@ -1,7 +1,8 @@
 import { STORAGE_KEY, MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
 import { renderExchangeOpts, applyFontScale } from "./settings.js";
-import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel } from "./portfolio.js";
+import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel, showPfSection } from "./portfolio.js";
+import { loadTrades, recomputeHoldings } from "./trades.js";
 
 // 마지막 저장이 실패했는지. 설정 탭의 "저장 상태"가 이 값을 읽어 보여준다.
 export let storageError = null;
@@ -50,8 +51,8 @@ export function saveState(){
       showVolume: state.showVolume,
       showMA: state.showMA,
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
-      refreshSec: state.refreshSec,
       pfSortMode: state.pfSortMode,
+      pfSection: state.pfSection,
       virtualCoins: Object.fromEntries(
         Object.entries(state.virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
       )
@@ -72,16 +73,19 @@ export function loadState(){
     const saved = JSON.parse(raw);
     if(Array.isArray(saved.watchlist)) state.watchlist = saved.watchlist;
     if(Array.isArray(saved.portfolios) && saved.portfolios.length > 0){
+      // 거래 기록이 없던 예전 데이터는 보유 수량을 "기존 보유"(단가 없는 매수)로 옮긴다
       state.portfolios = saved.portfolios.map(p=>({
         name: p.name || "포트폴리오",
-        holdings: Array.isArray(p.holdings) ? p.holdings : [],
+        trades: loadTrades(p),
         exchanges: Array.isArray(p.exchanges) && p.exchanges.length ? p.exchanges : ["upbit"]
       })).slice(0, MAX_PORTFOLIOS);
+      state.portfolios.forEach(recomputeHoldings);
       state.activePortfolioIdx = Number.isInteger(saved.activePortfolioIdx) && saved.activePortfolioIdx < state.portfolios.length
         ? saved.activePortfolioIdx : 0;
     }else if(Array.isArray(saved.portfolio)){
       // 구버전(단일 포트폴리오) 데이터 마이그레이션
-      state.portfolios = [{ name:"포트폴리오 1", holdings: saved.portfolio, exchanges:["upbit"] }];
+      state.portfolios = [{ name:"포트폴리오 1", trades: loadTrades({ holdings: saved.portfolio }), exchanges:["upbit"] }];
+      recomputeHoldings(state.portfolios[0]);
       state.activePortfolioIdx = 0;
     }
     if(Array.isArray(saved.myExchanges)) state.myExchanges = new Set(saved.myExchanges);
@@ -91,8 +95,8 @@ export function loadState(){
     if(["line","candle"].includes(saved.chartStyle)) state.chartStyle = saved.chartStyle;
     if(typeof saved.showVolume === "boolean") state.showVolume = saved.showVolume;
     if(typeof saved.showMA === "boolean") state.showMA = saved.showMA;
-    if(saved.refreshSec) state.refreshSec = saved.refreshSec;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
+    if(["holdings","trades"].includes(saved.pfSection)) state.pfSection = saved.pfSection;
     if(saved.virtualCoins){
       Object.entries(saved.virtualCoins).forEach(([id,c])=>{
         state.virtualCoins[id] = {...c, current_price:null, price_change_percentage_24h:null, rank:null};
@@ -113,9 +117,6 @@ export function applyLoadedUIState(){
   document.querySelectorAll("#themeOpts .opt").forEach(o=>{
     o.classList.toggle("active", (o.dataset.theme === "light") === isLight);
   });
-  document.querySelectorAll("#refreshOpts .opt").forEach(o=>{
-    o.classList.toggle("active", Number(o.dataset.sec) === state.refreshSec);
-  });
   applyFontScale();
   document.querySelectorAll("#fontOpts .opt").forEach(o=>{
     o.classList.toggle("active", Number(o.dataset.fs) === state.fontScale);
@@ -123,4 +124,5 @@ export function applyLoadedUIState(){
   renderPortfolioHeaderBtn();
   syncPfExCheckboxes();
   renderSortLabel();
+  showPfSection(state.pfSection, false);
 }

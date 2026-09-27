@@ -14,6 +14,7 @@ let marketQuery = "";
 let marketPage = 1;
 let marketExtResults = [];     // 검색어에 대한 외부(시총 500위 밖) 코인 결과 — CoinGecko 검색
 let marketSearchDebounce = null;
+let marketSearching = false;   // 시총 500위 밖 검색(CoinGecko)을 기다리는 중
 let lastMarketSig = null;
 
 // 시총 순위대로 정렬된 코인 목록(순위가 없으면 원본 순서 그대로)
@@ -51,7 +52,7 @@ function marketList(){
 }
 
 function marketSignature(list){
-  return marketQuery + "|" + marketPage + "|" + state.displayCurrency + "|" + state.selectedCoinId + "|" + list.map(c=>c.id).join(",");
+  return state.fakeRefreshSeq + "|" + marketQuery + "|" + marketSearching + "|" + marketPage + "|" + state.displayCurrency + "|" + state.selectedCoinId + "|" + list.map(c=>c.id).join(",");
 }
 
 // 현재 페이지 기준으로 보여줄 번호들. 1·마지막·현재±1 은 항상, 사이가 벌어지면 "gap"(…)
@@ -97,7 +98,7 @@ function goMarketPage(p){
 
 export function renderMarketGrid(){
   const wrap = document.getElementById("marketWrap");
-  if(!wrap) return;
+  if(!wrap || state.fakeRefreshing) return;
   marketPage = Math.min(Math.max(1, marketPage), marketTotalPages());
   const list = marketList();
   const sig = marketSignature(list);
@@ -109,10 +110,11 @@ export function renderMarketGrid(){
   lastMarketSig = sig;
   let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">1일 등락률</div></div>`;
   if(list.length === 0){
-    // 검색 결과가 없는 것과 아직 안 불러온 것은 다르다 — 후자만 자리표시를 깐다
-    wrap.innerHTML = html + (marketQuery
+    // 검색 결과가 없는 것과 아직 안 불러온 것은 다르다 — 후자만 자리표시를 깐다.
+    // 순위 밖 검색 결과를 기다리는 동안에도 "없음"이라고 단정하지 않고 자리표시를 깐다.
+    wrap.innerHTML = html + (marketQuery && !marketSearching
       ? '<div class="loading">일치하는 코인이 없습니다.</div>'
-      : skeletonRows("market", 10));
+      : skeletonRows("market", marketQuery ? 3 : 10));
     renderMarketPager();
     return;
   }
@@ -179,14 +181,17 @@ document.getElementById("marketSearch").addEventListener("input", (e)=>{
   marketQuery = e.target.value.trim();
   marketPage = 1;
   marketExtResults = [];
-  renderMarketGrid(); // 우선 로컬(시총 500위) 결과를 즉시 표시
   clearTimeout(marketSearchDebounce);
-  if(marketQuery.length < 2) return;
+  marketSearching = marketQuery.length >= 2; // 2글자부터 순위 밖까지 찾아본다
+  renderMarketGrid(); // 우선 로컬(시총 500위) 결과를 즉시 표시
+  if(!marketSearching) return;
   const q = marketQuery;
   marketSearchDebounce = setTimeout(async ()=>{
-    const results = await searchExternalCoins(q);
+    let results = [];
+    try{ results = await searchExternalCoins(q); }catch(err){ /* 실패하면 로컬 결과만 */ }
     if(document.getElementById("marketSearch").value.trim() !== q) return; // 그새 검색어가 바뀌면 버림
     marketExtResults = results;
+    marketSearching = false;
     lastMarketSig = null; // 외부 검색 결과를 반영해 강제로 다시 그림
     renderMarketGrid();
   }, 350);

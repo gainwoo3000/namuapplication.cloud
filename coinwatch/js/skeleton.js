@@ -36,6 +36,20 @@ export function skeletonRows(kind, count){
   return html;
 }
 
+// "+ 코인 추가"·포트폴리오 검색 목록(.add-result-row)의 자리표시.
+// 순위 밖 코인 검색(CoinGecko)을 기다리는 동안 "없음" 대신 깐다. withButton이면 오른쪽에 "+ 담기" 자리도.
+export function skeletonResultRows(count, withButton){
+  let html = "";
+  for(let r = 0; r < count; r++){
+    const j = JITTER[r % JITTER.length];
+    html += `<div class="add-result-row sk-result" aria-hidden="true">`
+      + `<span class="sk sk-line" style="width:${48 + j}%"></span>`
+      + (withButton ? '<span class="sk sk-btn"></span>' : "")
+      + "</div>";
+  }
+  return html;
+}
+
 // 글자 한 줄 자리. width는 CSS 길이 문자열("15em", "60%" 등)
 export function skeletonLine(width){
   return `<span class="sk sk-line" style="width:${width}"></span>`;

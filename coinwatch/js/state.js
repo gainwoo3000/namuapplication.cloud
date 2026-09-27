@@ -9,7 +9,6 @@ export const state = {
   visibleCount: 8,
   selectedCoinId: null,
   intlExchangeFilter: new Set(), // 빈 값 = 5개 해외 거래소 전체 평균, 값이 있으면 그것들만 평균
-  refreshSec: 30,
   currentDays: 1,        // 코인 차트 기간 버튼 (COIN_RANGES의 days)
   chartStyle: "line",    // 코인 차트 모양: "line" | "candle" (설정과 함께 저장된다)
   showVolume: true,      // 코인 차트 아래 거래량 막대 (차트 도구줄에서 켜고 끈다, 저장된다)
@@ -26,8 +25,12 @@ export const state = {
   virtualCoins: {},       // id -> 검색으로 추가한, 시총 500위 밖이라 기본 풀에 없는 코인(새로고침에도 유지)
   cmcKrwMap: {},          // 심볼(대문자) -> KRW. CoinMarketCap(프록시 경유) — 국내 거래소에 없는 코인 메꿈용
   marketExtraCoins: new Map(), // 시세 탭 검색으로만 찾은(시총 500위 밖) 코인 임시 보관소 — 저장/영구 목록에는 넣지 않음
+  fakeRefreshing: false,  // 헤더 새로고침 버튼을 눌러 자리표시를 보여 주는 중 — 그동안 목록을 다시 그리지 않는다
+  fakeRefreshSeq: 0,      // 누를 때마다 +1. 목록 서명에 넣어서, 끝나면 자리표시를 걷고 반드시 다시 그리게 한다
   rowAnimating: false,    // 코인 행 삭제 애니메이션 중에는 목록 재렌더를 잠깐 멈춤
-  portfolios: [ { name:"포트폴리오 1", holdings:[], exchanges:["upbit"] } ], // {name, holdings:[{id,symbol,name,amount}], exchanges:[...]}
+  // {name, trades:[거래 기록(trades.js)], holdings:[{id,symbol,name,amount}] (거래 합계로 계산), exchanges:[...]}
+  portfolios: [ { name:"포트폴리오 1", holdings:[], trades:[], exchanges:["upbit"] } ],
   activePortfolioIdx: 0,
-  pfSortMode: "added" // 보유 코인 표시 순서: "added"(추가순) | "asc"(금액 오름차순) | "desc"(내림차순)
+  pfSortMode: "added", // 보유 코인 표시 순서: "added"(추가순) | "asc"(금액 오름차순) | "desc"(내림차순)
+  pfSection: "holdings" // 포트폴리오 탭에서 보고 있는 섹션: "holdings"(보유량) | "trades"(거래)
 };
