@@ -152,11 +152,17 @@ document.querySelectorAll(".pf-side-btn").forEach(btn=>{
 
 document.getElementById("pfDate").value = todayStr();
 
-document.getElementById("pfEditBtn").addEventListener("click", (e)=>{
-  pfEditMode = !pfEditMode;
-  e.target.classList.toggle("active", pfEditMode);
+document.getElementById("pfEditBtn").addEventListener("click", ()=> setPfEditMode(!pfEditMode));
+
+function setPfEditMode(on){
+  if(pfEditMode === on) return;
+  pfEditMode = on;
+  document.getElementById("pfEditBtn").classList.toggle("active", on);
   renderPortfolio();
-});
+}
+
+// 다른 탭이나 거래 섹션으로 갔다 오면 편집 모드는 풀려 있어야 한다(✕가 남아 있으면 실수로 지우기 쉽다)
+export function exitPfEditMode(){ setPfEditMode(false); }
 
 // ---------- 보유 코인 정렬 ----------
 // "보유 코인" 헤더를 누를 때마다 추가순 → 금액 오름차순 → 내림차순 순으로 돌아간다.
@@ -439,6 +445,7 @@ document.querySelectorAll(".pf-sec").forEach(btn=>{
 
 export function showPfSection(sec, save = true){
   state.pfSection = sec === "trades" ? "trades" : "holdings";
+  if(state.pfSection !== "holdings") exitPfEditMode();
   document.querySelectorAll(".pf-sec").forEach(b=>{
     const on = b.dataset.sec === state.pfSection;
     b.classList.toggle("active", on);

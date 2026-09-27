@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { reapplyIntlFilter } from "./pricing.js";
 import { renderGrid } from "./watchlist.js";
 import { renderMarketGrid } from "./market.js";
-import { renderPortfolio } from "./portfolio.js";
+import { renderPortfolio, exitPfEditMode } from "./portfolio.js";
 import { updateChartPrice, syncChartTheme } from "./chart.js";
 import { ensureUsdKrw } from "./fx.js";
 import { saveState, storageDiagnostics } from "./persist.js";
@@ -33,6 +33,7 @@ export function activateTab(name){
   const view = document.getElementById("view-" + name);
   if(!tab || !view || tab.classList.contains("active")) return;
   const dir = TAB_ORDER.indexOf(name) > TAB_ORDER.indexOf(currentTabName()) ? 1 : -1;
+  if(currentTabName() === "portfolio") exitPfEditMode(); // 떠나는 순간 풀어 둔다
   scrollByTab[currentTabName()] = window.scrollY;
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active", "slide-left", "slide-right"));
