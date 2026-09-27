@@ -115,8 +115,9 @@ document.getElementById("themeOpts").addEventListener("click", (e)=>{
 
 // 헤더 새로고침 버튼: 시세는 REFRESH_SEC마다 알아서 갱신되므로 요청은 보내지 않는다.
 // 버튼이 돌고, 목록들이 잠깐 자리표시(스켈레톤)로 바뀌었다가 가진 값으로 다시 그려진다 — 새로고침하는 "느낌"만.
+// 위에서 아래로 당겨서 새로고침(pull.js)도 같은 fakeRefresh()를 쓴다.
 const refreshBtn = document.getElementById("refreshBtn");
-const FAKE_REFRESH_MS = 700;
+export const FAKE_REFRESH_MS = 700;
 // 표 id → 자리표시 모양(skeleton.js GRID_SPEC)
 const FAKE_TARGETS = { marketWrap: "market", gridWrap: "ticker", pfList: "portfolio" };
 let fakeRefreshTimer = null;
@@ -125,7 +126,10 @@ refreshBtn.addEventListener("click", ()=>{
   refreshBtn.classList.remove("spin");
   void refreshBtn.offsetWidth; // 연달아 눌러도 처음부터 다시 돌게
   refreshBtn.classList.add("spin");
+  fakeRefresh();
+});
 
+export function fakeRefresh(){
   if(state.allTickers.length === 0) return; // 아직 첫 로딩 중이면 이미 자리표시가 떠 있다
   state.fakeRefreshing = true;
   state.fakeRefreshSeq++;
@@ -145,7 +149,7 @@ refreshBtn.addEventListener("click", ()=>{
     renderGrid();
     renderPortfolio();
   }, FAKE_REFRESH_MS);
-});
+}
 refreshBtn.addEventListener("animationend", ()=> refreshBtn.classList.remove("spin"));
 
 // 탭이 안 보이는 동안(다른 탭·앱으로 전환, 창 최소화)에는 시세 갱신을 멈춘다.

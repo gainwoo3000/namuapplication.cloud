@@ -86,6 +86,20 @@ header .sub{font-size:calc(11px * var(--fs)); color:var(--muted); white-space:no
 }
 .refresh-btn.spin svg{animation:refreshSpin .6s cubic-bezier(.4,0,.2,1);}
 @keyframes refreshSpin{ to{ transform:rotate(360deg); } }
+/* 브라우저 기본 당겨서 새로고침(페이지를 통째로 다시 불러옴)을 끈다 — 대신 pull.js의 가짜 새로고침 */
+html, body{overscroll-behavior-y:none;}
+/* 당겨서 새로고침 표시: 헤더 뒤(z 50 아래)에 숨어 있다가 당기는 만큼 내려온다 */
+.ptr{
+  position:fixed; left:50%; top:calc(var(--topbar-h, 96px) - 40px); z-index:45;
+  width:36px; height:36px; border-radius:50%; pointer-events:none; opacity:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--panel); border:1px solid var(--line); box-shadow:0 4px 14px rgba(0,0,0,0.35);
+  color:var(--muted); transform:translate(-50%, 0);
+}
+.ptr.settle{transition:transform .25s cubic-bezier(.4,0,.2,1), opacity .25s ease;}
+.ptr.ready, .ptr.spinning{color:var(--gold-ink);}
+.ptr svg{width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.ptr.spinning svg{animation:refreshSpin .7s linear infinite;}
 .tabs{
   display:flex; gap:2px; padding:6px 12px; border-bottom:1px solid var(--line);
   background:transparent;

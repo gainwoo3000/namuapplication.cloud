@@ -12,6 +12,7 @@ import { loadState, applyLoadedUIState, requestPersistentStorage } from "./persi
 import { restartRefreshTimer, renderStorageDiag } from "./settings.js";
 import "./layout.js";
 import "./swipe.js"; // 좌우 스와이프로 탭 넘기기
+import "./pull.js";  // 위에서 아래로 당겨서 새로고침(가짜)
 
 // 이 모듈들은 자기 파일 안에서 이벤트 리스너를 등록하는 부수효과를 가지므로
 // import만으로 화면 배선이 끝난다. 서로 순환 참조하지만 실제 호출은
