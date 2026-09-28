@@ -42,7 +42,10 @@ document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
   }, 350);
 });
 
-document.getElementById("pfCoinSearch").addEventListener("focus", ()=>{
+// 목록은 focus가 아니라 click(손을 뗀 뒤)에 연다. focus 때 열면 목록만큼 입력 창이 위로 늘어나
+// 검색칸이 손가락 밑에서 밀려 올라가고, 같은 탭의 click이 그 자리에 새로 온 칸(수량 등)에 떨어져
+// "바깥을 눌렀다"로 읽혀서 목록이 뜨자마자 닫혔다.
+document.getElementById("pfCoinSearch").addEventListener("click", ()=>{
   if(!pfSelectedCoin) renderPfResults(document.getElementById("pfCoinSearch").value.trim());
 });
 
@@ -129,8 +132,9 @@ function renderAmtField(){
   document.getElementById("pfAmountLabel").textContent = pfAmtByTotal ? `금액 (${curUnit()})` : "수량";
   document.getElementById("pfAmountUnit").textContent = pfAmtByTotal ? curUnit() : sym;
   document.getElementById("pfAmtToggle").setAttribute("aria-label", pfAmtByTotal ? "수량으로 입력하기" : "금액으로 입력하기");
-  document.getElementById("pfPriceLabel").textContent = `단가 (${curUnit()})`;
-  document.getElementById("pfPrice").placeholder = pfAmtByTotal ? "필요해요" : "비워도 돼요";
+  // 금액으로 넣을 때는 수량을 구하려면 단가가 있어야 한다
+  document.getElementById("pfPriceLabel").innerHTML = `단가 (${curUnit()}) `
+    + (pfAmtByTotal ? '<span class="ts-req">(필수)</span>' : '<span class="ts-opt">(선택)</span>');
   const v = numVal("pfAmount"), price = numVal("pfPrice");
   let hint = "";
   if(v > 0 && price > 0){
@@ -175,7 +179,8 @@ function openTradeSheet(side){
 }
 
 function closeTradeSheet(){
-  if(!tradeSheet.classList.contains("open")) return;
+  // "open"은 두 프레임 뒤에 붙으므로, 그 전에 닫혀도 확실히 걷히게 "show"를 본다
+  if(!tradeSheet.classList.contains("show")) return;
   if(document.activeElement) document.activeElement.blur(); // 키보드부터 내린다
   tradeSheet.classList.remove("open");
   setTimeout(()=>{ if(!tradeSheet.classList.contains("open")) tradeSheet.classList.remove("show"); }, 260);
@@ -515,6 +520,7 @@ document.querySelectorAll(".pf-view").forEach(btn=>{
 });
 
 function showPfOverview(view, save = true){
+  const prev = state.pfOverview;
   state.pfOverview = view === "alloc" ? "alloc" : "assets";
   if(state.pfOverview !== "assets") exitPfEditMode();
   document.querySelectorAll(".pf-view").forEach(b=>{
@@ -525,10 +531,21 @@ function showPfOverview(view, save = true){
   document.getElementById("pfAssetsView").hidden = state.pfOverview !== "assets";
   document.getElementById("pfAllocView").hidden = state.pfOverview !== "alloc";
   renderPfAlloc();
+  if(save && prev !== state.pfOverview){
+    slideIn(document.getElementById(state.pfOverview === "alloc" ? "pfAllocView" : "pfAssetsView"), state.pfOverview === "alloc");
+  }
   if(save) saveState();
 }
 
+// 새로 보이는 칸을 옆에서 살짝 밀려 들어오게. 오른쪽 칸으로 가면 오른쪽에서, 왼쪽이면 왼쪽에서
+function slideIn(el, fromRight){
+  el.classList.remove("pf-in-r", "pf-in-l");
+  void el.offsetWidth; // 같은 애니메이션을 다시 걸려면 한 번 끊어 줘야 한다
+  el.classList.add(fromRight ? "pf-in-r" : "pf-in-l");
+}
+
 export function showPfSection(sec, save = true){
+  const prev = state.pfSection;
   state.pfSection = sec === "trades" ? "trades" : "holdings";
   if(state.pfSection !== "holdings") exitPfEditMode();
   document.querySelectorAll(".pf-sec").forEach(b=>{
@@ -538,6 +555,10 @@ export function showPfSection(sec, save = true){
   });
   document.getElementById("pfHoldingsSec").hidden = state.pfSection !== "holdings";
   document.getElementById("pfTradesSec").hidden = state.pfSection !== "trades";
+  document.querySelector(".pf-sections").style.setProperty("--sec-idx", state.pfSection === "trades" ? 1 : 0);
+  if(save && prev !== state.pfSection){
+    slideIn(document.getElementById(state.pfSection === "trades" ? "pfTradesSec" : "pfHoldingsSec"), state.pfSection === "trades");
+  }
   showPfOverview(state.pfOverview, false);
   if(save) saveState();
 }

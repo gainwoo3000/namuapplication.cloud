@@ -33,11 +33,11 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.260928.1914";</script>
+<script>window.APP_VERSION = "v.260928.1926";</script>
 <!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
-<link rel="stylesheet" href="assets/styles-L6WUDPGB.css">
+<link rel="stylesheet" href="assets/styles-KFCMMCNI.css">
 </head>
 <body>
 <!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
@@ -424,8 +424,8 @@
     </div>
     <div class="ts-row">
       <div class="ts-field">
-        <label class="ts-label" for="pfPrice" id="pfPriceLabel">단가 ($)</label>
-        <input type="number" id="pfPrice" placeholder="비워도 돼요" step="any" min="0" inputmode="decimal">
+        <label class="ts-label" for="pfPrice" id="pfPriceLabel">단가 ($) <span class="ts-opt">(선택)</span></label>
+        <input type="number" id="pfPrice" step="any" min="0" inputmode="decimal">
       </div>
       <div class="ts-field ts-date">
         <label class="ts-label" for="pfDate">날짜</label>
@@ -435,6 +435,6 @@
     <button type="button" class="ts-submit buy" id="pfAddBtn">매수 추가</button>
   </div>
 </div>
-<script type="module" src="assets/main-WGSBAL2I.js"></script>
+<script type="module" src="assets/main-DVVLCROS.js"></script>
 </body>
 </html>
