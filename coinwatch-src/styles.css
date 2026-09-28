@@ -685,7 +685,6 @@ body.coin-page-open{overflow:hidden;}
   box-shadow:0 10px 30px rgba(0,0,0,0.45);
 }
 .drop-panel.left{left:0;}
-.drop-panel.right{right:0;}
 .pf-pick-wrap{position:relative; flex:1.4;}
 .pf-pick-wrap input{
   width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
@@ -707,7 +706,29 @@ body.coin-page-open{overflow:hidden;}
 .pf-trade-btn:active{opacity:0.8;}
 
 /* 거래 입력 창 (선택 창 .sheet 모양을 그대로 쓰고 안쪽만 폼으로) */
-.trade-sheet{padding-left:16px; padding-right:16px;}
+.trade-sheet{
+  padding-left:16px; padding-right:16px;
+  /* 키보드가 떠 있으면 그 바로 위에 붙고, 보이는 높이를 넘으면 창 안에서 스크롤 (--vv-*: portfolio.js) */
+  bottom:var(--vv-bottom, 0px); max-height:var(--vv-h, 100%); overflow-y:auto; overscroll-behavior:contain;
+}
+/* 검색 중: 키보드 위 보이는 영역을 꽉 채우는 검색 화면. 검색칸 + 목록만 남긴다 */
+.trade-sheet.searching{
+  top:var(--vv-top, 0px); bottom:auto; height:var(--vv-h, 100%); max-height:none; overflow:hidden;
+  border-radius:0; border:none; display:flex; flex-direction:column;
+  padding-top:calc(12px + max(0px, env(safe-area-inset-top) - var(--vv-top, 0px)));
+}
+.trade-sheet.searching > :not(.ts-search-field){display:none;}
+.trade-sheet.searching .ts-label{display:none;}
+.trade-sheet.searching .ts-search-field{flex:1; min-height:0; margin:0; display:flex; flex-direction:column;}
+.trade-sheet.searching .pf-pick-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
+.trade-sheet.searching .pf-coin-results{flex:1; min-height:0; max-height:none; margin-top:8px;}
+.ts-search-row{display:flex; gap:8px; align-items:center;}
+.ts-search-row input{flex:1; min-width:0;}
+.ts-search-cancel{
+  display:none; flex:0 0 auto; background:none; border:none; cursor:pointer;
+  color:var(--text); font-weight:600; font-size:calc(14px * var(--fs)); padding:8px 2px;
+}
+.trade-sheet.searching .ts-search-cancel{display:block;}
 .ts-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
 .ts-title{font-size:calc(17px * var(--fs)); font-weight:800;}
 .ts-close{
@@ -792,6 +813,36 @@ body.coin-page-open{overflow:hidden;}
 }
 .pf-sec{transition:color .2s ease;}
 .pf-sec.active{color:var(--text);}
+
+/* 가격 기준 거래소 창: 국내·해외 두 묶음, 누르면 켜지는 타일 */
+.ex-sheet{padding-left:16px; padding-right:16px; max-height:var(--vv-h, 100%); overflow-y:auto; overscroll-behavior:contain;}
+.ex-desc{font-size:calc(12px * var(--fs)); color:var(--muted); line-height:1.5; margin:-2px 2px 14px;}
+.ex-group-title{font-size:calc(12px * var(--fs)); font-weight:700; color:var(--text); margin:0 2px 8px;}
+.ex-group-title span{color:var(--muted); font-weight:500; margin-left:4px;}
+.ex-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:16px;}
+.ex-tile{display:block; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+/* 진짜 체크박스는 숨기고(값·change 이벤트는 그대로) 옆 타일로 켜짐을 보인다 */
+.ex-tile input{position:absolute; opacity:0; pointer-events:none; width:0; height:0;}
+.ex-tile-body{
+  position:relative; display:flex; flex-direction:column; justify-content:center; min-height:calc(54px * var(--fs));
+  padding:10px 30px 10px 12px; border-radius:12px; border:1.5px solid var(--line); background:var(--panel-2);
+  transition:border-color .18s ease, background .18s ease, transform .12s ease;
+}
+.ex-tile:active .ex-tile-body{transform:scale(.97);}
+.ex-tile-name{font-size:calc(13px * var(--fs)); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ex-tile-sub{font-size:calc(10px * var(--fs)); color:var(--muted); margin-top:1px;}
+.ex-tile-check{
+  position:absolute; right:9px; top:50%; width:16px; height:16px; margin-top:-8px; border-radius:50%;
+  border:1.5px solid var(--line); transition:background .18s ease, border-color .18s ease;
+}
+.ex-tile input:checked + .ex-tile-body{border-color:var(--gold); background:color-mix(in srgb, var(--gold) 10%, var(--panel));}
+.ex-tile input:checked + .ex-tile-body .ex-tile-check{background:var(--gold); border-color:var(--gold);}
+.ex-tile input:checked + .ex-tile-body .ex-tile-check::after{
+  content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #1a1400; border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+.ex-tile input:focus-visible + .ex-tile-body{outline:2px solid var(--gold); outline-offset:2px;}
+.ex-done{background:var(--gold); color:#1a1400; margin-top:0;}
 
 /* 개요 안의 자산 / 배분 전환 — 작은 알약 두 개 */
 .pf-views{display:flex; gap:6px; margin-bottom:12px;}

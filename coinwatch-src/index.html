@@ -134,19 +134,6 @@
         <button class="wt-btn" id="pfPortfolioBtn">포트폴리오 1 ▾</button>
         <button class="wt-btn" id="pfExBtn">거래소 설정 ▾</button>
         <div class="drop-panel left" id="pfPortfolioPanel" style="display:none;"></div>
-        <div class="drop-panel right" id="pfExPanel" style="display:none;">
-          <div class="desc" style="margin-top:0; margin-bottom:6px;">이 포트폴리오의 가격 기준 거래소를 골라주세요. 2개 이상 고르면 평균이 표시돼요.</div>
-          <label><input type="checkbox" class="pfex-check" value="upbit"> 업비트</label>
-          <label><input type="checkbox" class="pfex-check" value="bithumb"> 빗썸</label>
-          <label><input type="checkbox" class="pfex-check" value="coinone"> 코인원</label>
-          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
-          <label><input type="checkbox" class="pfex-check" value="binance"> 바이낸스</label>
-          <label><input type="checkbox" class="pfex-check" value="okx"> OKX</label>
-          <label><input type="checkbox" class="pfex-check" value="bybit"> 바이빗</label>
-          <label><input type="checkbox" class="pfex-check" value="coinbase"> 코인베이스</label>
-          <label><input type="checkbox" class="pfex-check" value="kraken"> 크라켄</label>
-          <label><input type="checkbox" class="pfex-check" value="bitflyer"> 비트플라이어 (일본)</label>
-        </div>
       </div>
       <!-- 거래 추가: 누르면 아래에서 거래 입력 창(#pfTradeSheet)이 올라온다. 보유 수량은 거래 합계로 계산된다 -->
       <div class="pf-trade-btns">
@@ -395,6 +382,33 @@
   <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
+<!-- 포트폴리오 가격 기준 거래소. 툴바의 거래소 버튼을 누르면 아래에서 올라온다 (portfolio.js) -->
+<div class="sheet-overlay" id="pfExSheet">
+  <div class="sheet ex-sheet" role="dialog" aria-modal="true" aria-labelledby="pfExTitle">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="ts-head">
+      <div class="ts-title" id="pfExTitle">가격 기준 거래소</div>
+      <button type="button" class="ts-close" data-close aria-label="닫기">✕</button>
+    </div>
+    <div class="ex-desc">이 포트폴리오의 평가 금액을 어느 거래소 시세로 볼지 골라주세요. 2곳 이상 고르면 평균으로 계산해요.</div>
+    <div class="ex-group-title">국내</div>
+    <div class="ex-grid">
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="upbit"><span class="ex-tile-body"><span class="ex-tile-name">업비트</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bithumb"><span class="ex-tile-body"><span class="ex-tile-name">빗썸</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinone"><span class="ex-tile-body"><span class="ex-tile-name">코인원</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+    </div>
+    <div class="ex-group-title">해외 <span>실시간 환율로 원화 환산</span></div>
+    <div class="ex-grid">
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="binance"><span class="ex-tile-body"><span class="ex-tile-name">바이낸스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="okx"><span class="ex-tile-body"><span class="ex-tile-name">OKX</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bybit"><span class="ex-tile-body"><span class="ex-tile-name">바이빗</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinbase"><span class="ex-tile-body"><span class="ex-tile-name">코인베이스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="kraken"><span class="ex-tile-body"><span class="ex-tile-name">크라켄</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bitflyer"><span class="ex-tile-body"><span class="ex-tile-name">비트플라이어</span><span class="ex-tile-sub">일본</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+    </div>
+    <button type="button" class="ts-submit ex-done" data-close>완료</button>
+  </div>
+</div>
 <!-- 매수·매도 입력 창. 포트폴리오의 매수/매도 버튼을 누르면 아래에서 올라온다 (portfolio.js) -->
 <div class="sheet-overlay" id="pfTradeSheet">
   <div class="sheet trade-sheet" role="dialog" aria-modal="true" aria-labelledby="pfTradeTitle">
@@ -403,10 +417,14 @@
       <div class="ts-title" id="pfTradeTitle">매수</div>
       <button type="button" class="ts-close" id="pfTradeClose" aria-label="닫기">✕</button>
     </div>
-    <div class="ts-field">
+    <!-- 검색하는 동안(.searching)에는 이 칸만 남기고 창을 키보드 위 보이는 영역에 꽉 채운다 -->
+    <div class="ts-field ts-search-field">
       <label class="ts-label" for="pfCoinSearch">코인</label>
       <div class="pf-pick-wrap">
-        <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
+        <div class="ts-search-row">
+          <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
+          <button type="button" class="ts-search-cancel" id="pfSearchCancel">취소</button>
+        </div>
         <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
       </div>
     </div>

@@ -31,6 +31,7 @@ document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
   clearTimeout(pfSearchDebounce);
   pfSearchPending = q.length >= 2 ? q : null; // 2글자부터 순위 밖까지 찾아본다
   renderPfResults(q); // 로컬 풀(시총 500위) 결과(빈 값이면 시총 순위)는 즉시 표시
+  setSearchMode(true);
   if(!pfSearchPending) return;
   pfSearchDebounce = setTimeout(async ()=>{
     let extResults = [];
@@ -46,19 +47,33 @@ document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
 // 검색칸이 손가락 밑에서 밀려 올라가고, 같은 탭의 click이 그 자리에 새로 온 칸(수량 등)에 떨어져
 // "바깥을 눌렀다"로 읽혀서 목록이 뜨자마자 닫혔다.
 document.getElementById("pfCoinSearch").addEventListener("click", ()=>{
-  if(!pfSelectedCoin) renderPfResults(document.getElementById("pfCoinSearch").value.trim());
+  if(pfSelectedCoin) return;
+  renderPfResults(document.getElementById("pfCoinSearch").value.trim());
+  setSearchMode(true);
 });
 
 document.addEventListener("click", (e)=>{
   if(!e.target.closest("#pfCoinResults") && !e.target.closest("#pfCoinSearch")){
     document.getElementById("pfCoinResults").style.display = "none";
+    setSearchMode(false);
   }
   if(!e.target.closest("#pfPortfolioPanel") && !e.target.closest("#pfPortfolioBtn")){
     document.getElementById("pfPortfolioPanel").style.display = "none";
   }
-  if(!e.target.closest("#pfExPanel") && !e.target.closest("#pfExBtn")){
-    document.getElementById("pfExPanel").style.display = "none";
-  }
+});
+
+// 검색 모드: 휴대폰은 키보드가 화면 아래 절반을 덮어서, 검색칸 아래에 목록을 펼치면 키보드 밑으로 들어가 버린다.
+// 그래서 검색하는 동안은 입력 창을 "키보드 위에 보이는 영역" 전체로 키우고 검색칸과 목록만 남긴다.
+// 코인을 고르거나 취소·바깥을 누르면 원래 입력 창으로 돌아온다.
+function setSearchMode(on){
+  const sheet = tradeSheet.querySelector(".sheet");
+  if(sheet.classList.contains("searching") === on) return;
+  sheet.classList.toggle("searching", on);
+  syncViewport();
+  if(on) document.getElementById("pfCoinResults").scrollTop = 0;
+}
+document.getElementById("pfSearchCancel").addEventListener("click", ()=>{
+  document.getElementById("pfCoinSearch").blur(); // 목록 닫기·모드 해제는 위의 바깥 클릭 처리가 한다
 });
 
 // query가 비어 있으면 시세 탭 "+ 코인 추가"처럼 시총 순위대로 전체(500위) 목록을 보여준다.
@@ -101,6 +116,7 @@ function pickPfResult(idx){
   pfSelectedCoin = coin;
   document.getElementById("pfCoinSearch").value = `${coin.name} (${coin.symbol.toUpperCase()})`;
   document.getElementById("pfCoinResults").style.display = "none";
+  setSearchMode(false);
   // 단가는 이 포트폴리오 기준 거래소의 지금 시세로 채워 둔다(고쳐 쓰거나 비워도 된다)
   const c = findCoinAnywhere(coin.id);
   const pr = c ? pfCoinPriceUsd(c, new Set(currentPortfolio().exchanges)) : null;
@@ -117,7 +133,38 @@ function roundPrice(v){
   return parseFloat(v.toPrecision(6));
 }
 
-// ---------- 매수·매도 입력 창 (아래에서 올라온다) ----------
+// ---------- 아래에서 올라오는 창(거래 입력·거래소 설정) 공통 ----------
+// sheet.js와 같은 방식: 붙인 다음 프레임에 .open을 걸어야 아래에서 올라오는 전환이 먹는다
+function openOverlay(el){
+  el.classList.add("show");
+  syncViewport();
+  requestAnimationFrame(()=> requestAnimationFrame(()=> el.classList.add("open")));
+}
+function closeOverlay(el){
+  // "open"은 두 프레임 뒤에 붙으므로, 그 전에 닫혀도 확실히 걷히게 "show"를 본다
+  if(!el.classList.contains("show")) return;
+  if(document.activeElement && el.contains(document.activeElement)) document.activeElement.blur(); // 키보드부터 내린다
+  el.classList.remove("open");
+  setTimeout(()=>{ if(!el.classList.contains("open")) el.classList.remove("show"); }, 260);
+}
+
+// 키보드가 올라오면 보이는 영역(visualViewport)이 줄어든다. 창 아래쪽을 키보드 바로 위에 붙이고,
+// 높이도 그 영역을 넘지 않게 해서 입력칸이 키보드에 가리지 않게 한다.
+// (iOS는 키보드가 떠도 레이아웃은 그대로라 fixed bottom:0이 키보드 밑에 깔리고, 화면이 통째로 밀려 올라간다)
+function syncViewport(){
+  const vv = window.visualViewport;
+  if(!vv) return;
+  const root = document.documentElement.style;
+  root.setProperty("--vv-top", vv.offsetTop + "px");
+  root.setProperty("--vv-h", vv.height + "px");
+  root.setProperty("--vv-bottom", Math.max(0, window.innerHeight - vv.offsetTop - vv.height) + "px");
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", syncViewport);
+  window.visualViewport.addEventListener("scroll", syncViewport);
+}
+
+// ---------- 매수·매도 입력 창 ----------
 const tradeSheet = document.getElementById("pfTradeSheet");
 
 function curUnit(){ return state.displayCurrency === "krw" ? "₩" : "$"; }
@@ -166,6 +213,7 @@ function openTradeSheet(side){
   pfAmtByTotal = false;
   ["pfCoinSearch", "pfAmount", "pfPrice"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("pfCoinResults").style.display = "none";
+  setSearchMode(false);
   document.getElementById("pfDate").value = todayStr();
   document.getElementById("pfTradeTitle").textContent = side === "sell" ? "매도" : "매수";
   const btn = document.getElementById("pfAddBtn");
@@ -173,25 +221,21 @@ function openTradeSheet(side){
   btn.classList.toggle("buy", side !== "sell");
   btn.classList.toggle("sell", side === "sell");
   renderAmtField();
-  // sheet.js와 같은 방식: 붙인 다음 프레임에 .open을 걸어야 아래에서 올라오는 전환이 먹는다
-  tradeSheet.classList.add("show");
-  requestAnimationFrame(()=> requestAnimationFrame(()=> tradeSheet.classList.add("open")));
+  openOverlay(tradeSheet);
 }
 
-function closeTradeSheet(){
-  // "open"은 두 프레임 뒤에 붙으므로, 그 전에 닫혀도 확실히 걷히게 "show"를 본다
-  if(!tradeSheet.classList.contains("show")) return;
-  if(document.activeElement) document.activeElement.blur(); // 키보드부터 내린다
-  tradeSheet.classList.remove("open");
-  setTimeout(()=>{ if(!tradeSheet.classList.contains("open")) tradeSheet.classList.remove("show"); }, 260);
-}
+function closeTradeSheet(){ closeOverlay(tradeSheet); }
 
 document.querySelectorAll(".pf-trade-btn").forEach(btn=>{
   btn.addEventListener("click", ()=> openTradeSheet(btn.dataset.side));
 });
 document.getElementById("pfTradeClose").addEventListener("click", closeTradeSheet);
 tradeSheet.addEventListener("click", e=>{ if(!e.target.closest(".sheet")) closeTradeSheet(); });
-document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeTradeSheet(); });
+document.addEventListener("keydown", e=>{
+  if(e.key !== "Escape") return;
+  closeTradeSheet();
+  closeOverlay(exSheet);
+});
 
 document.getElementById("pfAddBtn").addEventListener("click", ()=>{
   if(!pfSelectedCoin){ showAlert("코인을 검색해서 골라주세요."); return; }
@@ -470,24 +514,37 @@ async function deletePortfolio(idx){
 export function syncPfExCheckboxes(){
   const set = new Set(currentPortfolio().exchanges);
   document.querySelectorAll(".pfex-check").forEach(cb=>{ cb.checked = set.has(cb.value); });
+  renderPfExBtn();
+}
+
+// 툴바 버튼에 지금 고른 거래소를 요약: "업비트", "업비트 외 2곳"
+function renderPfExBtn(){
+  const names = [...document.querySelectorAll(".pfex-check:checked")]
+    .map(cb => cb.closest(".ex-tile").querySelector(".ex-tile-name").textContent);
+  document.getElementById("pfExBtn").textContent =
+    (names.length === 0 ? "거래소 설정" : names.length === 1 ? names[0] : `${names[0]} 외 ${names.length - 1}곳`) + " ▾";
 }
 
 document.getElementById("pfPortfolioBtn").addEventListener("click", ()=>{
   renderPortfolioDropdown();
   const panel = document.getElementById("pfPortfolioPanel");
   panel.style.display = panel.style.display === "none" ? "block" : "none";
-  document.getElementById("pfExPanel").style.display = "none";
 });
 
+// ---------- 가격 기준 거래소 (아래에서 올라오는 창) ----------
+const exSheet = document.getElementById("pfExSheet");
 document.getElementById("pfExBtn").addEventListener("click", ()=>{
-  const panel = document.getElementById("pfExPanel");
-  panel.style.display = panel.style.display === "none" ? "block" : "none";
   document.getElementById("pfPortfolioPanel").style.display = "none";
+  openOverlay(exSheet);
+});
+exSheet.addEventListener("click", e=>{
+  if(e.target.closest("[data-close]") || !e.target.closest(".sheet")) closeOverlay(exSheet);
 });
 
 document.querySelectorAll(".pfex-check").forEach(cb=>{
   cb.addEventListener("change", ()=>{
     currentPortfolio().exchanges = [...document.querySelectorAll(".pfex-check:checked")].map(el=>el.value);
+    renderPfExBtn();
     renderPortfolio();
     saveState();
   });
