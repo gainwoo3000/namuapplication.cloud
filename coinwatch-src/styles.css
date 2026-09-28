@@ -212,14 +212,15 @@ body.chart-open main{padding-bottom:60vh;}
 .grid-head{color:var(--muted); font-size:calc(11px * var(--fs)); font-weight:600;}
 /* 표 머리줄(코인·가격·1일 등락률)은 내려도 위에 붙어 있다.
    붙는 자리: 관심 코인 탭은 헤더(탭 줄) 바로 아래, 시세 탭은 그 아래 검색창(--search-h)까지 지나서.
-   헤더가 숨을 때 검색창과 같은 만큼(--search-shift) 같이 올라간다. */
+   헤더가 숨을 때 검색창과 같은 만큼(--search-shift) 같이 올라간다.
+   transform이 아니라 붙는 자리(top)를 옮긴다 — transform은 아직 붙지 않은(제자리에 있는) 머리줄까지
+   끌어올려서, 표가 화면 아래쪽에 있는 포트폴리오에서는 머리줄만 위로 튀어 올라갔다. */
 .grid-head{
-  position:sticky; top:var(--topbar-h, 96px); z-index:30; background:var(--panel);
+  position:sticky; top:calc(var(--topbar-h, 96px) + var(--search-shift, 0px)); z-index:30; background:var(--panel);
   cursor:default;
-  transform:translateY(var(--search-shift, 0px));
-  transition:transform .22s cubic-bezier(.4,0,.2,1);
+  transition:top .22s cubic-bezier(.4,0,.2,1);
 }
-.grid-wrap.market .grid-head{top:calc(var(--topbar-h, 96px) + var(--search-h, 58px));}
+.grid-wrap.market .grid-head{top:calc(var(--topbar-h, 96px) + var(--search-h, 58px) + var(--search-shift, 0px));}
 .grid-head .myx-head{text-align:right;}
 .myx-head-sub{display:block; font-size:calc(10px * var(--fs)); font-weight:400; color:var(--muted); margin-top:1px;}
 /* 로고가 이름 칸을 먹으므로 이름·심볼은 줄바꿈 대신 말줄임 (행 높이가 들쭉날쭉해지지 않게) */
