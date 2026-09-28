@@ -33,11 +33,11 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.260928.1657";</script>
+<script>window.APP_VERSION = "dev";</script>
 <!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
-<link rel="stylesheet" href="assets/styles-NTIG5LUR.css">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
@@ -400,6 +400,6 @@
   <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
-<script type="module" src="assets/main-765SNMXK.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

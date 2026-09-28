@@ -1,0 +1,9 @@
+# GitHub Pages(Jekyll) 설정. 사이트에는 빌드된 coinwatch/만 나가면 되므로
+# 원본(coinwatch-src)과 빌드 도구는 배포에서 뺀다.
+exclude:
+  - coinwatch-src
+  - scripts
+  - package.json
+  - package-lock.json
+  - node_modules
+  - .gitignore

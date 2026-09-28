@@ -1,6 +1,6 @@
-// 앱 버전 — 코드를 고칠 때마다 손으로 올린다. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
+// 앱 버전. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
-// 값은 index.html 맨 위 window.APP_VERSION 한 곳에 적는다 — JS·CSS 주소의 ?v=(캐시 무효화)에도 같이 쓰인다.
+// npm run build가 빌드 시각으로 index.html의 window.APP_VERSION에 넣는다(빌드 안 한 개발 화면은 "dev").
 export const APP_VERSION = window.APP_VERSION || "-";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).

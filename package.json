@@ -1,0 +1,13 @@
+{
+  "name": "coinwatch",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "esbuild --servedir=coinwatch-src --serve=0.0.0.0:8000",
+    "preview": "esbuild --servedir=coinwatch --serve=0.0.0.0:8001"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
