@@ -53,6 +53,7 @@ export function saveState(){
       theme: document.body.classList.contains("light-theme") ? "light" : "dark",
       pfSortMode: state.pfSortMode,
       pfSection: state.pfSection,
+      pfOverview: state.pfOverview,
       virtualCoins: Object.fromEntries(
         Object.entries(state.virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
       )
@@ -97,6 +98,7 @@ export function loadState(){
     if(typeof saved.showMA === "boolean") state.showMA = saved.showMA;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(["holdings","trades"].includes(saved.pfSection)) state.pfSection = saved.pfSection;
+    if(["assets","alloc"].includes(saved.pfOverview)) state.pfOverview = saved.pfOverview;
     if(saved.virtualCoins){
       Object.entries(saved.virtualCoins).forEach(([id,c])=>{
         state.virtualCoins[id] = {...c, current_price:null, price_change_percentage_24h:null, rank:null};

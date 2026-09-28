@@ -10,7 +10,7 @@ const PULL_ZONES = {
   portfolio: "#view-portfolio" // 헤더 아래 전부
 };
 // 영역 안이어도 제 스크롤이 있는 목록·펼침 창에서는 당기기로 보지 않는다
-const BLOCKED = ".pf-coin-results, .drop-panel, .pop-panel";
+const BLOCKED = ".pf-coin-results, .drop-panel, .pop-panel, .sheet-overlay";
 
 const TRIGGER = 64;  // 표시가 이만큼 내려오면(손가락은 그 두 배쯤) 놓았을 때 새로고침
 const MAX_PULL = 96; // 표시가 내려오는 한도

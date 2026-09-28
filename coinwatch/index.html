@@ -33,11 +33,11 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.260928.1802";</script>
+<script>window.APP_VERSION = "v.260928.1914";</script>
 <!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
-<link rel="stylesheet" href="assets/styles-RBYBVUNG.css">
+<link rel="stylesheet" href="assets/styles-L6WUDPGB.css">
 </head>
 <body>
 <!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
@@ -148,34 +148,26 @@
           <label><input type="checkbox" class="pfex-check" value="bitflyer"> 비트플라이어 (일본)</label>
         </div>
       </div>
-      <!-- 거래 추가: 매수/매도 · 코인 · 수량 · 단가 · 날짜. 보유 수량은 거래 합계로 계산된다 -->
-      <div class="pf-add">
-        <div class="pf-add-row">
-          <div class="pf-side" role="group" aria-label="거래 유형">
-            <button type="button" class="pf-side-btn buy active" data-side="buy">매수</button>
-            <button type="button" class="pf-side-btn sell" data-side="sell">매도</button>
-          </div>
-          <div class="pf-pick-wrap">
-            <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
-            <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
-          </div>
-        </div>
-        <div class="pf-add-row">
-          <input type="number" id="pfAmount" placeholder="수량" step="any" min="0" inputmode="decimal">
-          <input type="number" id="pfPrice" placeholder="단가 ($)" step="any" min="0" inputmode="decimal">
-          <input type="date" id="pfDate" aria-label="거래 날짜">
-          <button id="pfAddBtn">추가</button>
-        </div>
+      <!-- 거래 추가: 누르면 아래에서 거래 입력 창(#pfTradeSheet)이 올라온다. 보유 수량은 거래 합계로 계산된다 -->
+      <div class="pf-trade-btns">
+        <button type="button" class="pf-trade-btn buy" data-side="buy">매수</button>
+        <button type="button" class="pf-trade-btn sell" data-side="sell">매도</button>
       </div>
       <div class="pf-summary">
         <div class="label">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>
       </div>
       <div class="pf-sections" role="tablist">
-        <button type="button" class="pf-sec active" data-sec="holdings" role="tab">보유량</button>
+        <button type="button" class="pf-sec active" data-sec="holdings" role="tab">개요</button>
         <button type="button" class="pf-sec" data-sec="trades" role="tab">거래</button>
       </div>
       <div id="pfHoldingsSec">
+        <!-- 개요: 자산(보유 코인 표) / 배분(코인별 비중 도넛 차트) -->
+        <div class="pf-views" role="group" aria-label="개요 보기">
+          <button type="button" class="pf-view active" data-view="assets">자산</button>
+          <button type="button" class="pf-view" data-view="alloc">배분</button>
+        </div>
+        <div id="pfAssetsView">
         <div class="pf-list-head">
           <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기">보유 코인 <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
           <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
@@ -186,6 +178,9 @@
           </div>
           <div class="empty">거래를 추가하면 보유 코인이 여기에 표시됩니다.</div>
         </div>
+        </div>
+        <!-- 배분: alloc.js가 도넛(SVG)과 범례(코인·비중·금액)를 그린다 -->
+        <div id="pfAllocView" hidden></div>
       </div>
       <div id="pfTradesSec" hidden>
         <!-- 누르면 아래에서 선택 창이 올라온다 (sheet.js) -->
@@ -400,6 +395,46 @@
   <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
-<script type="module" src="assets/main-765SNMXK.js"></script>
+<!-- 매수·매도 입력 창. 포트폴리오의 매수/매도 버튼을 누르면 아래에서 올라온다 (portfolio.js) -->
+<div class="sheet-overlay" id="pfTradeSheet">
+  <div class="sheet trade-sheet" role="dialog" aria-modal="true" aria-labelledby="pfTradeTitle">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="ts-head">
+      <div class="ts-title" id="pfTradeTitle">매수</div>
+      <button type="button" class="ts-close" id="pfTradeClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="ts-field">
+      <label class="ts-label" for="pfCoinSearch">코인</label>
+      <div class="pf-pick-wrap">
+        <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
+        <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
+      </div>
+    </div>
+    <div class="ts-field">
+      <!-- ⇅: 수량 대신 금액(표시 통화)으로 입력. 금액 ÷ 단가 = 수량 -->
+      <label class="ts-label" for="pfAmount" id="pfAmountLabel">수량</label>
+      <div class="ts-amt-row">
+        <div class="ts-input-wrap">
+          <input type="number" id="pfAmount" placeholder="0" step="any" min="0" inputmode="decimal">
+          <span class="ts-unit" id="pfAmountUnit">개</span>
+        </div>
+        <button type="button" class="ts-swap" id="pfAmtToggle" aria-label="금액으로 입력하기">⇅</button>
+      </div>
+      <div class="ts-hint" id="pfAmtHint"></div>
+    </div>
+    <div class="ts-row">
+      <div class="ts-field">
+        <label class="ts-label" for="pfPrice" id="pfPriceLabel">단가 ($)</label>
+        <input type="number" id="pfPrice" placeholder="비워도 돼요" step="any" min="0" inputmode="decimal">
+      </div>
+      <div class="ts-field ts-date">
+        <label class="ts-label" for="pfDate">날짜</label>
+        <input type="date" id="pfDate">
+      </div>
+    </div>
+    <button type="button" class="ts-submit buy" id="pfAddBtn">매수 추가</button>
+  </div>
+</div>
+<script type="module" src="assets/main-WGSBAL2I.js"></script>
 </body>
 </html>

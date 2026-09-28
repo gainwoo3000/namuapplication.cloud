@@ -12,7 +12,7 @@ function blocked(target){
   if(!target || !target.closest) return false;
   return !!(target.closest(".chart-panel") || target.closest(".coin-page") || target.closest(".ticker-strip") || target.closest(".dialog-overlay")
     || target.closest(".drop-panel") || target.closest(".pf-coin-results")
-    || target.closest("#addCoinResults"));
+    || target.closest("#addCoinResults") || target.closest(".sheet-overlay"));
 }
 
 document.addEventListener("touchstart", (e)=>{

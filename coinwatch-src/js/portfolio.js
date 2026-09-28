@@ -13,6 +13,7 @@ import { showAlert, showPrompt, showConfirm } from "./dialog.js";
 import { newTid, todayStr, recomputeHoldings, holdingAmount, tradedCoins, avgBuyPrice,
   priceInDisplay, fmtMoney, fmtAmount } from "./trades.js";
 import { openSheet } from "./sheet.js";
+import { renderAlloc } from "./alloc.js";
 
 export function currentPortfolio(){ return state.portfolios[state.activePortfolioIdx]; }
 
@@ -21,7 +22,8 @@ let pfCurrentResults = [];
 let pfSearchDebounce = null;
 let pfSearchPending = null; // 순위 밖 검색 결과를 기다리는 검색어(없으면 null)
 let pfEditMode = false; // 보유 코인 삭제 모드 (수량은 거래 기록으로만 바뀐다)
-let pfSide = "buy";     // 거래 추가 폼의 매수/매도
+let pfSide = "buy";     // 거래 입력 창의 매수/매도
+let pfAmtByTotal = false; // 수량 칸에 수량 대신 금액(표시 통화)을 넣는 중인지 (⇅)
 
 document.getElementById("pfCoinSearch").addEventListener("input", (e)=>{
   pfSelectedCoin = null; // 다시 타이핑하면 이전 선택은 해제
@@ -101,6 +103,7 @@ function pickPfResult(idx){
   const pr = c ? pfCoinPriceUsd(c, new Set(currentPortfolio().exchanges)) : null;
   const px = pr && pr.usd !== null ? displayPriceNum(pr.usd) : null;
   document.getElementById("pfPrice").value = px !== null ? String(roundPrice(px)) : "";
+  renderAmtField();
   document.getElementById("pfAmount").focus();
 }
 
@@ -111,46 +114,101 @@ function roundPrice(v){
   return parseFloat(v.toPrecision(6));
 }
 
-document.getElementById("pfAddBtn").addEventListener("click", ()=>{
-  const amount = parseFloat(document.getElementById("pfAmount").value);
-  if(!pfSelectedCoin){ showAlert("코인을 검색해서 골라주세요."); return; }
-  if(!(amount > 0)){ showAlert("수량을 입력해주세요."); return; }
-  const priceStr = document.getElementById("pfPrice").value.trim();
-  const price = priceStr === "" ? null : parseFloat(priceStr);
-  if(price !== null && !(price >= 0)){ showAlert("단가를 확인해주세요."); return; }
-  const pf = currentPortfolio();
-  const id = pfSelectedCoin.id;
-  const symbol = pfSelectedCoin.symbol.toUpperCase();
-  if(pfSide === "sell"){
-    const have = holdingAmount(pf.trades, id);
-    if(amount > have + 1e-12){
-      showAlert(have > 0
-        ? `보유량(${fmtAmount(have)} ${symbol})보다 많이 팔 수 없어요.`
-        : `이 포트폴리오에 ${symbol} 보유량이 없어요.`);
-      return;
-    }
+// ---------- 매수·매도 입력 창 (아래에서 올라온다) ----------
+const tradeSheet = document.getElementById("pfTradeSheet");
+
+function curUnit(){ return state.displayCurrency === "krw" ? "₩" : "$"; }
+function numVal(id){
+  const v = document.getElementById(id).value.trim();
+  return v === "" ? null : parseFloat(v);
+}
+
+// 수량 칸의 이름·단위와 그 아래 환산 한 줄(수량이면 ≈ 금액, 금액이면 ≈ 수량)
+function renderAmtField(){
+  const sym = pfSelectedCoin ? pfSelectedCoin.symbol.toUpperCase() : "개";
+  document.getElementById("pfAmountLabel").textContent = pfAmtByTotal ? `금액 (${curUnit()})` : "수량";
+  document.getElementById("pfAmountUnit").textContent = pfAmtByTotal ? curUnit() : sym;
+  document.getElementById("pfAmtToggle").setAttribute("aria-label", pfAmtByTotal ? "수량으로 입력하기" : "금액으로 입력하기");
+  document.getElementById("pfPriceLabel").textContent = `단가 (${curUnit()})`;
+  document.getElementById("pfPrice").placeholder = pfAmtByTotal ? "필요해요" : "비워도 돼요";
+  const v = numVal("pfAmount"), price = numVal("pfPrice");
+  let hint = "";
+  if(v > 0 && price > 0){
+    hint = pfAmtByTotal ? `≈ ${fmtAmount(v / price)} ${sym}` : `≈ ${fmtMoney(v * price)}`;
+  }else if(pfAmtByTotal && v > 0){
+    hint = "단가를 넣으면 수량으로 바꿔 드려요";
   }
-  pf.trades.push({ tid: newTid(), id, symbol, name: pfSelectedCoin.name, side: pfSide, amount,
+  document.getElementById("pfAmtHint").textContent = hint;
+}
+
+["pfAmount", "pfPrice"].forEach(id => document.getElementById(id).addEventListener("input", renderAmtField));
+
+// ⇅: 수량 ↔ 금액. 이미 적어 둔 값은 단가로 환산해서 옮겨 준다(단가가 없으면 비운다)
+document.getElementById("pfAmtToggle").addEventListener("click", ()=>{
+  const v = numVal("pfAmount"), price = numVal("pfPrice");
+  const input = document.getElementById("pfAmount");
+  if(v > 0){
+    if(price > 0) input.value = String(pfAmtByTotal ? parseFloat((v / price).toPrecision(8)) : roundPrice(v * price));
+    else input.value = "";
+  }
+  pfAmtByTotal = !pfAmtByTotal;
+  renderAmtField();
+  input.focus();
+});
+
+function openTradeSheet(side){
+  pfSide = side;
+  pfSelectedCoin = null;
+  pfAmtByTotal = false;
+  ["pfCoinSearch", "pfAmount", "pfPrice"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("pfCoinResults").style.display = "none";
+  document.getElementById("pfDate").value = todayStr();
+  document.getElementById("pfTradeTitle").textContent = side === "sell" ? "매도" : "매수";
+  const btn = document.getElementById("pfAddBtn");
+  btn.textContent = side === "sell" ? "매도 추가" : "매수 추가";
+  btn.classList.toggle("buy", side !== "sell");
+  btn.classList.toggle("sell", side === "sell");
+  renderAmtField();
+  // sheet.js와 같은 방식: 붙인 다음 프레임에 .open을 걸어야 아래에서 올라오는 전환이 먹는다
+  tradeSheet.classList.add("show");
+  requestAnimationFrame(()=> requestAnimationFrame(()=> tradeSheet.classList.add("open")));
+}
+
+function closeTradeSheet(){
+  if(!tradeSheet.classList.contains("open")) return;
+  if(document.activeElement) document.activeElement.blur(); // 키보드부터 내린다
+  tradeSheet.classList.remove("open");
+  setTimeout(()=>{ if(!tradeSheet.classList.contains("open")) tradeSheet.classList.remove("show"); }, 260);
+}
+
+document.querySelectorAll(".pf-trade-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> openTradeSheet(btn.dataset.side));
+});
+document.getElementById("pfTradeClose").addEventListener("click", closeTradeSheet);
+tradeSheet.addEventListener("click", e=>{ if(!e.target.closest(".sheet")) closeTradeSheet(); });
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeTradeSheet(); });
+
+document.getElementById("pfAddBtn").addEventListener("click", ()=>{
+  if(!pfSelectedCoin){ showAlert("코인을 검색해서 골라주세요."); return; }
+  const v = numVal("pfAmount");
+  const price = numVal("pfPrice");
+  if(price !== null && !(price >= 0)){ showAlert("단가를 확인해주세요."); return; }
+  if(!(v > 0)){ showAlert(pfAmtByTotal ? "금액을 입력해주세요." : "수량을 입력해주세요."); return; }
+  if(pfAmtByTotal && !(price > 0)){ showAlert("금액으로 입력하려면 단가가 필요해요."); return; }
+  const amount = pfAmtByTotal ? parseFloat((v / price).toPrecision(12)) : v;
+  const pf = currentPortfolio();
+  // 매도는 보유량과 상관없이 기록한다(이 앱에 적기 전부터 갖고 있던 코인을 판 경우 등).
+  // 보유량이 0 아래로 내려간 코인은 보유 목록에 나오지 않는다(recomputeHoldings).
+  pf.trades.push({ tid: newTid(), id: pfSelectedCoin.id, symbol: pfSelectedCoin.symbol.toUpperCase(),
+    name: pfSelectedCoin.name, side: pfSide, amount,
     price, cur: price === null ? null : state.displayCurrency,
     date: document.getElementById("pfDate").value || todayStr() });
   recomputeHoldings(pf);
-  document.getElementById("pfAmount").value = "";
-  document.getElementById("pfPrice").value = "";
-  document.getElementById("pfCoinSearch").value = "";
   pfSelectedCoin = null;
+  closeTradeSheet();
   renderPortfolio();
   saveState();
 });
-
-document.querySelectorAll(".pf-side-btn").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    pfSide = btn.dataset.side;
-    document.querySelectorAll(".pf-side-btn").forEach(b => b.classList.toggle("active", b === btn));
-    document.getElementById("pfAddBtn").textContent = pfSide === "sell" ? "매도" : "추가";
-  });
-});
-
-document.getElementById("pfDate").value = todayStr();
 
 document.getElementById("pfEditBtn").addEventListener("click", ()=> setPfEditMode(!pfEditMode));
 
@@ -239,8 +297,18 @@ const PF_HEAD = `<div class="grid-row grid-head"><div>코인</div>`
 // 보유량 표 + 거래 기록 + 추가 폼(단가 칸 통화 표시)을 함께 갱신. force=true면 표 행을 새로 만든다.
 export function renderPortfolio(force){
   renderHoldings(force);
+  renderPfAlloc();
   renderPfTrades();
-  document.getElementById("pfPrice").placeholder = state.displayCurrency === "krw" ? "단가 (₩)" : "단가 ($)";
+  if(tradeSheet.classList.contains("show")) renderAmtField(); // 표시 통화가 바뀌면 단위도 같이
+}
+
+// 배분 도넛은 보고 있을 때만 그린다(시세 갱신마다 불리므로)
+function renderPfAlloc(){
+  if(state.pfSection !== "holdings" || state.pfOverview !== "alloc") return;
+  if(state.rowAnimating || state.fakeRefreshing) return;
+  const pf = currentPortfolio();
+  renderAlloc(document.getElementById("pfAllocView"),
+    sortedRows(pf.holdings, new Set(pf.exchanges)), state.allTickers.length === 0);
 }
 
 function renderHoldings(force){
@@ -438,10 +506,27 @@ async function deleteHolding(h, row){
   else go();
 }
 
-// ---------- 보유량 / 거래 섹션 ----------
+// ---------- 개요 / 거래 섹션, 개요 안의 자산 / 배분 ----------
 document.querySelectorAll(".pf-sec").forEach(btn=>{
   btn.addEventListener("click", ()=> showPfSection(btn.dataset.sec));
 });
+document.querySelectorAll(".pf-view").forEach(btn=>{
+  btn.addEventListener("click", ()=> showPfOverview(btn.dataset.view));
+});
+
+function showPfOverview(view, save = true){
+  state.pfOverview = view === "alloc" ? "alloc" : "assets";
+  if(state.pfOverview !== "assets") exitPfEditMode();
+  document.querySelectorAll(".pf-view").forEach(b=>{
+    const on = b.dataset.view === state.pfOverview;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on);
+  });
+  document.getElementById("pfAssetsView").hidden = state.pfOverview !== "assets";
+  document.getElementById("pfAllocView").hidden = state.pfOverview !== "alloc";
+  renderPfAlloc();
+  if(save) saveState();
+}
 
 export function showPfSection(sec, save = true){
   state.pfSection = sec === "trades" ? "trades" : "holdings";
@@ -453,6 +538,7 @@ export function showPfSection(sec, save = true){
   });
   document.getElementById("pfHoldingsSec").hidden = state.pfSection !== "holdings";
   document.getElementById("pfTradesSec").hidden = state.pfSection !== "trades";
+  showPfOverview(state.pfOverview, false);
   if(save) saveState();
 }
 
@@ -597,11 +683,6 @@ async function editTradePrice(t){
 async function deleteTrade(t){
   const pf = currentPortfolio();
   const rest = pf.trades.filter(x => x !== t);
-  // 매수를 지워서 보유량이 음수가 되면(그만큼 이미 팔았으면) 막는다
-  if(t.side === "buy" && holdingAmount(rest, t.id) < -1e-12){
-    showAlert("이 매수를 지우면 보유량이 0보다 작아져요. 매도 기록을 먼저 지워주세요.");
-    return;
-  }
   if(!await showConfirm("이 거래 기록을 삭제할까요?")) return;
   pf.trades = rest;
   recomputeHoldings(pf);

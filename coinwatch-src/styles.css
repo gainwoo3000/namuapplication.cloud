@@ -696,26 +696,63 @@ body.coin-page-open{overflow:hidden;}
   max-height:260px; overflow-y:auto; background:var(--panel-2); border:1px solid var(--line);
   border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.45);
 }
-/* 거래 추가 폼: 1줄 매수/매도 + 코인 검색, 2줄 수량 · 단가 · 날짜 · 추가 */
-.pf-add{display:flex; flex-direction:column; gap:6px; margin-bottom:16px;}
-.pf-add-row{display:flex; gap:6px; align-items:flex-start;}
-.pf-side{display:flex; flex-shrink:0; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
-.pf-side-btn{
-  border:none; background:var(--panel); color:var(--muted); cursor:pointer;
-  padding:0 12px; height:calc(38px * var(--fs)); font-weight:700; font-size:calc(13px * var(--fs));
+/* 매수·매도 버튼 두 개를 나란히. 누르면 아래에서 거래 입력 창이 올라온다 */
+.pf-trade-btns{display:flex; gap:8px; margin-bottom:16px;}
+.pf-trade-btn{
+  flex:1; border:none; border-radius:10px; cursor:pointer;
+  padding:12px 6px; font-weight:800; font-size:calc(15px * var(--fs));
 }
-.pf-side-btn + .pf-side-btn{border-left:1px solid var(--line);}
-.pf-side-btn.buy.active{background:var(--up); color:#04150c;}
-.pf-side-btn.sell.active{background:var(--down); color:#fff;}
-.pf-add-row > input{
-  flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-  border-radius:8px; padding:9px; font-size:calc(16px * var(--fs));
+.pf-trade-btn.buy{background:var(--up); color:#04150c;}
+.pf-trade-btn.sell{background:var(--down); color:#fff;}
+.pf-trade-btn:active{opacity:0.8;}
+
+/* 거래 입력 창 (선택 창 .sheet 모양을 그대로 쓰고 안쪽만 폼으로) */
+.trade-sheet{padding-left:16px; padding-right:16px;}
+.ts-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.ts-title{font-size:calc(17px * var(--fs)); font-weight:800;}
+.ts-close{
+  background:none; border:none; color:var(--muted); cursor:pointer;
+  font-size:calc(16px * var(--fs)); padding:6px 8px; margin-right:-8px;
 }
-.pf-add-row > input[type="date"]{flex:0 0 auto; width:calc(134px * var(--fs)); padding:9px 6px; font-family:inherit;}
-.pf-add-row > button{
-  background:var(--gold); color:#1a1400; border:none; border-radius:8px; padding:9px 14px;
-  font-weight:700; font-size:calc(13px * var(--fs)); cursor:pointer; flex-shrink:0;
+.ts-field{margin-bottom:12px; min-width:0;}
+.ts-label{display:block; font-size:calc(12px * var(--fs)); color:var(--muted); font-weight:600; margin:0 2px 5px;}
+.trade-sheet input{
+  width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+  border-radius:8px; padding:10px; font-size:calc(16px * var(--fs)); font-family:inherit;
 }
+.trade-sheet .pf-pick-wrap{flex:none;}
+/* 창이 화면 아래에 붙어 있어서, 검색 결과를 띄워 덮으면 화면 밖으로 잘린다.
+   창 안에 끼워 넣어 창이 위로 늘어나게 한다 */
+.trade-sheet .pf-coin-results{position:static; margin-top:6px; max-height:min(260px, 38vh); box-shadow:none;}
+.ts-amt-row{display:flex; gap:6px;}
+.ts-input-wrap{position:relative; flex:1; min-width:0;}
+.ts-input-wrap input{padding-right:64px; -moz-appearance:textfield; appearance:textfield;}
+/* 데스크톱 브라우저의 숫자 위아래 버튼이 단위 글자와 겹치므로 숨긴다 */
+.ts-input-wrap input::-webkit-inner-spin-button,
+.ts-input-wrap input::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
+.ts-unit{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%); pointer-events:none;
+  color:var(--muted); font-size:calc(13px * var(--fs)); font-weight:700;
+  max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ts-swap{
+  flex:0 0 auto; width:calc(44px * var(--fs)); border-radius:8px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel); color:var(--gold-ink);
+  font-size:calc(18px * var(--fs)); font-weight:700;
+}
+.ts-swap:active{background:var(--panel-2);}
+.ts-hint{min-height:1.3em; margin:4px 2px 0; font-size:calc(12px * var(--fs)); color:var(--muted); font-family:var(--mono);}
+.ts-row{display:flex; gap:8px;}
+.ts-row > .ts-field{flex:1;}
+.ts-row > .ts-date{flex:0 0 auto; width:calc(140px * var(--fs));}
+.ts-date input{padding:10px 6px;}
+.ts-submit{
+  width:100%; border:none; border-radius:10px; cursor:pointer; margin-top:4px;
+  padding:13px; font-weight:800; font-size:calc(15px * var(--fs));
+}
+.ts-submit.buy{background:var(--up); color:#04150c;}
+.ts-submit.sell{background:var(--down); color:#fff;}
+
 .pf-list-head{
   display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;
 }
@@ -739,7 +776,7 @@ body.coin-page-open{overflow:hidden;}
 .pf-summary .label{font-size:calc(12px * var(--fs)); color:var(--muted); font-weight:600;}
 .pf-summary .val{font-family:var(--mono); font-size:calc(24px * var(--fs)); font-weight:800; margin-top:2px;}
 
-/* 보유량 / 거래 섹션 탭 — 밑줄형 */
+/* 개요 / 거래 섹션 탭 — 밑줄형 */
 .pf-sections{display:flex; border-bottom:1px solid var(--line); margin-bottom:12px;}
 .pf-sec{
   flex:1; background:none; border:none; cursor:pointer; padding:10px 4px;
@@ -747,6 +784,55 @@ body.coin-page-open{overflow:hidden;}
   border-bottom:2px solid transparent; margin-bottom:-1px;
 }
 .pf-sec.active{color:var(--text); border-bottom-color:var(--gold);}
+
+/* 개요 안의 자산 / 배분 전환 — 작은 알약 두 개 */
+.pf-views{display:flex; gap:6px; margin-bottom:12px;}
+.pf-view{
+  border:1px solid var(--line); background:var(--panel); color:var(--muted); cursor:pointer;
+  border-radius:999px; padding:6px 16px; font-weight:700; font-size:calc(12px * var(--fs));
+}
+.pf-view.active{background:var(--text); color:var(--bg); border-color:var(--text);}
+
+/* 배분: 도넛 + 범례 (alloc.js). 코인 색은 검증한 범주형 팔레트, 테마마다 따로 */
+:root{
+  --alloc-1:#3987e5; --alloc-2:#d95926; --alloc-3:#199e70; --alloc-4:#c98500;
+  --alloc-5:#d55181; --alloc-6:#008300; --alloc-7:#9085e9; --alloc-other:#4A5566;
+}
+body.light-theme{
+  --alloc-1:#2a78d6; --alloc-2:#eb6834; --alloc-3:#1baf7a; --alloc-4:#eda100;
+  --alloc-5:#e87ba4; --alloc-6:#008300; --alloc-7:#4a3aa7; --alloc-other:#B4BBC6;
+}
+.alloc-card{border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:16px 12px 8px;}
+.alloc-chart{position:relative; width:min(220px, 62vw); aspect-ratio:1; margin:0 auto 12px;}
+.alloc-chart svg{display:block; width:100%; height:100%;}
+.alloc-seg{cursor:pointer; transition:opacity .15s ease;}
+.alloc-card.has-sel .alloc-seg:not(.on){opacity:0.25;}
+.alloc-sk{width:100%; height:100%; border-radius:50%;}
+.alloc-center{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  pointer-events:none; text-align:center; padding:0 22%;
+}
+.alloc-c-label{font-size:calc(12px * var(--fs)); color:var(--muted); font-weight:700; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.alloc-c-val{font-family:var(--mono); font-size:calc(22px * var(--fs)); font-weight:800; margin-top:2px;}
+.alloc-c-sub{font-family:var(--mono); font-size:calc(11px * var(--fs)); color:var(--muted); margin-top:2px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.alloc-legend{display:flex; flex-direction:column;}
+.alloc-row{
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+  background:none; border:none; border-top:1px solid var(--line); color:var(--text);
+  padding:10px 4px; cursor:pointer; transition:opacity .15s ease;
+}
+.alloc-row:active{background:var(--panel-2);}
+.alloc-card.has-sel .alloc-row:not(.on){opacity:0.45;}
+.alloc-sw{flex:0 0 auto; width:10px; height:10px; border-radius:3px;}
+.alloc-other-ic{
+  flex:0 0 auto; width:24px; height:24px; border-radius:50%; background:var(--panel-2);
+  display:flex; align-items:center; justify-content:center; color:var(--muted); font-weight:800;
+}
+.alloc-name{flex:1; min-width:0; display:flex; flex-direction:column;}
+.alloc-nums{flex:0 0 auto; text-align:right; display:flex; flex-direction:column;}
+.alloc-pct{font-family:var(--mono); font-size:calc(14px * var(--fs)); font-weight:800;}
+.alloc-amt{font-family:var(--mono); font-size:calc(11px * var(--fs)); color:var(--muted);}
+.alloc-note{font-size:calc(11px * var(--fs)); color:var(--muted); padding:8px 4px 4px; border-top:1px solid var(--line);}
 
 /* 거래 섹션: 필터 칩(누르면 아래에서 선택 창) */
 .pf-filter{display:flex; gap:6px; margin-bottom:12px;}

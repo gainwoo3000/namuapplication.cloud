@@ -32,5 +32,6 @@ export const state = {
   portfolios: [ { name:"포트폴리오 1", holdings:[], trades:[], exchanges:["upbit"] } ],
   activePortfolioIdx: 0,
   pfSortMode: "added", // 보유 코인 표시 순서: "added"(추가순) | "asc"(금액 오름차순) | "desc"(내림차순)
-  pfSection: "holdings" // 포트폴리오 탭에서 보고 있는 섹션: "holdings"(보유량) | "trades"(거래)
+  pfSection: "holdings", // 포트폴리오 탭에서 보고 있는 섹션: "holdings"(개요) | "trades"(거래)
+  pfOverview: "assets"   // 개요 안에서 보고 있는 화면: "assets"(자산 표) | "alloc"(배분 도넛 차트)
 };
