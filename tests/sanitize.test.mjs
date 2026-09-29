@@ -21,6 +21,25 @@ test("cleanText: 제어 문자·앞뒤 공백을 걷고 길이를 자른다", ()
   assert.equal(cleanText("가".repeat(30), 20), "가".repeat(20));
 });
 
+test("cleanText: 보이지 않는 문자(방향 뒤집기·폭 없는 문자·한글 채움)를 걷는다", () => {
+  assert.equal(cleanText("abc\u202Etxt.exe"), "abctxt.exe");          // 오른쪽→왼쪽 뒤집기
+  assert.equal(cleanText("\u202A\u202B\u202C\u202D\u2066\u2067\u2068\u2069x"), "x");
+  assert.equal(cleanText("비\u200B트\u200C코\u200E인\u200F"), "비트코인"); // 폭 없는 공백·방향 표시
+  assert.equal(cleanText("\uFEFF포트폴리오\u00AD"), "포트폴리오");      // BOM·소프트 하이픈
+  assert.equal(cleanText("a\u2028b\u2029c"), "abc");                   // 줄·문단 구분자
+  assert.equal(cleanText("\u3164\u3164"), "");                         // 한글 채움 문자만 있는 "빈" 이름
+  assert.equal(cleanText("\u115F\u1160\uFFA0x"), "x");
+  assert.equal(cleanText("x\u{E0041}\u{E007F}"), "x");                  // 태그 문자
+});
+
+test("cleanText: 이모지는 그대로 (ZWJ로 이은 이모지·피부색·국기 포함)", () => {
+  const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"; // 가족 이모지
+  assert.equal(cleanText(family), family);
+  assert.equal(cleanText("\u{1F44D}\u{1F3FD}"), "\u{1F44D}\u{1F3FD}");   // 엄지 + 피부색
+  assert.equal(cleanText("\u{1F1F0}\u{1F1F7}"), "\u{1F1F0}\u{1F1F7}");   // 태극기
+  assert.equal(cleanText("\u2764\uFE0F"), "\u2764\uFE0F");               // 빨간 하트
+});
+
 test("cleanText: 문자열이 아닌 값", () => {
   assert.equal(cleanText(null), "");
   assert.equal(cleanText(undefined), "");
