@@ -37,28 +37,37 @@ export function storageDiagnostics(){
 }
 
 // ---------- 로컬 저장 ----------
+// 저장하는 값 전체. 백업(backup.js)도 이것을 그대로 담는다 — 여기에 항목을 더하면 백업에도 들어간다.
+export function buildSavedState(){
+  return {
+    watchlist: state.watchlist,
+    portfolios: state.portfolios,
+    activePortfolioIdx: state.activePortfolioIdx,
+    myExchanges: [...state.myExchanges],
+    intlExchangeFilter: [...state.intlExchangeFilter],
+    displayCurrency: state.displayCurrency,
+    fontScale: state.fontScale,
+    chartStyle: state.chartStyle,
+    showVolume: state.showVolume,
+    showMA: state.showMA,
+    theme: document.body.classList.contains("light-theme") ? "light" : "dark",
+    pfSortMode: state.pfSortMode,
+    pfSection: state.pfSection,
+    pfOverview: state.pfOverview,
+    virtualCoins: Object.fromEntries(
+      Object.entries(state.virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
+    )
+  };
+}
+
+// 백업을 불러와 새로 여는 사이에 화면 쪽 저장이 끼어들어 방금 넣은 내용을 덮지 않게 막는다
+let savesFrozen = false;
+export function freezeSaves(){ savesFrozen = true; }
+
 export function saveState(){
+  if(savesFrozen) return;
   try{
-    const saved = {
-      watchlist: state.watchlist,
-      portfolios: state.portfolios,
-      activePortfolioIdx: state.activePortfolioIdx,
-      myExchanges: [...state.myExchanges],
-      intlExchangeFilter: [...state.intlExchangeFilter],
-      displayCurrency: state.displayCurrency,
-      fontScale: state.fontScale,
-      chartStyle: state.chartStyle,
-      showVolume: state.showVolume,
-      showMA: state.showMA,
-      theme: document.body.classList.contains("light-theme") ? "light" : "dark",
-      pfSortMode: state.pfSortMode,
-      pfSection: state.pfSection,
-      pfOverview: state.pfOverview,
-      virtualCoins: Object.fromEntries(
-        Object.entries(state.virtualCoins).map(([id,c])=>[id, {id:c.id, symbol:c.symbol, name:c.name, tvSymbol:c.tvSymbol}])
-      )
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSavedState()));
     storageError = null;
   }catch(e){
     // 저장이 막혀도 앱은 계속 동작하되, 조용히 넘기지 않는다 —

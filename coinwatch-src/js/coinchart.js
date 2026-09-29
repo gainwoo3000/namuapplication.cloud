@@ -75,6 +75,8 @@ export function openCoinChart(c){
   scrubPos = null; gestureBusy.release(); // 십자선도 걷고 시작한다
   renderRangeOpts();
   renderStyleToggle();
+  syncVolBtn();
+  syncMaBtn();
   loadAndDraw();
 }
 
@@ -300,6 +302,8 @@ document.getElementById("coinZoomReset").addEventListener("click", resetZoom);
 
 // 거래량 막대 켜기/끄기. 켜도 차트 칸 높이는 그대로고, 가격 부분이 그만큼 줄어든다
 // (칸이 늘었다 줄었다 하면 아래 내용이 튄다).
+// 버튼 모양은 차트를 열 때(openCoinChart) 맞춘다. 이 파일이 읽히는 시점은 main.js가 저장된 설정을
+// 불러오기(loadState) 전이라, 여기서 맞추면 기본값(켜짐)으로 칠해져 실제 상태와 어긋난다.
 const volBtn = document.getElementById("coinVolBtn");
 function syncVolBtn(){
   volBtn.classList.toggle("active", state.showVolume);
@@ -312,7 +316,6 @@ volBtn.addEventListener("click", () => {
   const cached = coin && cache[key()];
   if(cached) draw(cached);
 });
-syncVolBtn();
 
 // 이동평균선 켜기/끄기 (거래량 버튼과 같은 방식, 저장된다)
 const maBtn = document.getElementById("coinMaBtn");
@@ -327,7 +330,6 @@ maBtn.addEventListener("click", () => {
   const cached = coin && cache[key()];
   if(cached) draw(cached);
 });
-syncMaBtn();
 
 // ---------- 그리기 ----------
 // 칸 높이는 CSS(--coin-graph-h)가 정한다. 커스텀 속성을 getComputedStyle로 읽으면 min()/calc()가
@@ -451,10 +453,14 @@ function draw(res){
   const ys = pts.map(p => yAt(p.c));
 
   // 이동평균선: 받아온 봉 전체(all)로 계산해 두고 그리는 구간(ds~de)만 잘라 쓴다 —
-  // 확대해도 화면 왼쪽 끝의 평균이 "보이는 봉만으로" 계산돼 휘지 않게. 봉이 모자란 기간은 빠진다.
-  const closes = all.map(p => p.c);
+  // 확대해도 화면 왼쪽 끝의 평균이 "보이는 봉만으로" 계산돼 휘지 않게.
+  // 화면 밖 앞쪽 봉(warmup)도 계산에 넣어서 선이 차트 왼쪽 끝부터 이어지게 한다(api.js MA_WARMUP).
+  // 그래도 봉이 모자란 기간(상장한 지 얼마 안 된 코인 등)은 빠진다.
+  const warm = (res.warmup || []).map(k => conv.fn(k.c));
+  const closes = warm.concat(all.map(p => p.c));
   const mas = state.showMA
-    ? MA_SPECS.map(([n, color]) => ({ n, color, vals: smaSeries(closes, n) })).filter(m => closes.length >= m.n)
+    ? MA_SPECS.filter(([n]) => closes.length >= n)
+        .map(([n, color]) => ({ n, color, vals: smaSeries(closes, n).slice(warm.length) }))
     : [];
 
   const upward = vis[vis.length - 1].c >= vis[0].c;

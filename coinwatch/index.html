@@ -33,11 +33,11 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.260928.1938";</script>
+<script>window.APP_VERSION = "v.260929.1536";</script>
 <!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
-<link rel="stylesheet" href="assets/styles-2OJIOAJA.css">
+<link rel="stylesheet" href="assets/styles-6ES2BTG3.css">
 </head>
 <body>
 <!-- 다이나믹 아일랜드/노치 자리를 덮는 고정 가림막. 헤더가 스크롤로 숨어도 이 위로는 목록이 비치지 않는다 -->
@@ -233,6 +233,14 @@
         <div class="desc" id="storageDiag" style="margin-top:0;">확인 중…</div>
       </div>
       <div class="setting-group">
+        <div class="setting-title">백업</div>
+        <div class="backup-btns">
+          <button type="button" class="wt-btn" id="backupExportBtn">백업하기</button>
+          <button type="button" class="wt-btn" id="backupImportBtn">불러오기</button>
+        </div>
+        <div class="desc">관심 코인, 포트폴리오(거래 기록), 설정을 백업 코드 하나로 만들어요. 기기를 바꾸거나 앱을 지우기 전에 백업해 두면 그대로 되살릴 수 있어요. 코드는 이 기기에서만 만들어지고 어디에도 전송되지 않아요.</div>
+      </div>
+      <div class="setting-group">
         <div class="setting-title">테마</div>
         <div class="opt-row" id="themeOpts">
           <div class="opt active" data-theme="dark">다크</div>
@@ -253,6 +261,12 @@
   </footer>
 
 </div>
+
+<!-- 맨 위로 버튼. 목록을 한 화면 넘게 내리면 오른쪽 아래에 나타난다 (layout.js).
+     .app 바깥에 두는 이유는 아래 차트 패널과 같다 — .app에 transform이 걸리면 fixed 위치가 틀어진다 -->
+<button type="button" class="to-top" id="toTopBtn" aria-label="맨 위로" tabindex="-1">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+</button>
 
 <!-- 차트 패널은 .app 바깥에 둔다 — 넓은 화면에서 .app에 transform을 걸어 왼쪽으로 밀 때,
      안쪽에 있으면 position:fixed가 뷰포트가 아니라 .app 기준으로 잡혀 자리가 틀어진다 -->
@@ -409,6 +423,28 @@
     <button type="button" class="ts-submit ex-done" data-close>완료</button>
   </div>
 </div>
+<!-- 설정 › 백업하기 / 불러오기. 같은 창을 두 가지로 쓴다 (backup.js) -->
+<div class="sheet-overlay" id="backupSheet">
+  <div class="sheet trade-sheet backup-sheet" role="dialog" aria-modal="true" aria-labelledby="backupTitle">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="ts-head">
+      <div class="ts-title" id="backupTitle">백업하기</div>
+      <button type="button" class="ts-close" data-close aria-label="닫기">✕</button>
+    </div>
+    <div class="ex-desc backup-desc" id="backupDesc"></div>
+    <textarea class="backup-text" id="backupText" rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="백업 코드"></textarea>
+    <div class="backup-hint" id="backupHint" aria-live="polite"></div>
+    <div class="backup-acts" id="backupExportActs">
+      <button type="button" class="ts-submit ex-done" id="backupCopyBtn">코드 복사</button>
+      <button type="button" class="wt-btn" id="backupFileBtn">파일로 저장</button>
+    </div>
+    <div class="backup-acts" id="backupImportActs" hidden>
+      <button type="button" class="ts-submit ex-done" id="backupRestoreBtn">불러오기</button>
+      <button type="button" class="wt-btn" id="backupPickBtn">파일에서 고르기</button>
+      <input type="file" id="backupFileInput" accept=".json,.txt,application/json,text/plain" hidden>
+    </div>
+  </div>
+</div>
 <!-- 매수·매도 입력 창. 포트폴리오의 매수/매도 버튼을 누르면 아래에서 올라온다 (portfolio.js) -->
 <div class="sheet-overlay" id="pfTradeSheet">
   <div class="sheet trade-sheet" role="dialog" aria-modal="true" aria-labelledby="pfTradeTitle">
@@ -453,6 +489,6 @@
     <button type="button" class="ts-submit buy" id="pfAddBtn">매수 추가</button>
   </div>
 </div>
-<script type="module" src="assets/main-UEBKJVJD.js"></script>
+<script type="module" src="assets/main-PVA4MSBB.js"></script>
 </body>
 </html>

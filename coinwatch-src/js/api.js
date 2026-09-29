@@ -477,7 +477,14 @@ function candleSourcesFor(c){
   return [...new Set(known)].concat(all.filter(s => !known.includes(s)));
 }
 
-// 반환: { source:"binance", quote:"USD"|"KRW", candles:[...] } — 전부 실패하면 null
+// 이동평균선(최장 120봉)을 화면 왼쪽 끝부터 그리려면 보이는 봉보다 앞선 봉이 119개 더 있어야 한다.
+// 그만큼 더 받아서 앞쪽은 warmup으로 떼어 둔다 — candles는 예전과 똑같은 구간이라
+// 52주 카드·기술적 지표처럼 candles만 보는 곳은 달라지지 않는다.
+const MA_WARMUP = 119;
+// 한 번에 받을 수 있는 최대 봉 수 (업비트는 워커가 200개까지만 중계, 크라켄은 최근 720개만 준다)
+const CANDLE_MAX = { binance:1000, okx:300, bybit:1000, kraken:720, upbit:200, bithumb:Infinity };
+
+// 반환: { source:"binance", quote:"USD"|"KRW", candles:[...], warmup:[...] } — 전부 실패하면 null
 // 같은 코인·기간을 여러 곳(차트, 52주 카드, 기술적 지표)이 거의 동시에 부르므로 잠깐 같은 결과를 나눠 쓴다.
 // 55초 — 차트의 "봉이 새로 생겼으면 다시 받기"(최소 60초 간격)를 가로막지 않는 선.
 const candleMemo = new Map(); // "SYM:days" -> { at, promise }
@@ -500,10 +507,14 @@ async function fetchCoinCandlesFresh(c, days){
   for(const source of candleSourcesFor(c)){
     if(!spec[source]) continue;
     try{
-      const candles = await CANDLE_FETCHERS[source](sym, spec[source]);
+      const want = spec[source].n;
+      const asked = { ...spec[source], n: Math.min(want + MA_WARMUP, CANDLE_MAX[source]) };
+      const got = await CANDLE_FETCHERS[source](sym, asked);
+      const cut = got ? Math.max(0, got.length - want) : 0;
+      const candles = got && got.slice(cut);
       // 점이 하나뿐이면 선을 못 그린다 — 상장 직후이거나 심볼이 다른 코인일 수 있으니 다음 거래소로
       if(candles && candles.length > 1 && candles.every(k => k.c > 0)){
-        return { source, quote: CANDLE_QUOTE[source], candles };
+        return { source, quote: CANDLE_QUOTE[source], candles, warmup: got.slice(0, cut).filter(k => k.c > 0) };
       }
     }catch(e){ /* 다음 거래소로 */ }
   }

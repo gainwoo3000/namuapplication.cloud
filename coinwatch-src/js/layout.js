@@ -53,6 +53,28 @@ window.addEventListener("scroll", ()=>{
   lastY = y;
 }, { passive: true });
 
+// ---------- 맨 위로 버튼 ----------
+// 한 화면쯤 내려가면 오른쪽 아래에 나타난다. 누르면 부드럽게 맨 위로 — 위로 가는 스크롤이라
+// 숨었던 헤더도 위 리스너가 알아서 다시 내린다.
+const toTop = document.getElementById("toTopBtn");
+if(toTop){
+  let shown = false;
+  // 스크롤마다 불려도 숫자 비교 하나뿐이고, 클래스는 바뀔 때만 건드린다
+  const sync = () => {
+    const v = window.scrollY > Math.max(400, window.innerHeight * 0.8);
+    if(v === shown) return;
+    shown = v;
+    toTop.classList.toggle("show", v);
+    toTop.tabIndex = v ? 0 : -1; // 숨어 있을 때는 키보드 이동에도 걸리지 않게
+  };
+  window.addEventListener("scroll", sync, { passive: true });
+  toTop.addEventListener("click", () => {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+  });
+  sync();
+}
+
 // 탭을 바꾸며 스크롤 위치를 되돌릴 때처럼 화면이 한 번에 건너뛰는 경우.
 // 그냥 두면 "아래로 많이 내린 것"으로 읽혀 방금 누른 탭이 바로 숨어버린다.
 export function revealTopbar(){

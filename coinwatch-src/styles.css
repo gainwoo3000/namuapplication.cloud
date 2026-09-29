@@ -844,6 +844,24 @@ body.coin-page-open{overflow:hidden;}
 .ex-tile input:focus-visible + .ex-tile-body{outline:2px solid var(--gold); outline-offset:2px;}
 .ex-done{background:var(--gold); color:#1a1400; margin-top:0;}
 
+/* 설정 › 백업: 버튼 두 개, 누르면 아래에서 코드 창이 올라온다 (backup.js) */
+.backup-btns{display:flex; gap:8px;}
+.backup-desc{white-space:pre-line;}
+/* 16px 밑이면 아이폰이 입력칸을 누를 때 화면을 확대해 버린다 */
+.backup-text{
+  display:block; width:100%; box-sizing:border-box; resize:none;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px;
+  padding:10px; font-family:var(--mono); font-size:calc(16px * var(--fs)); line-height:1.35;
+  word-break:break-all; overflow-wrap:anywhere;
+}
+.backup-text:read-only{color:var(--muted);}
+.backup-text:focus{outline:none; border-color:var(--gold);}
+.backup-hint{min-height:1.3em; margin:6px 2px 10px; font-size:calc(12px * var(--fs)); color:var(--muted); line-height:1.4;}
+.backup-hint.err{color:var(--down);}
+.backup-acts{display:flex; flex-direction:column; gap:8px;}
+.backup-acts[hidden]{display:none;}
+.backup-acts .wt-btn{flex:none; padding:12px;}
+
 /* 개요 안의 자산 / 배분 전환 — 작은 알약 두 개 */
 .pf-views{display:flex; gap:6px; margin-bottom:12px;}
 .pf-view{
@@ -1077,6 +1095,27 @@ body.light-theme{
 @media (min-width: 1000px) and (prefers-reduced-motion: reduce){
   .app{ transition:none; }
 }
+
+/* 맨 위로 버튼 (layout.js). 넓은 화면에서도 화면 끝이 아니라 앱 칸(520px)의 오른쪽 아래에 붙는다.
+   헤더(50)보다 아래, 아래 창·다이얼로그(90·100)에는 덮인다 */
+.to-top{
+  position:fixed; z-index:45;
+  right:max(16px, calc(50% - 260px + 16px));
+  bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  width:calc(44px * var(--fsw)); height:calc(44px * var(--fsw)); padding:0;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%; border:1px solid var(--line); background:var(--panel); color:var(--text);
+  box-shadow:0 6px 18px rgba(0,0,0,0.35); cursor:pointer; -webkit-tap-highlight-color:transparent;
+  opacity:0; transform:translateY(12px) scale(.9); pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+}
+.to-top.show{opacity:1; transform:none; pointer-events:auto;}
+.to-top:active{transform:scale(.92);}
+.to-top svg{width:55%; height:55%; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;}
+body.light-theme .to-top{box-shadow:0 6px 18px rgba(0,0,0,0.12);}
+/* 코인 상세 페이지·환율 그래프가 떠 있으면 그쪽 화면이라 목록용 버튼은 걷는다 */
+body.coin-page-open .to-top, body.chart-open .to-top{opacity:0; pointer-events:none;}
+@media (prefers-reduced-motion: reduce){ .to-top{transition:none;} }
 
 /* 하단 고지 문구 — 모든 탭 아래에 공통으로 깔린다 */
 .app-footer{
