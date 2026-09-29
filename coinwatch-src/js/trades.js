@@ -1,5 +1,6 @@
 import { state } from "./state.js";
 import { fmtPrice, fmtKrw } from "./format.js";
+import { cleanText, cleanSym, cleanId, cleanDate } from "./sanitize.js";
 
 // ---------- 포트폴리오 거래 기록 ----------
 // 포트폴리오는 거래 기록(trades)이 원본이고, 보유 코인(holdings)은 거래 합계로 매번 다시 계산한다.
@@ -23,14 +24,35 @@ export function todayStr(){
 const tidy = n => parseFloat(n.toPrecision(12));
 
 // 저장된 포트폴리오 → 거래 목록. 거래 기록이 없던 예전 데이터는 보유 수량을 단가 없는 매수로 옮긴다.
+// 저장소·백업 코드에서 온 값이라 한 건씩 모양을 맞춘다 — 수량이 문자열("5")이면 합계가 "05"처럼
+// 글자 이어 붙이기가 되고, 이름에 태그가 섞이면 화면에 HTML로 들어간다. 못 고치는 건은 버린다.
 export function loadTrades(p){
   if(Array.isArray(p.trades)){
-    return p.trades.filter(t => t && t.id && t.amount > 0 && (t.side === "buy" || t.side === "sell"));
+    return p.trades.map(normalizeTrade).filter(Boolean);
   }
   return (Array.isArray(p.holdings) ? p.holdings : [])
-    .filter(h => h && h.id && h.amount > 0)
-    .map(h => ({ tid: newTid(), id: h.id, symbol: h.symbol, name: h.name, side: "buy",
-      amount: h.amount, price: null, cur: null, date: null, legacy: true }));
+    .map(h => h && normalizeTrade({ id: h.id, symbol: h.symbol, name: h.name, side: "buy",
+      amount: h.amount, price: null, cur: null, date: null, legacy: true }))
+    .filter(Boolean);
+}
+
+function normalizeTrade(t){
+  if(!t || typeof t !== "object") return null;
+  const id = cleanId(t.id);
+  const amount = typeof t.amount === "number" && Number.isFinite(t.amount) && t.amount > 0 ? t.amount : null;
+  if(!id || amount === null || (t.side !== "buy" && t.side !== "sell")) return null;
+  const price = typeof t.price === "number" && Number.isFinite(t.price) && t.price >= 0 ? t.price : null;
+  const symbol = cleanSym(t.symbol).toUpperCase() || id.replace(/USDT$/, "");
+  const out = {
+    tid: cleanId(t.tid) || newTid(),
+    id, symbol,
+    name: cleanText(t.name) || symbol,
+    side: t.side, amount, price,
+    cur: price === null ? null : (t.cur === "krw" ? "krw" : "usd"),
+    date: cleanDate(t.date)
+  };
+  if(t.legacy === true) out.legacy = true;
+  return out;
 }
 
 // 보유 코인 = 코인별 (매수 − 매도). 순서는 그 코인의 첫 거래 순서(= 예전의 "추가순")

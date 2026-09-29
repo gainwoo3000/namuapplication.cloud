@@ -10,7 +10,7 @@ import { fetchCoinCandles } from "./api.js";
 import { fmtPrice, fmtKrw, fmtChg, chgClass } from "./format.js";
 import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
-import { medianGap, fmtGap, niceTicks, crossMarkup, bindScrub, bindZoomPan } from "./graph.js";
+import { medianGap, fmtGap, niceTicks, crossMarkup, bindScrub, bindZoomPan, smaSeries } from "./graph.js";
 import { saveState } from "./persist.js";
 
 let coin = null;                 // 지금 그려져 있는 코인
@@ -555,18 +555,6 @@ function candleMarkup(pts, xs, yAt, slot){
 // ---------- 이동평균선 ----------
 // 국내 거래소 차트에서 흔한 5·20·60·120봉. 색은 오르내림(초록·빨강)과 겹치지 않게 고른다.
 const MA_SPECS = [[5, "#F5C542"], [20, "#4FA3F7"], [60, "#B18CFF"], [120, "#9AA4B2"]];
-
-// 단순 이동평균 시리즈. 앞쪽 n-1개는 계산할 봉이 모자라 null.
-function smaSeries(c, n){
-  const out = new Array(c.length).fill(null);
-  let sum = 0;
-  for(let i = 0; i < c.length; i++){
-    sum += c[i];
-    if(i >= n) sum -= c[i - n];
-    if(i >= n - 1) out[i] = sum / n;
-  }
-  return out;
-}
 
 // null(평균이 아직 없는 앞부분)을 건너뛰며 선을 잇는다
 function maPath(vals, xs, yAt, color){

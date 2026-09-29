@@ -70,6 +70,18 @@ export function niceTicks(lo, hi, target){
 // 세로선은 가장 가까운 점에 달라붙고(그 시점의 값을 읽는 것이므로), 가로선은 손가락·커서가
 // 있는 높이를 그대로 따라간다 — 아무 높이에나 대고 "여기가 얼마인지"를 재보려는 선이라
 // 점에 붙이면 쓸모가 없다.
+// 단순 이동평균 시리즈. 앞쪽 n-1개는 계산할 봉이 모자라 null.
+export function smaSeries(c, n){
+  const out = new Array(c.length).fill(null);
+  let sum = 0;
+  for(let i = 0; i < c.length; i++){
+    sum += c[i];
+    if(i >= n) sum -= c[i - n];
+    if(i >= n - 1) out[i] = sum / n;
+  }
+  return out;
+}
+
 export function crossMarkup(color, padT, ih, padL, iw){
   return `<g class="g-cross" style="display:none">
     <line class="g-cross-line" y1="${padT}" y2="${padT + ih}"/>

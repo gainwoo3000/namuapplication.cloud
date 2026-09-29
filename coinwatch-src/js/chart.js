@@ -18,6 +18,7 @@ import { openCoinChart, closeCoinChart, refreshCoinChart } from "./coinchart.js"
 import { fetchCoinCandles } from "./api.js";
 import { range24hPct } from "./rangebar.js";
 import { renderCoinSignals } from "./signals.js";
+import { cleanId } from "./sanitize.js";
 
 // 트레이딩뷰 상세를 보고 있는지. 코인을 바꿔도, 패널을 닫았다 열어도 그대로 따라간다 —
 // 지표를 보려고 상세를 켠 사람은 다음 코인도 상세로 보고 싶어한다.
@@ -127,7 +128,11 @@ window.addEventListener("hashchange", ()=> openCoinFromHash());
 export function openCoinFromHash(){
   const m = location.hash.match(COIN_HASH);
   if(!m || page.classList.contains("open")) return;
-  const id = decodeURIComponent(m[1]);
+  // 주소는 누구나 손으로 칠 수 있다. 깨진 인코딩(%E0%A4%A)은 decodeURIComponent가 예외를 던지고,
+  // 코인 id에 있을 수 없는 글자는 찾아볼 필요도 없다 — 둘 다 목록 화면에 그대로 둔다.
+  let id;
+  try{ id = decodeURIComponent(m[1]); }catch(e){ return; }
+  if(cleanId(id) !== id) return;
   selectCoin(id, true).then(ok=>{
     // 이 기록 칸에 표시를 달아 둬야 닫을 때·새로고침 뒤에도 같은 규칙으로 움직인다
     if(ok) history.replaceState({ coinPage: id }, "", location.href);

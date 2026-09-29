@@ -1,5 +1,6 @@
 import { REFRESH_SEC, BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, API_BASE, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
+import { cleanText, cleanSym, cleanImage } from "./sanitize.js";
 
 // ---------- 시세 그리드 ----------
 // 순위는 시가총액 기준(CoinGecko)으로 매기고, 가격/등락률은 가능하면 바이낸스 실시간 값으로 덮어써서 사용
@@ -37,20 +38,23 @@ export async function loadFromGecko(){
   const seen = new Set();
   const mapped = [];
   for(const c of rows){
-    const short = (c.symbol || "").toUpperCase();
+    // 이름·심볼은 화면에 HTML로 들어가므로 입구에서 다듬는다(sanitize.js)
+    const sym = cleanSym(c.symbol).toLowerCase();
+    const short = sym.toUpperCase();
     const id = short + "USDT";
     if(!short || seen.has(id)) continue; // 심볼이 겹치는 마이너 코인은 시총 상위(먼저 나온) 것만
     seen.add(id);
+    const enName = cleanText(c.name) || short;
     mapped.push({
       id,
-      symbol: c.symbol,
-      name: NAME_MAP[short] || c.name,
-      enName: c.name, // 한글 이름(NAME_MAP)으로 name을 덮어써도 영문 이름으로 검색할 수 있게 따로 보관
+      symbol: sym,
+      name: NAME_MAP[short] || enName,
+      enName, // 한글 이름(NAME_MAP)으로 name을 덮어써도 영문 이름으로 검색할 수 있게 따로 보관
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
       rank: c.market_cap_rank || null,
       marketCap: c.market_cap ?? null, // 달러 기준 시가총액 — 코인 상세 페이지 카드
-      image: c.image || null, // 표 왼쪽 로고. 워커가 image를 안 내려주면 심볼 기준 아이콘으로 대체된다.
+      image: cleanImage(c.image), // 표 왼쪽 로고. 워커가 image를 안 내려주면 심볼 기준 아이콘으로 대체된다.
       // 등락률 아래 24시간 범위 바에 사용. 거래소에 상장된 코인은 곧바로
       // applyExchangeTickers()가 실시간 값으로 덮어쓰고, 여기 값은 그 외 코인용.
       high_24h: c.high_24h ?? null,
@@ -72,9 +76,9 @@ export async function loadFromBinance(){
   );
   usdt.sort((a,b)=> parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
   return usdt.slice(0,500).map((t,idx)=>{
-    const short = t.symbol.replace("USDT","");
+    const short = cleanSym(t.symbol.replace("USDT",""));
     return {
-      id: t.symbol,
+      id: short + "USDT",
       symbol: short.toLowerCase(),
       name: NAME_MAP[short] || short,
       current_price: parseFloat(t.lastPrice),
@@ -436,7 +440,7 @@ const CANDLE_FETCHERS = {
 
 // 일봉 -> 주봉. 다른 거래소 주봉과 같게 월요일(UTC) 시작으로 끊는다.
 // 1970-01-01이 목요일이라 4일을 빼면 월요일 기준 주 번호가 된다.
-function toWeekly(days){
+export function toWeekly(days){
   const out = [];
   let cur = null, curWeek = null;
   for(const k of days){

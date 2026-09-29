@@ -13,6 +13,7 @@ import { showAlert, showPrompt, showConfirm } from "./dialog.js";
 import { newTid, todayStr, recomputeHoldings, holdingAmount, tradedCoins, avgBuyPrice,
   priceInDisplay, fmtMoney, fmtAmount } from "./trades.js";
 import { openSheet, openOverlay, closeOverlay, syncViewport } from "./sheet.js";
+import { cleanText, cleanDate, parseNum } from "./sanitize.js";
 import { renderAlloc } from "./alloc.js";
 
 export function currentPortfolio(){ return state.portfolios[state.activePortfolioIdx]; }
@@ -137,10 +138,17 @@ function roundPrice(v){
 const tradeSheet = document.getElementById("pfTradeSheet");
 
 function curUnit(){ return state.displayCurrency === "krw" ? "₩" : "$"; }
+// 빈 칸이면 null, 숫자로 못 읽으면 NaN(아래 검사에서 걸리게), 아니면 그 수. "1e400"(Infinity)도 NaN.
+// 숫자 칸(type=number)은 못 읽는 값을 치면 value를 조용히 ""로 비운다 — 그대로 두면 "abc"나
+// "1e400"을 친 것이 "비워 둠"(단가 없이 저장)으로 읽힌다. 브라우저가 badInput으로 알려 주니 그걸 본다.
 function numVal(id){
-  const v = document.getElementById(id).value.trim();
-  return v === "" ? null : parseFloat(v);
+  const el = document.getElementById(id);
+  if(el.validity && el.validity.badInput) return NaN;
+  const v = el.value.trim();
+  return v === "" ? null : (parseNum(v) ?? NaN);
 }
+// 수량·단가·금액의 상한. 이보다 크면 합계가 부동소수 정밀도를 잃고, 대개 잘못 친 값이다.
+const MAX_INPUT = 1e15;
 
 // 수량 칸의 이름·단위와 그 아래 환산 한 줄(수량이면 ≈ 금액, 금액이면 ≈ 수량)
 function renderAmtField(){
@@ -210,17 +218,20 @@ document.getElementById("pfAddBtn").addEventListener("click", ()=>{
   if(!pfSelectedCoin){ showAlert("코인을 검색해서 골라주세요."); return; }
   const v = numVal("pfAmount");
   const price = numVal("pfPrice");
-  if(price !== null && !(price >= 0)){ showAlert("단가를 확인해주세요."); return; }
+  if(price !== null && !(price >= 0 && price <= MAX_INPUT)){ showAlert("단가를 확인해주세요."); return; }
   if(!(v > 0)){ showAlert(pfAmtByTotal ? "금액을 입력해주세요." : "수량을 입력해주세요."); return; }
+  if(v > MAX_INPUT){ showAlert(pfAmtByTotal ? "금액이 너무 커요. 다시 확인해주세요." : "수량이 너무 커요. 다시 확인해주세요."); return; }
   if(pfAmtByTotal && !(price > 0)){ showAlert("금액으로 입력하려면 단가가 필요해요."); return; }
   const amount = pfAmtByTotal ? parseFloat((v / price).toPrecision(12)) : v;
+  if(!(amount > 0 && Number.isFinite(amount))){ showAlert("수량을 확인해주세요."); return; }
   const pf = currentPortfolio();
   // 매도는 보유량과 상관없이 기록한다(이 앱에 적기 전부터 갖고 있던 코인을 판 경우 등).
   // 보유량이 0 아래로 내려간 코인은 보유 목록에 나오지 않는다(recomputeHoldings).
+  const date = cleanDate(document.getElementById("pfDate").value) || todayStr();
   pf.trades.push({ tid: newTid(), id: pfSelectedCoin.id, symbol: pfSelectedCoin.symbol.toUpperCase(),
     name: pfSelectedCoin.name, side: pfSide, amount,
     price, cur: price === null ? null : state.displayCurrency,
-    date: document.getElementById("pfDate").value || todayStr() });
+    date });
   recomputeHoldings(pf);
   pfSelectedCoin = null;
   closeTradeSheet();
@@ -455,9 +466,10 @@ async function renamePortfolio(idx){
   const p = state.portfolios[idx];
   const newName = await showPrompt("포트폴리오 이름을 입력해주세요", p.name);
   if(newName === null) return; // 취소
-  const trimmed = newName.trim();
+  // 화면에 HTML로 들어가는 이름이라 태그를 열 수 있는 글자는 걷는다(sanitize.js)
+  const trimmed = cleanText(newName, 20);
   if(!trimmed) return;
-  p.name = trimmed.slice(0, 20);
+  p.name = trimmed;
   renderPortfolioHeaderBtn();
   renderPortfolioDropdown();
   saveState();
@@ -719,8 +731,8 @@ async function editTradePrice(t){
   const s = v.replace(/,/g, "").trim();
   if(s === ""){ t.price = null; t.cur = null; }
   else{
-    const n = parseFloat(s);
-    if(!(n >= 0)){ showAlert("단가를 확인해주세요."); return; }
+    const n = parseNum(s); // "12abc"·"1e400"은 null
+    if(!(n >= 0 && n <= MAX_INPUT)){ showAlert("단가를 확인해주세요."); return; }
     t.price = n; t.cur = state.displayCurrency;
   }
   renderPfTrades();

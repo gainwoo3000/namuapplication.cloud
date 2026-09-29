@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import { renderExchangeOpts, applyFontScale } from "./settings.js";
 import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel, showPfSection } from "./portfolio.js";
 import { loadTrades, recomputeHoldings } from "./trades.js";
+import { cleanText, cleanSym, cleanId } from "./sanitize.js";
 
 // 마지막 저장이 실패했는지. 설정 탭의 "저장 상태"가 이 값을 읽어 보여준다.
 export let storageError = null;
@@ -35,6 +36,12 @@ export function storageDiagnostics(){
     hasSaved: (()=>{ try{ return !!localStorage.getItem(STORAGE_KEY); }catch(e){ return false; } })()
   };
 }
+
+// 저장된 값으로 받아 줄 수 있는 것들. 여기 없는 값은 버린다.
+const MY_EXCHANGES = ["upbit","bithumb","coinone","binance","okx","bybit","coinbase","kraken","bitflyer"];
+const INTL_EXCHANGES = ["binance","okx","bybit","coinbase","kraken"];
+const FONT_SCALES = [1, 1.12, 1.24]; // 설정 › 글자 크기 버튼의 data-fs
+const knownOnly = (arr, known) => Array.isArray(arr) ? [...new Set(arr.filter(x => known.includes(x)))] : [];
 
 // ---------- 로컬 저장 ----------
 // 저장하는 값 전체. 백업(backup.js)도 이것을 그대로 담는다 — 여기에 항목을 더하면 백업에도 들어간다.
@@ -81,14 +88,23 @@ export function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return;
     const saved = JSON.parse(raw);
-    if(Array.isArray(saved.watchlist)) state.watchlist = saved.watchlist;
+    if(!saved || typeof saved !== "object") return;
+    // 저장소는 백업 코드로도 채워지고(남이 준 코드일 수 있다) 개발자 도구로 고칠 수도 있다.
+    // 값마다 모양을 확인하고, 이름·심볼은 sanitize.js로 다듬어서 받는다.
+    if(Array.isArray(saved.watchlist)){
+      state.watchlist = [...new Set(saved.watchlist.map(cleanId).filter(Boolean))];
+    }
     if(Array.isArray(saved.portfolios) && saved.portfolios.length > 0){
       // 거래 기록이 없던 예전 데이터는 보유 수량을 "기존 보유"(단가 없는 매수)로 옮긴다
-      state.portfolios = saved.portfolios.map(p=>({
-        name: p.name || "포트폴리오",
-        trades: loadTrades(p),
-        exchanges: Array.isArray(p.exchanges) && p.exchanges.length ? p.exchanges : ["upbit"]
-      })).slice(0, MAX_PORTFOLIOS);
+      state.portfolios = saved.portfolios.filter(p => p && typeof p === "object").map(p=>{
+        const ex = knownOnly(p.exchanges, MY_EXCHANGES);
+        return {
+          name: cleanText(p.name, 20) || "포트폴리오",
+          trades: loadTrades(p),
+          exchanges: ex.length ? ex : ["upbit"]
+        };
+      }).slice(0, MAX_PORTFOLIOS);
+      if(!state.portfolios.length) state.portfolios = [{ name:"포트폴리오 1", trades:[], exchanges:["upbit"] }];
       state.portfolios.forEach(recomputeHoldings);
       state.activePortfolioIdx = Number.isInteger(saved.activePortfolioIdx) && saved.activePortfolioIdx < state.portfolios.length
         ? saved.activePortfolioIdx : 0;
@@ -98,19 +114,24 @@ export function loadState(){
       recomputeHoldings(state.portfolios[0]);
       state.activePortfolioIdx = 0;
     }
-    if(Array.isArray(saved.myExchanges)) state.myExchanges = new Set(saved.myExchanges);
-    if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(saved.intlExchangeFilter);
-    if(saved.displayCurrency) state.displayCurrency = saved.displayCurrency;
-    if(saved.fontScale > 0) state.fontScale = saved.fontScale;
+    if(Array.isArray(saved.myExchanges)) state.myExchanges = new Set(knownOnly(saved.myExchanges, MY_EXCHANGES));
+    if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(knownOnly(saved.intlExchangeFilter, INTL_EXCHANGES));
+    if(["usd","krw"].includes(saved.displayCurrency)) state.displayCurrency = saved.displayCurrency;
+    if(FONT_SCALES.includes(saved.fontScale)) state.fontScale = saved.fontScale;
     if(["line","candle"].includes(saved.chartStyle)) state.chartStyle = saved.chartStyle;
     if(typeof saved.showVolume === "boolean") state.showVolume = saved.showVolume;
     if(typeof saved.showMA === "boolean") state.showMA = saved.showMA;
     if(["added","asc","desc"].includes(saved.pfSortMode)) state.pfSortMode = saved.pfSortMode;
     if(["holdings","trades"].includes(saved.pfSection)) state.pfSection = saved.pfSection;
     if(["assets","alloc"].includes(saved.pfOverview)) state.pfOverview = saved.pfOverview;
-    if(saved.virtualCoins){
-      Object.entries(saved.virtualCoins).forEach(([id,c])=>{
-        state.virtualCoins[id] = {...c, current_price:null, price_change_percentage_24h:null, rank:null};
+    if(saved.virtualCoins && typeof saved.virtualCoins === "object"){
+      Object.values(saved.virtualCoins).forEach(c=>{
+        if(!c || typeof c !== "object") return;
+        const id = cleanId(c.id), symbol = cleanSym(c.symbol).toLowerCase();
+        if(!id || !symbol) return;
+        state.virtualCoins[id] = { id, symbol, name: cleanText(c.name) || symbol.toUpperCase(),
+          tvSymbol: typeof c.tvSymbol === "string" ? cleanText(c.tvSymbol, 40) : undefined,
+          current_price:null, price_change_percentage_24h:null, rank:null };
       });
     }
     if(saved.theme === "light") document.body.classList.add("light-theme");

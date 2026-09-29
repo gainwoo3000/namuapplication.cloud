@@ -1,5 +1,6 @@
 import { GECKO, CG_SEARCH_PROXY, ALIAS_MAP } from "./constants.js";
 import { state } from "./state.js";
+import { cleanText, cleanSym, cleanImage } from "./sanitize.js";
 import { getBinanceMap } from "./api.js";
 
 // 로컬 풀(state.allTickers) 코인 하나가 대문자 검색어 q(예: "SOLANA")와 일치하는지.
@@ -13,16 +14,17 @@ export function matchesLocalQuery(c, q){
 }
 
 // 검색 결과 원소 하나 → 시세 목록에 끼워넣을 코인 형태
+// 누구나 아무 이름으로 올릴 수 있는 토큰까지 잡히는 곳이라 이름·심볼·로고 주소를 다듬어서 받는다(sanitize.js)
 function makeSearchCoin(o){
-  const short = (o.symbol || "").toUpperCase();
+  const short = cleanSym(o.symbol).toUpperCase();
   return {
     id: short + "USDT",
-    symbol: (o.symbol || "").toLowerCase(),
-    name: o.name || short,
+    symbol: short.toLowerCase(),
+    name: cleanText(o.name) || short,
     current_price: (o.price ?? o.current_price ?? null),
     price_change_percentage_24h: (o.change24h ?? o.price_change_percentage_24h ?? null),
     rank: (o.rank ?? o.market_cap_rank ?? null),
-    image: (o.image || o.thumb || o.large || null),
+    image: cleanImage(o.image || o.thumb || o.large),
     searchOnly: true
   };
 }
@@ -98,6 +100,7 @@ export async function searchExternalCoins(query){
       if(res.ok) coins = ((await res.json()).coins || []).slice(0, 12).map(makeSearchCoin);
     }catch(e){ /* 무시 */ }
   }
+  if(coins) coins = coins.filter(c => c.symbol); // 다듬고 나니 심볼이 비어 버린 항목은 뺀다
   if(!coins || !coins.length) return [];
   return fillSearchPrices(dedupeSearchBySymbol(coins));
 }
