@@ -92,7 +92,8 @@ export function loadState(){
     // 저장소는 백업 코드로도 채워지고(남이 준 코드일 수 있다) 개발자 도구로 고칠 수도 있다.
     // 값마다 모양을 확인하고, 이름·심볼은 sanitize.js로 다듬어서 받는다.
     if(Array.isArray(saved.watchlist)){
-      state.watchlist = [...new Set(saved.watchlist.map(cleanId).filter(Boolean))];
+      // 코인 id는 늘 "<심볼>USDT" 모양이다. 다듬고 나서 그 모양이 아니면 어느 코인도 가리키지 않는 찌꺼기다
+      state.watchlist = [...new Set(saved.watchlist.map(cleanId).filter(id => /^.+USDT$/.test(id)))]; // 테더도 "USDTUSDT"
     }
     if(Array.isArray(saved.portfolios) && saved.portfolios.length > 0){
       // 거래 기록이 없던 예전 데이터는 보유 수량을 "기존 보유"(단가 없는 매수)로 옮긴다
@@ -135,6 +136,11 @@ export function loadState(){
       });
     }
     if(saved.theme === "light") document.body.classList.add("light-theme");
+    // 다듬으면서 값이 바뀌었으면(백업·조작으로 들어온 이상한 값, 예전 형식) 다듬은 모양으로 다시 적어 둔다 —
+    // 안 그러면 화면은 멀쩡해도 저장소에는 글자 크기 50 같은 값이 다음 저장 때까지 그대로 남는다.
+    // 끝까지 무사히 읽었을 때만 적는다. 중간에 실패했는데 적으면 멀쩡한 데이터를 기본값으로 덮어쓴다.
+    const clean = JSON.stringify(buildSavedState());
+    if(clean !== raw) localStorage.setItem(STORAGE_KEY, clean);
   }catch(e){ /* 저장된 값이 손상됐으면 무시하고 기본값 사용 */ }
 }
 

@@ -75,6 +75,9 @@ export function summarize(d){
 }
 
 export function fmtWhen(iso){
+  // 우리가 만든 백업의 savedAt은 늘 toISOString() 모양이다. 그 모양만 받는다 —
+  // 크롬의 Date는 "img src=x 1" 같은 글자에서도 숫자를 주워 2001년으로 읽어 버린다.
+  if(typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(iso)) return "";
   const t = new Date(iso);
   if(isNaN(t)) return "";
   const p = n => String(n).padStart(2, "0");

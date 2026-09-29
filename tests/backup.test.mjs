@@ -88,5 +88,8 @@ test("summarize: 모양이 이상해도 죽지 않는다", () => {
 test("fmtWhen: 날짜가 이상하면 빈 문자열", () => {
   assert.equal(fmtWhen("not a date"), "");
   assert.equal(fmtWhen(undefined), "");
+  assert.equal(fmtWhen(12345), "");
+  assert.equal(fmtWhen("img src=x onerror=window.__pwned=1"), ""); // 크롬 Date는 이걸 2001년으로 읽는다
+  assert.equal(fmtWhen("1"), "");
   assert.match(fmtWhen("2026-09-29T06:38:00.000Z"), /^2026\.09\.29 \d\d:\d\d$/);
 });
