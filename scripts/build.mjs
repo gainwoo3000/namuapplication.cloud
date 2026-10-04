@@ -1,7 +1,7 @@
 // coinwatch-src/ (원본) → coinwatch/ (배포본, GitHub Pages가 그대로 서비스)
-//   - js/main.js에서 import를 따라가며 JS를 파일 하나로 합치고 줄인다(minify)
+//   - js/boot.js(→ main.js)에서 import를 따라가며 JS를 파일 하나로 합치고 줄인다(minify)
 //   - styles.css도 줄인다
-//   - 결과 파일 이름에 내용 해시를 붙인다(assets/main-XXXX.js) → 캐시 무효화가 저절로 된다
+//   - 결과 파일 이름에 내용 해시를 붙인다(assets/boot-XXXX.js) → 캐시 무효화가 저절로 된다
 //   - index.html의 CSS·JS 주소를 그 파일로 바꾸고, APP_VERSION에 빌드 시각(KST)을 넣는다
 import * as esbuild from "esbuild";
 import fs from "node:fs";
@@ -43,7 +43,7 @@ const indexOut = path.join(OUT, "index.html");
 const keep = fs.existsSync(indexOut) ? referencedAssets(fs.readFileSync(indexOut, "utf8")) : new Set();
 
 const result = await esbuild.build({
-  entryPoints: [path.join(SRC, "js/main.js"), path.join(SRC, "styles.css")],
+  entryPoints: [path.join(SRC, "js/boot.js"), path.join(SRC, "styles.css")],
   outdir: ASSETS,
   entryNames: "[name]-[hash]",
   bundle: true,
@@ -68,7 +68,7 @@ const cssFile = pick(".css");
 let html = fs.readFileSync(path.join(SRC, "index.html"), "utf8");
 html = replaceOnce(html, 'window.APP_VERSION = "dev";', `window.APP_VERSION = "${version}";`);
 html = replaceOnce(html, '<link rel="stylesheet" href="styles.css">', `<link rel="stylesheet" href="${cssFile}">`);
-html = replaceOnce(html, '<script type="module" src="js/main.js"></script>', `<script type="module" src="${jsFile}"></script>`);
+html = replaceOnce(html, '<script type="module" src="js/boot.js"></script>', `<script type="module" src="${jsFile}"></script>`);
 fs.writeFileSync(indexOut, html);
 
 // 이번 빌드와 직전 빌드가 쓰는 것만 남기고 정리

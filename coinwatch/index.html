@@ -33,31 +33,49 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.261004.1855";</script>
+<script>window.APP_VERSION = "v.261004.1910";</script>
 <!-- 언어(설정 › 언어). 화면을 그리기 전에 정해야 한국어가 잠깐 비쳤다가 바뀌지 않는다 — 문구 교체는 js/i18n.js.
-     저장된 설정의 lang → 없으면 예전부터 쓰던 사람(저장된 설정이 있음)은 한국어, 처음 온 사람은 브라우저 언어.
-     영어면 문구를 다 바꿀 때까지 화면을 가려 둔다(JS가 실패해도 4초 뒤엔 걷는다). -->
+     1) 저장된 설정의 lang (사용자가 고른 것, 또는 처음 왔을 때 정해서 저장해 둔 것)
+     2) 저장된 설정은 있는데 lang이 없음 = 언어 설정이 생기기 전부터 쓰던 사람 → 한국어
+     3) 처음 온 사람 → 접속 IP의 나라(워커 /geo)가 한국이면 한국어, 아니면 영어.
+        /geo가 늦거나(1.5초) 실패하면 브라우저 언어로 정한다.
+     앱(js/boot.js)은 window.APP_LANG_READY가 풀린 뒤에 시작한다. 처음 온 사람은 그동안 화면을 가려 둔다
+     (JS가 실패해도 4초 뒤엔 걷는다). 정해진 언어는 main.js가 바로 저장해서 다음부터는 1)로 간다. -->
 <style>html[data-i18n-pending] body{visibility:hidden;}</style>
 <script>
   (function(){
-    var lang = null;
+    var root = document.documentElement;
+    function set(lang){
+      window.APP_LANG = lang;
+      root.lang = lang;
+    }
+    var saved = null;
     try{
       var raw = localStorage.getItem("coinwatch_state_v1"); // constants.js STORAGE_KEY
-      if(raw){ var s = JSON.parse(raw); lang = s && (s.lang === "ko" || s.lang === "en") ? s.lang : "ko"; }
+      if(raw){ var s = JSON.parse(raw); saved = s && (s.lang === "ko" || s.lang === "en") ? s.lang : "ko"; }
     }catch(e){}
-    if(!lang){
+    if(saved){
+      set(saved);
+      if(saved === "en") root.setAttribute("data-i18n-pending", "");
+      window.APP_LANG_READY = Promise.resolve();
+    }else{
       var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
-      lang = /^ko/i.test(nav) ? "ko" : "en";
+      var fallback = /^ko/i.test(nav) ? "ko" : "en";
+      root.setAttribute("data-i18n-pending", "");
+      window.APP_LANG_READY = new Promise(function(resolve){
+        var done = false;
+        function finish(lang){ if(done) return; done = true; set(lang); resolve(); }
+        setTimeout(function(){ finish(fallback); }, 1500);
+        fetch("https://api.namuapplication.cloud/geo?t=" + Date.now()) // constants.js API_BASE
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){ finish(d && d.country ? (d.country === "KR" ? "ko" : "en") : fallback); })
+          .catch(function(){ finish(fallback); });
+      });
     }
-    window.APP_LANG = lang;
-    document.documentElement.lang = lang;
-    if(lang === "en"){
-      document.documentElement.setAttribute("data-i18n-pending", "");
-      setTimeout(function(){ document.documentElement.removeAttribute("data-i18n-pending"); }, 4000);
-    }
+    setTimeout(function(){ root.removeAttribute("data-i18n-pending"); }, 4000);
   })();
 </script>
-<!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
+<!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/boot-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
 <link rel="stylesheet" href="assets/styles-6ES2BTG3.css">
@@ -520,6 +538,6 @@
     <button type="button" class="ts-submit buy" id="pfAddBtn" data-en="Add buy">매수 추가</button>
   </div>
 </div>
-<script type="module" src="assets/main-HM6BX7MV.js"></script>
+<script type="module" src="assets/boot-ZU77OWSO.js"></script>
 </body>
 </html>

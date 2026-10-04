@@ -9,7 +9,7 @@ import { updateChartPrice, openCoinFromHash } from "./chart.js";
 import { ensureUsdKrw, refreshUsdKrw, renderFxMini } from "./fx.js";
 import { loadFearGreed } from "./fng.js";
 import { loadMarketCap } from "./mcap.js";
-import { loadState, applyLoadedUIState, requestPersistentStorage } from "./persist.js";
+import { loadState, applyLoadedUIState, requestPersistentStorage, storageDiagnostics, saveState } from "./persist.js";
 import { restartRefreshTimer, renderStorageDiag, reopenSettingsAfterLangChange } from "./settings.js";
 import { t, LOCALE } from "./i18n.js";
 import "./layout.js";
@@ -113,7 +113,11 @@ async function loadCmcKrw(){
 }
 
 // ---------- 초기화 ----------
+const firstVisit = !storageDiagnostics().hasSaved;
 loadState();
+// 처음 온 사람은 언어를 접속 위치로 정했다(index.html) — 바로 저장해서 다음부터는 그 언어로 연다.
+// 이후로는 사용자가 설정 › 언어에서 고른 것이 저장돼 그대로 따라간다.
+if(firstVisit) saveState();
 applyLoadedUIState();
 // 저장소를 "함부로 지우지 말 것"으로 표시 요청 — 안드로이드 크롬은 저장공간이 부족하면
 // 보호되지 않은 사이트 데이터를 비운다. 요청 결과와 무관하게 앱은 그대로 동작한다.

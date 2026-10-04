@@ -32,6 +32,10 @@
 //     -> { "BTC":<달러 환산가>, ... }   비트플라이어 엔화 마켓 현재가를 야후 USD/JPY로 달러 환산.
 //        엣지 캐시 10초.
 //
+//   GET /geo
+//     -> { country:"KR" }   접속한 IP의 나라(ISO 2글자, Cloudflare가 알려 준다. 모르면 null).
+//        처음 온 사람의 화면 언어를 정하는 데만 쓴다(index.html). 사람마다 다르니 캐시하지 않는다.
+//
 //   GET /upbit/candles?unit=<minutes/15|minutes/60|minutes/240|days|weeks>&market=KRW-BTC&count=<1~200>
 //     -> 업비트 캔들 원본 배열 그대로. 엣지 캐시 60초.
 //
@@ -93,6 +97,7 @@ export default {
     const route = url.pathname.slice(1);
     if (TICKER_MAPS[route]) return handleTickerMap(route, ctx, openCors("*"));
     if (url.pathname === "/upbit/candles") return handleUpbitCandles(url, ctx, openCors("*"));
+    if (url.pathname === "/geo") return handleGeo(request, openCors("*"));
     return json({ error: "not_found" }, 404, openCors("*"));
   },
 };
@@ -612,6 +617,14 @@ function cgFetch(env, u) {
   const headers = { accept: "application/json", "user-agent": "coinwatch-api/1.0" };
   if (env.CG_KEY) headers["x-cg-demo-api-key"] = env.CG_KEY;
   return fetch(u, { headers });
+}
+
+// ---------- 접속 나라 ----------
+// 업스트림 호출 없이 Cloudflare가 붙여 주는 값을 그대로 돌려준다. 요청마다 다른 값이라 캐시하면 안 된다.
+function handleGeo(request, cors) {
+  const c = (request.cf && request.cf.country) || request.headers.get("cf-ipcountry");
+  const country = typeof c === "string" && /^[A-Z]{2}$/.test(c) ? c : null; // "T1"(Tor)처럼 나라가 아닌 값은 null
+  return json({ country }, 200, { ...cors, "cache-control": "private, no-store" });
 }
 
 function json(obj, status, extra) {
