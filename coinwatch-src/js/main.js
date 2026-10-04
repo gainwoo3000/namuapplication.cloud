@@ -22,6 +22,7 @@ import "./pull.js";  // 위에서 아래로 당겨서 새로고침(가짜)
 import "./chart.js";
 import "./fxchart.js"; // 헤더 환율 버튼 -> 원/달러 추이 그래프
 import "./backup.js";  // 설정 › 백업하기 / 불러오기
+import "./back.js";    // 안드로이드 앱의 뒤로 가기 버튼
 
 // 글자 복사 막기. CSS(user-select:none)로 선택을 막아도 전체 선택(Cmd+A) 뒤 복사 같은 길이
 // 남아 있어서 복사 자체도 막는다. 입력칸 안의 글자는 사용자가 친 것이라 그대로 둔다.

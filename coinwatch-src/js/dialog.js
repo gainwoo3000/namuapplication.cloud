@@ -63,6 +63,13 @@ function openDialog({ message, showInput, defaultValue, cancelValue, buttons }){
   });
 }
 
+// 떠 있는 다이얼로그를 취소로 닫는다. 닫았으면 true (안드로이드 뒤로 가기 — back.js)
+export function cancelDialog(){
+  if(!overlayEl || !overlayEl.classList.contains("open")) return false;
+  if(overlayEl._onCancel) overlayEl._onCancel();
+  return true;
+}
+
 export function showAlert(message){
   return openDialog({
     message, showInput:false, cancelValue:true,

@@ -73,6 +73,22 @@ export function closeOverlay(el){
   setTimeout(()=>{ if(!el.classList.contains("open")) el.classList.remove("show"); }, 260);
 }
 
+// 맨 위에 떠 있는 아래 창 하나를 닫는다. 닫았으면 true (안드로이드 뒤로 가기 — back.js)
+// 선택지 창(openSheet)은 body 맨 끝에 붙어서, 폼 창 위에 겹쳐 떠도 목록의 마지막이 된다.
+export function closeTopSheet(){
+  const shown = document.querySelectorAll(".sheet-overlay.show");
+  const top = shown[shown.length - 1];
+  if(!top) return false;
+  if(top === overlay){
+    // closeSheet는 .open을 보는데, 여는 두 프레임 사이에 눌리면 아직 없다 — 그때도 닫히게 붙여 준다
+    overlay.classList.add("open");
+    closeSheet();
+  }else{
+    closeOverlay(top);
+  }
+  return true;
+}
+
 // 키보드가 올라오면 보이는 영역(visualViewport)이 줄어든다. 창 아래쪽을 키보드 바로 위에 붙이고,
 // 높이도 그 영역을 넘지 않게 해서 입력칸이 키보드에 가리지 않게 한다.
 // (iOS는 키보드가 떠도 레이아웃은 그대로라 fixed bottom:0이 키보드 밑에 깔리고, 화면이 통째로 밀려 올라간다)

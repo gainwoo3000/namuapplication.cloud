@@ -196,13 +196,17 @@ const TICK_BUZZ_MS = 25;
 const TICK_GAP_MS = 45;
 
 // 짧은 진동 한 번.
-//   안드로이드: navigator.vibrate(ms). (앱 WebView 안에서는 앱에 VIBRATE 권한이 있어야 울린다)
+//   안드로이드 앱: WebView 안에서는 navigator.vibrate가 있어도 아무 일도 안 한다 — 앱이 열어 둔
+//        통로(CoinWatchNative.vibrate, MainActivity.kt)로 직접 울린다.
+//   안드로이드 크롬: navigator.vibrate(ms).
 //   iOS: vibrate가 아예 없다. 대신 iOS 18부터 사파리의 스위치형 체크박스(<input switch>)가
 //        토글될 때 시스템 햅틱을 울리므로, 숨겨 둔 스위치의 label을 눌러 그 햅틱을 빌려 쓴다.
 //        세기는 시스템이 정해서 ms는 무시된다. iOS 17 이하에서는 조용히 아무 일도 안 일어난다.
 let hapticLabel = null;
 function haptic(ms){
   try{
+    const app = window.CoinWatchNative;
+    if(app && typeof app.vibrate === "function"){ app.vibrate(ms); return; }
     if(typeof navigator.vibrate === "function"){ navigator.vibrate(ms); return; }
     if(!hapticLabel){
       hapticLabel = document.createElement("label");

@@ -165,10 +165,12 @@ function openExPop(){
   exPop.hidden = false;
   exBtn.setAttribute("aria-expanded", "true");
 }
-function closeExPop(){
-  if(exPop.hidden) return;
+// 닫았으면 true (안드로이드 뒤로 가기 — back.js)
+export function closeExPop(){
+  if(exPop.hidden) return false;
   exPop.hidden = true;
   exBtn.setAttribute("aria-expanded", "false");
+  return true;
 }
 exBtn.addEventListener("click", e => {
   e.stopPropagation();
