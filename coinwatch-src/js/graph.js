@@ -199,6 +199,7 @@ const TICK_GAP_MS = 45;
 //   안드로이드 앱: WebView 안에서는 navigator.vibrate가 있어도 아무 일도 안 한다 — 앱이 열어 둔
 //        통로(CoinWatchNative, MainActivity.kt)로 울린다. haptic(kind)는 시스템 햅틱("tick"=봉 넘김, "press"=훑기 시작)이라
 //        모터를 ms만큼 돌리는 것보다 짧고 또렷하다. 그 통로가 없는 옛 앱은 vibrate(ms)로.
+//   아이폰 앱: 마찬가지로 앱이 열어 둔 통로(webkit.messageHandlers.haptic, WebView.swift)로 — 피커 같은 선택 햅틱.
 //   안드로이드 크롬: navigator.vibrate(ms).
 //   iOS: vibrate가 아예 없다. 대신 iOS 18부터 사파리의 스위치형 체크박스(<input switch>)가
 //        토글될 때 시스템 햅틱을 울리므로, 숨겨 둔 스위치의 label을 눌러 그 햅틱을 빌려 쓴다.
@@ -206,6 +207,8 @@ const TICK_GAP_MS = 45;
 let hapticLabel = null;
 function haptic(kind, ms){
   try{
+    const ios = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.haptic;
+    if(ios){ ios.postMessage(kind); return; }
     const app = window.CoinWatchNative;
     if(app && typeof app.haptic === "function"){ app.haptic(kind); return; }
     if(app && typeof app.vibrate === "function"){ app.vibrate(ms); return; }
