@@ -197,15 +197,17 @@ const TICK_GAP_MS = 45;
 
 // 짧은 진동 한 번.
 //   안드로이드 앱: WebView 안에서는 navigator.vibrate가 있어도 아무 일도 안 한다 — 앱이 열어 둔
-//        통로(CoinWatchNative.vibrate, MainActivity.kt)로 직접 울린다.
+//        통로(CoinWatchNative, MainActivity.kt)로 울린다. haptic(kind)는 시스템 햅틱("tick"=봉 넘김, "press"=훑기 시작)이라
+//        모터를 ms만큼 돌리는 것보다 짧고 또렷하다. 그 통로가 없는 옛 앱은 vibrate(ms)로.
 //   안드로이드 크롬: navigator.vibrate(ms).
 //   iOS: vibrate가 아예 없다. 대신 iOS 18부터 사파리의 스위치형 체크박스(<input switch>)가
 //        토글될 때 시스템 햅틱을 울리므로, 숨겨 둔 스위치의 label을 눌러 그 햅틱을 빌려 쓴다.
 //        세기는 시스템이 정해서 ms는 무시된다. iOS 17 이하에서는 조용히 아무 일도 안 일어난다.
 let hapticLabel = null;
-function haptic(ms){
+function haptic(kind, ms){
   try{
     const app = window.CoinWatchNative;
+    if(app && typeof app.haptic === "function"){ app.haptic(kind); return; }
     if(app && typeof app.vibrate === "function"){ app.vibrate(ms); return; }
     if(typeof navigator.vibrate === "function"){ navigator.vibrate(ms); return; }
     if(!hapticLabel){
@@ -274,7 +276,7 @@ export function bindZoomPan(el, h){
     // 봉 하나를 넘어갈 때마다 톡 — 빠르게 훑으면 또로로록
     if(!silent && idx !== undefined && lastIdx !== null && idx !== lastIdx){
       const now = Date.now();
-      if(now - lastTickAt >= TICK_GAP_MS){ lastTickAt = now; haptic(TICK_BUZZ_MS); }
+      if(now - lastTickAt >= TICK_GAP_MS){ lastTickAt = now; haptic("tick", TICK_BUZZ_MS); }
     }
     lastIdx = idx === undefined ? null : idx;
   };
@@ -320,7 +322,7 @@ export function bindZoomPan(el, h){
         o.timer = setTimeout(() => {
           if(one !== o || o.mode !== "wait") return;
           o.mode = "scrub";
-          haptic(PRESS_BUZZ_MS); // 훑기가 켜진 걸 알린다
+          haptic("press", PRESS_BUZZ_MS); // 훑기가 켜진 걸 알린다
           // 손가락 바로 아래가 아니라 조금 위에 띄운다. 위쪽 여백이 모자라면 아래로.
           const r = el.getBoundingClientRect();
           const y = o.ly - LIFT_OFFSET >= r.top ? o.ly - LIFT_OFFSET : o.ly + LIFT_OFFSET;
