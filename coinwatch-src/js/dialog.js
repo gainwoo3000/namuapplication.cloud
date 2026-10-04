@@ -2,6 +2,8 @@
 // 같은 패널 스타일(변수 재사용)로 만든 커스텀 다이얼로그로 대체.
 // 전부 Promise를 반환 — 호출부에서 필요하면 await, 필요 없으면 그냥 호출만 해도 됨.
 
+import { t } from "./i18n.js";
+
 let overlayEl = null;
 
 function ensureOverlay(){
@@ -64,7 +66,7 @@ function openDialog({ message, showInput, defaultValue, cancelValue, buttons }){
 export function showAlert(message){
   return openDialog({
     message, showInput:false, cancelValue:true,
-    buttons:[{ label:"확인", value:true, primary:true }]
+    buttons:[{ label: t("확인", "OK"), value:true, primary:true }]
   });
 }
 
@@ -72,8 +74,8 @@ export function showConfirm(message){
   return openDialog({
     message, showInput:false, cancelValue:false,
     buttons:[
-      { label:"취소", value:false },
-      { label:"확인", value:true, primary:true }
+      { label: t("취소", "Cancel"), value:false },
+      { label: t("확인", "OK"), value:true, primary:true }
     ]
   });
 }
@@ -82,8 +84,8 @@ export function showPrompt(message, defaultValue){
   return openDialog({
     message, showInput:true, defaultValue, cancelValue:null,
     buttons:[
-      { label:"취소", value:null },
-      { label:"확인", useInput:true, primary:true }
+      { label: t("취소", "Cancel"), value:null },
+      { label: t("확인", "OK"), useInput:true, primary:true }
     ]
   });
 }

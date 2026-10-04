@@ -5,12 +5,14 @@ import { renderMarketGrid } from "./market.js";
 import { renderPortfolio, exitPfEditMode } from "./portfolio.js";
 import { updateChartPrice, syncChartTheme } from "./chart.js";
 import { ensureUsdKrw } from "./fx.js";
-import { saveState, storageDiagnostics } from "./persist.js";
+import { saveState, storageDiagnostics, storageError } from "./persist.js";
+import { showAlert } from "./dialog.js";
 import { loadMarkets } from "./main.js";
 import { revealTopbar } from "./layout.js";
 import { APP_VERSION, REFRESH_SEC } from "./constants.js";
 import { renderMcapMini } from "./mcap.js";
 import { skeletonRows } from "./skeleton.js";
+import { t, LANG } from "./i18n.js";
 
 document.getElementById("appVersion").textContent = APP_VERSION;
 
@@ -87,6 +89,41 @@ document.getElementById("currencyOpts").addEventListener("click", async (e)=>{
   renderPortfolio();
   saveState();
 });
+
+// ---------- 언어 ----------
+// 저장하고 새로 연다(i18n.js 맨 위 설명). 새로 열어도 설정 탭의 같은 자리로 돌아오게 잠깐 적어 둔다.
+const REOPEN_KEY = "cw_reopen_settings";
+
+document.getElementById("langOpts").addEventListener("click", (e)=>{
+  const opt = e.target.closest(".opt");
+  if(!opt || opt.dataset.lang === state.lang) return;
+  state.lang = opt.dataset.lang;
+  saveState();
+  // 저장이 막힌 환경(설정 › 저장 상태)에서는 새로 열면 원래 언어로 돌아온다 — 바뀐 척하지 않는다
+  if(storageError){
+    state.lang = LANG;
+    showAlert(t("이 환경에서는 설정이 저장되지 않아 언어를 바꿀 수 없어요.", "Settings can't be saved here, so the language can't be changed."));
+    return;
+  }
+  try{ sessionStorage.setItem(REOPEN_KEY, String(window.scrollY)); }catch(err){}
+  location.reload();
+});
+
+export function renderLangOpts(){
+  document.querySelectorAll("#langOpts .opt").forEach(o=> o.classList.toggle("active", o.dataset.lang === LANG));
+}
+
+// 언어를 바꾸느라 새로 열었으면 설정 탭으로 돌아간다 (main.js가 첫 화면을 그린 뒤 부른다)
+export function reopenSettingsAfterLangChange(){
+  let y = null;
+  try{
+    y = sessionStorage.getItem(REOPEN_KEY);
+    sessionStorage.removeItem(REOPEN_KEY);
+  }catch(err){}
+  if(y === null) return;
+  activateTab("settings");
+  window.scrollTo(0, Number(y) || 0);
+}
 
 // ---------- 글자 크기 ----------
 export function applyFontScale(){
@@ -186,22 +223,25 @@ export async function renderStorageDiag(){
   // 주소는 적지 않는다 — 홈 화면 웹앱으로 쓰는 화면이라 URL이 드러나면 안 된다.
   // 진단에 필요한 건 "저장이 되는가 / 보호되는가 / 보안 연결인가" 셋뿐이고 URL 없이 다 알 수 있다.
   if(location.protocol !== "https:" && location.hostname.indexOf(".") > 0){
-    lines.push(`<b>보안 연결이 아닙니다</b> — 이 상태로 저장한 설정은 보안 연결로 들어오면 보이지 않아요.`);
+    lines.push(t(`<b>보안 연결이 아닙니다</b> — 이 상태로 저장한 설정은 보안 연결로 들어오면 보이지 않아요.`,
+                 `<b>Not a secure connection</b> — settings saved now won't show up when you visit over a secure connection.`));
   }
 
   if(!d.writable){
     // 네이티브 앱(WebView) 안에서도 뜨는 문구라 "브라우저로 여세요" 같은 말은 쓰지 않는다.
     // 안드로이드 WebView는 DOM Storage가 기본으로 꺼져 있어서 여기에 걸린다.
-    lines.push(`<b>저장 안 됨</b> — 이 환경에서는 설정이 저장되지 않아, 다시 켜면 초기화됩니다.` +
+    lines.push(t(`<b>저장 안 됨</b> — 이 환경에서는 설정이 저장되지 않아, 다시 켜면 초기화됩니다.`,
+                 `<b>Not saving</b> — settings can't be saved here, so they reset when you reopen the app.`) +
                (d.error ? ` (${d.error})` : ""));
   }else if(persisted === true){
-    lines.push(`저장 <b>정상</b> · 이 기기에서 지워지지 않도록 보호됨`);
+    lines.push(t(`저장 <b>정상</b> · 이 기기에서 지워지지 않도록 보호됨`,
+                 `Saving <b>OK</b> · protected from being cleared on this device`));
   }else if(persisted === false){
-    lines.push(`저장 <b>정상</b> · 다만 <b>보호되지 않은 상태</b>라, 기기 저장공간이 부족하면` +
-               ` 이 데이터가 지워질 수 있어요.`);
+    lines.push(t(`저장 <b>정상</b> · 다만 <b>보호되지 않은 상태</b>라, 기기 저장공간이 부족하면 이 데이터가 지워질 수 있어요.`,
+                 `Saving <b>OK</b> · but <b>not protected</b>, so this data may be cleared if your device runs low on storage.`));
   }else{
     // persist API가 없는 환경(대표적으로 안드로이드 WebView) — 보호 여부를 알 수 없으니 단정하지 않는다
-    lines.push(`저장 <b>정상</b>`);
+    lines.push(t(`저장 <b>정상</b>`, `Saving <b>OK</b>`));
   }
 
   el.innerHTML = lines.join("<br>");

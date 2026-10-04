@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 // 환율 그래프(fxchart.js)와 코인 차트(coinchart.js)가 함께 쓰는 SVG 그래프 조각들.
 // 둘은 같은 자리(화면 하단 패널)에 번갈아 뜨므로 모양도 조작감도 같아야 한다.
 // 좌표 계산과 스크럽(손가락·커서로 훑어 값 읽기)을 여기 한 곳에 두고 양쪽이 가져다 쓴다.
@@ -17,10 +19,10 @@ export function medianGap(points){
 // 받아온 점에서 계산해 출처 줄에 적는다.
 export function fmtGap(sec){
   if(!(sec > 0)) return "";
-  if(sec < 3600) return Math.round(sec / 60) + "분";
-  if(sec < 86400) return Math.round(sec / 3600) + "시간";
-  if(sec < 86400 * 7) return Math.round(sec / 86400) + "일";
-  return Math.round(sec / (86400 * 7)) + "주";
+  if(sec < 3600) return Math.round(sec / 60) + t("분", "m");
+  if(sec < 86400) return Math.round(sec / 3600) + t("시간", "h");
+  if(sec < 86400 * 7) return Math.round(sec / 86400) + t("일", "d");
+  return Math.round(sec / (86400 * 7)) + t("주", "w");
 }
 
 // x좌표 배열에서 주어진 x에 가장 가까운 점의 순번. 점 간격이 고르지 않을 수 있어

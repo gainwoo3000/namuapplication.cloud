@@ -9,6 +9,7 @@ import { coinLogoHtml } from "./logo.js";
 import { selectCoin, closeChart } from "./chart.js";
 import { saveState } from "./persist.js";
 import { showAlert } from "./dialog.js";
+import { t } from "./i18n.js";
 
 // watchlist + allTickers(기본 시세)에 마지막으로 보강된 데이터(있다면)를 합쳐 coinsList를 구성
 // id 하나를 allTickers(기본 정보) + enrichedCache(있다면 최신 보강값)를 합쳐 조회
@@ -42,13 +43,13 @@ export function renderGrid(){
   }
   lastGridSignature = sig;
   const wrap = document.getElementById("gridWrap");
-  let html = `<div class="grid-row grid-head"><div>코인</div><div class="myx-head"><span>나의 거래소</span><span class="myx-head-sub">프리미엄</span></div><div style="text-align:right">시세 기준 거래소 <span class="col-help" id="priceHelpBtn" role="button" aria-label="가격 기준 안내">?</span></div><div style="text-align:right">1일 등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>${t("코인", "Coin")}</div><div class="myx-head"><span>${t("나의 거래소", "My exchanges")}</span><span class="myx-head-sub">${t("프리미엄", "Premium")}</span></div><div style="text-align:right">${t("시세 기준 거래소", "Price source")} <span class="col-help" id="priceHelpBtn" role="button" aria-label="${t("가격 기준 안내", "About the price source")}">?</span></div><div style="text-align:right">${t("1일 등락률", "24h change")}</div></div>`;
   if(state.coinsList.length === 0){
     // 목록이 비어 있는 이유가 둘이다 — 아직 안 불러왔거나(자리표시), 정말로 다 뺐거나(안내).
     // allTickers가 비었으면 아직 시세를 못 받은 것이다.
     html += state.allTickers.length === 0
       ? skeletonRows("ticker", 8)
-      : '<div class="loading">관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.</div>';
+      : '<div class="loading">' + t('관심 코인이 없습니다. "+ 코인 추가"로 보고 싶은 코인을 담아보세요.', 'Your watchlist is empty. Tap "+ Add coin" to add coins you want to follow.') + '</div>';
   }
   state.coinsList.slice(0, state.visibleCount).forEach(c=>{
     const chgCls = chgClass(c.price_change_percentage_24h);
@@ -57,7 +58,7 @@ export function renderGrid(){
     const myx = myExchangeValue(c);
     const myxText = myx.krw === null ? "-" : (myx.est ? "≈ " : "") + fmtDisplayMyx(myx.krw);
     const premText = myxPremiumText(c, myx);
-    const rankText = c.rank ? `${c.rank}위 · ` : "";
+    const rankText = c.rank ? t(`${c.rank}위 · `, `#${c.rank} · `) : "";
     html += `<div class="grid-row ${selCls} ${editCls}" data-id="${c.id}">
       ${state.editMode ? `<div class="row-del" data-del="${c.id}">✕</div>` : ""}
       <div class="coin-cell">${coinLogoHtml(c)}<div class="coin-text"><div class="coin-name">${c.name}</div><div class="coin-sym">${rankText}${c.symbol.toUpperCase()}</div></div></div>
@@ -86,7 +87,7 @@ export function renderGrid(){
   });
   const moreBtn = document.getElementById("moreBtn");
   moreBtn.style.display = state.visibleCount < state.coinsList.length ? "block":"none";
-  moreBtn.textContent = `10개 더 보기 (${Math.min(state.visibleCount, state.coinsList.length)}/${state.coinsList.length})`;
+  moreBtn.textContent = t("10개 더 보기", "Show 10 more") + ` (${Math.min(state.visibleCount, state.coinsList.length)}/${state.coinsList.length})`;
 }
 
 // 구조는 그대로 둔 채 각 행의 가격/등락률/나의거래소만 자릿수 단위로 굴려서 갱신
@@ -137,7 +138,7 @@ function updateGridValues(){
   });
   const moreBtn = document.getElementById("moreBtn");
   moreBtn.style.display = state.visibleCount < state.coinsList.length ? "block":"none";
-  moreBtn.textContent = `10개 더 보기 (${Math.min(state.visibleCount, state.coinsList.length)}/${state.coinsList.length})`;
+  moreBtn.textContent = t("10개 더 보기", "Show 10 more") + ` (${Math.min(state.visibleCount, state.coinsList.length)}/${state.coinsList.length})`;
 }
 
 document.getElementById("gridWrap").addEventListener("click", (e)=>{
@@ -234,7 +235,7 @@ function renderAddResults(query, extResults){
     // 순위 밖 검색이 아직 안 끝났으면 "없음"이라고 단정하지 않고 자리표시를 깐다
     box.innerHTML = addSearchPending === query
       ? skeletonResultRows(3, true)
-      : '<div class="add-empty">일치하는 코인이 없습니다.</div>';
+      : '<div class="add-empty">' + t("일치하는 코인이 없습니다.", "No matching coins.") + '</div>';
     return;
   }
   box.innerHTML = currentAddResults.map((entry, idx)=>{
@@ -242,10 +243,10 @@ function renderAddResults(query, extResults){
     const already = state.watchlist.includes(c.id);
     return `
     <div class="add-result-row" data-pick="${idx}" style="${already ? 'opacity:0.45;' : 'cursor:pointer;'}">
-      <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+      <div><span class="rank">${c.rank ? t(c.rank + "위", "#" + c.rank) : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
       ${already
-        ? '<span style="font-size:11px; color:var(--muted);">담김</span>'
-        : `<button class="add-plus" data-pick="${idx}">+ 담기</button>`}
+        ? `<span style="font-size:11px; color:var(--muted);">${t("담김", "Added")}</span>`
+        : `<button class="add-plus" data-pick="${idx}">${t("+ 담기", "+ Add")}</button>`}
     </div>`;
   }).join("");
   box.querySelectorAll("[data-pick]").forEach(el=>{
@@ -266,7 +267,7 @@ function pickAddResult(idx){
 export function addCoin(id){
   if(state.watchlist.includes(id)) return;
   if(state.watchlist.length >= 30){
-    showAlert("관심 코인은 최대 30개까지 담을 수 있어요.");
+    showAlert(t("관심 코인은 최대 30개까지 담을 수 있어요.", "You can add up to 30 coins to your watchlist."));
     return;
   }
   state.watchlist.push(id);

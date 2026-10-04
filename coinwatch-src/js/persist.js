@@ -1,9 +1,10 @@
 import { STORAGE_KEY, MAX_PORTFOLIOS } from "./constants.js";
 import { state } from "./state.js";
-import { renderExchangeOpts, applyFontScale } from "./settings.js";
+import { renderExchangeOpts, applyFontScale, renderLangOpts } from "./settings.js";
 import { renderPortfolioHeaderBtn, syncPfExCheckboxes, renderSortLabel, showPfSection } from "./portfolio.js";
 import { loadTrades, recomputeHoldings } from "./trades.js";
 import { cleanText, cleanSym, cleanId } from "./sanitize.js";
+import { t, LANGS } from "./i18n.js";
 
 // 마지막 저장이 실패했는지. 설정 탭의 "저장 상태"가 이 값을 읽어 보여준다.
 export let storageError = null;
@@ -47,6 +48,7 @@ const knownOnly = (arr, known) => Array.isArray(arr) ? [...new Set(arr.filter(x 
 // 저장하는 값 전체. 백업(backup.js)도 이것을 그대로 담는다 — 여기에 항목을 더하면 백업에도 들어간다.
 export function buildSavedState(){
   return {
+    lang: state.lang, // index.html <head>가 이 값을 읽어 언어를 정한다
     watchlist: state.watchlist,
     portfolios: state.portfolios,
     activePortfolioIdx: state.activePortfolioIdx,
@@ -100,23 +102,24 @@ export function loadState(){
       state.portfolios = saved.portfolios.filter(p => p && typeof p === "object").map(p=>{
         const ex = knownOnly(p.exchanges, MY_EXCHANGES);
         return {
-          name: cleanText(p.name, 20) || "포트폴리오",
+          name: cleanText(p.name, 20) || t("포트폴리오", "Portfolio"),
           trades: loadTrades(p),
           exchanges: ex.length ? ex : ["upbit"]
         };
       }).slice(0, MAX_PORTFOLIOS);
-      if(!state.portfolios.length) state.portfolios = [{ name:"포트폴리오 1", trades:[], exchanges:["upbit"] }];
+      if(!state.portfolios.length) state.portfolios = [{ name: t("포트폴리오 1", "Portfolio 1"), trades:[], exchanges:["upbit"] }];
       state.portfolios.forEach(recomputeHoldings);
       state.activePortfolioIdx = Number.isInteger(saved.activePortfolioIdx) && saved.activePortfolioIdx < state.portfolios.length
         ? saved.activePortfolioIdx : 0;
     }else if(Array.isArray(saved.portfolio)){
       // 구버전(단일 포트폴리오) 데이터 마이그레이션
-      state.portfolios = [{ name:"포트폴리오 1", trades: loadTrades({ holdings: saved.portfolio }), exchanges:["upbit"] }];
+      state.portfolios = [{ name: t("포트폴리오 1", "Portfolio 1"), trades: loadTrades({ holdings: saved.portfolio }), exchanges:["upbit"] }];
       recomputeHoldings(state.portfolios[0]);
       state.activePortfolioIdx = 0;
     }
     if(Array.isArray(saved.myExchanges)) state.myExchanges = new Set(knownOnly(saved.myExchanges, MY_EXCHANGES));
     if(Array.isArray(saved.intlExchangeFilter)) state.intlExchangeFilter = new Set(knownOnly(saved.intlExchangeFilter, INTL_EXCHANGES));
+    if(LANGS.includes(saved.lang)) state.lang = saved.lang;
     if(["usd","krw"].includes(saved.displayCurrency)) state.displayCurrency = saved.displayCurrency;
     if(FONT_SCALES.includes(saved.fontScale)) state.fontScale = saved.fontScale;
     if(["line","candle"].includes(saved.chartStyle)) state.chartStyle = saved.chartStyle;
@@ -148,6 +151,7 @@ export function loadState(){
 export function applyLoadedUIState(){
   document.querySelectorAll(".myx-check").forEach(cb=>{ cb.checked = state.myExchanges.has(cb.value); });
   renderExchangeOpts();
+  renderLangOpts();
   document.querySelectorAll("#currencyOpts .opt").forEach(o=>{
     o.classList.toggle("active", o.dataset.cur === state.displayCurrency);
   });

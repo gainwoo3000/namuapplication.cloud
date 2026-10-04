@@ -33,7 +33,30 @@
 <link rel="dns-prefetch" href="https://api.alternative.me">
 <!-- 배포 버전(설정 › 버전에 뜬다). 여기 값은 손대지 않는다 — npm run build가 빌드한 시각(KST)으로 바꿔 넣는다.
      빌드하지 않고 이 폴더를 그대로 열면(개발 중) "dev"로 보인다. -->
-<script>window.APP_VERSION = "v.260929.1712";</script>
+<script>window.APP_VERSION = "v.261004.1855";</script>
+<!-- 언어(설정 › 언어). 화면을 그리기 전에 정해야 한국어가 잠깐 비쳤다가 바뀌지 않는다 — 문구 교체는 js/i18n.js.
+     저장된 설정의 lang → 없으면 예전부터 쓰던 사람(저장된 설정이 있음)은 한국어, 처음 온 사람은 브라우저 언어.
+     영어면 문구를 다 바꿀 때까지 화면을 가려 둔다(JS가 실패해도 4초 뒤엔 걷는다). -->
+<style>html[data-i18n-pending] body{visibility:hidden;}</style>
+<script>
+  (function(){
+    var lang = null;
+    try{
+      var raw = localStorage.getItem("coinwatch_state_v1"); // constants.js STORAGE_KEY
+      if(raw){ var s = JSON.parse(raw); lang = s && (s.lang === "ko" || s.lang === "en") ? s.lang : "ko"; }
+    }catch(e){}
+    if(!lang){
+      var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+      lang = /^ko/i.test(nav) ? "ko" : "en";
+    }
+    window.APP_LANG = lang;
+    document.documentElement.lang = lang;
+    if(lang === "en"){
+      document.documentElement.setAttribute("data-i18n-pending", "");
+      setTimeout(function(){ document.documentElement.removeAttribute("data-i18n-pending"); }, 4000);
+    }
+  })();
+</script>
 <!-- 빌드하면 CSS와 JS가 각각 파일 하나로 합쳐지고, 주소에 내용 해시가 붙는다(assets/main-XXXX.js).
      코드가 바뀌면 주소도 바뀌므로 배포 직후 옛 캐시와 새 HTML이 섞일 일이 없다.
      아래 두 줄(stylesheet, 맨 끝 module script)은 scripts/build.mjs가 그 주소로 바꿔 쓴다 — 모양을 바꾸면 빌드 스크립트도 같이 고칠 것 -->
@@ -46,10 +69,10 @@
   <div class="topbar">
     <header>
       <!-- 제목 옆에 마지막 갱신 시각 -->
-      <h1>코인워치캡</h1>
-      <div class="sub" id="updatedAt">불러오는 중…</div>
+      <h1 data-en="CoinWatchCap">코인워치캡</h1>
+      <div class="sub" id="updatedAt" data-en="Loading…">불러오는 중…</div>
       <!-- 누르면 돌기만 한다. 시세는 15초마다 알아서 갱신되지만, 직접 눌러 보고 싶은 사람을 위한 버튼 -->
-      <button type="button" class="refresh-btn" id="refreshBtn" aria-label="새로고침">
+      <button type="button" class="refresh-btn" id="refreshBtn" aria-label="새로고침" data-en-aria="Refresh">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
       </button>
     </header>
@@ -63,15 +86,15 @@
      <div class="tk-track">
       <div class="tk-group" id="tkGroup">
       <button type="button" class="tk-item fx-mini-btn is-loading" id="fxMini" disabled
-              aria-label="원/달러 환율 추이 그래프 열기">
-        <span class="tk-label">환율</span>
+              aria-label="원/달러 환율 추이 그래프 열기" data-en-aria="Open USD/KRW exchange rate chart">
+        <span class="tk-label" data-en="USD/KRW">환율</span>
         <span class="tk-val" id="fxRate">-</span>
         <span class="tk-chg" id="fxChg"></span>
         <span class="sk mini-sk" aria-hidden="true"></span>
       </button>
       <span class="tk-sep" aria-hidden="true"></span>
       <div class="tk-item is-loading" id="fngMini">
-        <span class="tk-label">공포탐욕</span>
+        <span class="tk-label" data-en="Fear &amp; Greed">공포탐욕</span>
         <span class="tk-val" id="fngVal">-</span>
         <span class="tk-cls" id="fngClass">-</span>
         <span class="tk-chg" id="fngChg"></span>
@@ -79,7 +102,7 @@
       </div>
       <span class="tk-sep" aria-hidden="true"></span>
       <div class="tk-item is-loading" id="mcapMini">
-        <span class="tk-label">시총</span>
+        <span class="tk-label" data-en="Market Cap">시총</span>
         <span class="tk-val" id="mcapVal">-</span>
         <span class="tk-chg" id="mcapChg"></span>
         <span class="sk mini-sk" aria-hidden="true"></span>
@@ -89,10 +112,10 @@
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="market">시세</div>
-      <div class="tab" data-tab="ticker">관심 코인</div>
-      <div class="tab" data-tab="portfolio">포트폴리오</div>
-      <div class="tab" data-tab="settings">설정</div>
+      <div class="tab active" data-tab="market" data-en="Market">시세</div>
+      <div class="tab" data-tab="ticker" data-en="Watchlist">관심 코인</div>
+      <div class="tab" data-tab="portfolio" data-en="Portfolio">포트폴리오</div>
+      <div class="tab" data-tab="settings" data-en="Settings">설정</div>
     </div>
   </div>
 
@@ -100,7 +123,7 @@
     <!-- 시세 탭 (시총 순위 1~500위, 100위씩 페이지) -->
     <section class="view active" id="view-market">
       <div class="market-search">
-        <input type="text" id="marketSearch" placeholder="코인 검색" autocomplete="off">
+        <input type="text" id="marketSearch" placeholder="코인 검색" data-en-ph="Search coins" autocomplete="off">
       </div>
       <!-- 비워둔다: main.js가 뜨는 즉시 자리표시(스켈레톤)를 그린다.
            .is-boot은 그 전 한 프레임 동안 카드가 납작해지지 않게 높이만 잡아준다 -->
@@ -111,21 +134,21 @@
     <!-- 관심 코인 탭 -->
     <section class="view" id="view-ticker">
       <div class="watch-toolbar">
-        <button class="wt-btn" id="editModeBtn">코인 편집</button>
-        <button class="wt-btn" id="addCoinBtn">+ 코인 추가</button>
+        <button class="wt-btn" id="editModeBtn" data-en="Edit">코인 편집</button>
+        <button class="wt-btn" id="addCoinBtn" data-en="+ Add coin">+ 코인 추가</button>
       </div>
       <div class="add-panel" id="addCoinPanel" style="display:none;">
-        <input type="text" id="addCoinSearch" placeholder="코인 검색">
+        <input type="text" id="addCoinSearch" placeholder="코인 검색" data-en-ph="Search coins">
         <div id="addCoinResults"></div>
       </div>
       <div class="grid-container">
         <div class="grid-wrap is-boot" id="gridWrap"></div>
         <div class="pop-panel" id="priceHelpPop" style="display:none;">
-          <div class="desc" style="margin:0 0 8px;">이 열의 가격은 <b>설정 › 시세 기준 거래소</b>에서 고른 거래소 기준이에요. 여러 곳을 켜면 평균이 표시됩니다.</div>
-          <button class="wt-btn" id="priceHelpGoBtn">설정에서 바꾸기</button>
+          <div class="desc" style="margin:0 0 8px;" data-en="Prices in this column come from the exchanges chosen in <b>Settings › Price source exchanges</b>. If you turn on several, their average is shown.">이 열의 가격은 <b>설정 › 시세 기준 거래소</b>에서 고른 거래소 기준이에요. 여러 곳을 켜면 평균이 표시됩니다.</div>
+          <button class="wt-btn" id="priceHelpGoBtn" data-en="Change in Settings">설정에서 바꾸기</button>
         </div>
       </div>
-      <button class="more-btn" id="moreBtn" style="display:none;">10개 더 보기</button>
+      <button class="more-btn" id="moreBtn" style="display:none;" data-en="Show 10 more">10개 더 보기</button>
     </section>
 
     <!-- 포트폴리오 탭 -->
@@ -137,33 +160,33 @@
       </div>
       <!-- 거래 추가: 누르면 아래에서 거래 입력 창(#pfTradeSheet)이 올라온다. 보유 수량은 거래 합계로 계산된다 -->
       <div class="pf-trade-btns">
-        <button type="button" class="pf-trade-btn buy" data-side="buy">매수</button>
-        <button type="button" class="pf-trade-btn sell" data-side="sell">매도</button>
+        <button type="button" class="pf-trade-btn buy" data-side="buy" data-en="Buy">매수</button>
+        <button type="button" class="pf-trade-btn sell" data-side="sell" data-en="Sell">매도</button>
       </div>
       <div class="pf-summary">
-        <div class="label">포트폴리오 총 가치</div>
+        <div class="label" data-en="Total portfolio value">포트폴리오 총 가치</div>
         <div class="val" id="pfTotal">$0.00</div>
       </div>
       <div class="pf-sections" role="tablist">
-        <button type="button" class="pf-sec active" data-sec="holdings" role="tab">개요</button>
-        <button type="button" class="pf-sec" data-sec="trades" role="tab">거래</button>
+        <button type="button" class="pf-sec active" data-sec="holdings" role="tab" data-en="Overview">개요</button>
+        <button type="button" class="pf-sec" data-sec="trades" role="tab" data-en="Transactions">거래</button>
       </div>
       <div id="pfHoldingsSec">
         <!-- 개요: 자산(보유 코인 표) / 배분(코인별 비중 도넛 차트) -->
-        <div class="pf-views" role="group" aria-label="개요 보기">
-          <button type="button" class="pf-view active" data-view="assets">자산</button>
-          <button type="button" class="pf-view" data-view="alloc">배분</button>
+        <div class="pf-views" role="group" aria-label="개요 보기" data-en-aria="Overview view">
+          <button type="button" class="pf-view active" data-view="assets" data-en="Assets">자산</button>
+          <button type="button" class="pf-view" data-view="alloc" data-en="Allocation">배분</button>
         </div>
         <div id="pfAssetsView">
         <div class="pf-list-head">
-          <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기">보유 코인 <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
-          <button class="wt-btn pf-edit-btn" id="pfEditBtn">편집</button>
+          <span class="pf-sort" id="pfSortBtn" role="button" aria-label="보유 코인 정렬 바꾸기" data-en-aria="Change holdings sort order"><span data-en="Holdings">보유 코인</span> <span class="pf-sort-mode" id="pfSortMode">추가순</span></span>
+          <button class="wt-btn pf-edit-btn" id="pfEditBtn" data-en="Edit">편집</button>
         </div>
         <div class="grid-wrap portfolio" id="pfList">
           <div class="grid-row grid-head">
-            <div>코인</div><div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div>
+            <div data-en="Coin">코인</div><div style="text-align:right" data-en="Amount">보유 수량</div><div style="text-align:right" data-en="Value">평가 금액</div>
           </div>
-          <div class="empty">거래를 추가하면 보유 코인이 여기에 표시됩니다.</div>
+          <div class="empty" data-en="Add a transaction and your holdings will show up here.">거래를 추가하면 보유 코인이 여기에 표시됩니다.</div>
         </div>
         </div>
         <!-- 배분: alloc.js가 도넛(SVG)과 범례(코인·비중·금액)를 그린다 -->
@@ -178,83 +201,91 @@
         <div id="pfCoinCards"></div>
         <div id="pfTradeList"></div>
       </div>
-      <div class="desc">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다.</div>
+      <div class="desc" data-en="Saved automatically in this browser, so it stays when you come back.">이 브라우저에 자동으로 저장돼서 다시 열어도 유지됩니다.</div>
     </section>
 
     <!-- 설정 탭 -->
     <section class="view" id="view-settings">
+      <!-- 언어 고르기는 어느 언어로 보고 있든 찾을 수 있게 맨 위에, 제목은 두 언어로 -->
       <div class="setting-group">
-        <div class="setting-title">시세 기준 거래소</div>
+        <div class="setting-title">언어 · Language</div>
+        <div class="opt-row" id="langOpts">
+          <div class="opt" data-lang="ko">한국어</div>
+          <div class="opt" data-lang="en">English</div>
+        </div>
+      </div>
+      <div class="setting-group">
+        <div class="setting-title" data-en="Price source exchanges">시세 기준 거래소</div>
         <div class="opt-row" id="exchangeOpts">
-          <div class="opt active" data-ex="avg">평균 (5거래소)</div>
-          <div class="opt" data-ex="binance">바이낸스</div>
+          <div class="opt active" data-ex="avg" data-en="Average (5 exchanges)">평균 (5거래소)</div>
+          <div class="opt" data-ex="binance" data-en="Binance">바이낸스</div>
           <div class="opt" data-ex="okx">OKX</div>
-          <div class="opt" data-ex="bybit">바이빗</div>
-          <div class="opt" data-ex="coinbase">코인베이스</div>
-          <div class="opt" data-ex="kraken">크라켄</div>
+          <div class="opt" data-ex="bybit" data-en="Bybit">바이빗</div>
+          <div class="opt" data-ex="coinbase" data-en="Coinbase">코인베이스</div>
+          <div class="opt" data-ex="kraken" data-en="Kraken">크라켄</div>
         </div>
-        <div class="desc">시총 순위는 CoinGecko 기준입니다. "가격(USD)"에 반영할 거래소를 켜고 끌 수 있어요 — 2개만 켜면 그 2개로만 평균 내고, "평균"을 누르면 다시 5개 전체 평균으로 돌아가요.</div>
+        <div class="desc" data-en="Market cap rankings come from CoinGecko. Choose which exchanges feed the &quot;Price (USD)&quot; column — turn on just two and only those two are averaged; tap &quot;Average&quot; to go back to all five.">시총 순위는 CoinGecko 기준입니다. "가격(USD)"에 반영할 거래소를 켜고 끌 수 있어요 — 2개만 켜면 그 2개로만 평균 내고, "평균"을 누르면 다시 5개 전체 평균으로 돌아가요.</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">나의 거래소 (프리미엄 계산 기준)</div>
+        <div class="setting-title" data-en="My exchanges (for the premium)">나의 거래소 (프리미엄 계산 기준)</div>
         <div class="myx-opt-list">
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> 업비트</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> 빗썸</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinone"> 코인원</label>
-          <div class="myx-divider">해외 거래소 (실시간 환율로 원화 환산)</div>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> 바이낸스</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="upbit" checked> <span data-en="Upbit">업비트</span></label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bithumb" checked> <span data-en="Bithumb">빗썸</span></label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinone"> <span data-en="Coinone">코인원</span></label>
+          <div class="myx-divider" data-en="Global exchanges (converted to KRW at the live rate)">해외 거래소 (실시간 환율로 원화 환산)</div>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="binance"> <span data-en="Binance">바이낸스</span></label>
           <label class="myx-opt"><input type="checkbox" class="myx-check" value="okx"> OKX</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> 바이빗</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> 코인베이스</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> 크라켄</label>
-          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bitflyer"> 비트플라이어 (일본)</label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bybit"> <span data-en="Bybit">바이빗</span></label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="coinbase"> <span data-en="Coinbase">코인베이스</span></label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="kraken"> <span data-en="Kraken">크라켄</span></label>
+          <label class="myx-opt"><input type="checkbox" class="myx-check" value="bitflyer"> <span data-en="bitFlyer (Japan)">비트플라이어 (일본)</span></label>
         </div>
-        <div class="desc">관심 코인 탭의 "나의 거래소" 가격과 프리미엄(김프)을 계산할 거래소예요. 2개 이상 고르면 평균이 표시됩니다.</div>
+        <div class="desc" data-en="Exchanges used for the &quot;My exchanges&quot; price and premium on the Watchlist tab. Pick two or more and their average is shown.">관심 코인 탭의 "나의 거래소" 가격과 프리미엄(김프)을 계산할 거래소예요. 2개 이상 고르면 평균이 표시됩니다.</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">표시 통화</div>
+        <div class="setting-title" data-en="Display currency">표시 통화</div>
         <div class="opt-row" id="currencyOpts">
-          <div class="opt active" data-cur="usd">달러 ($)</div>
-          <div class="opt" data-cur="krw">원화 (₩)</div>
+          <div class="opt active" data-cur="usd" data-en="US dollar ($)">달러 ($)</div>
+          <div class="opt" data-cur="krw" data-en="Korean won (₩)">원화 (₩)</div>
         </div>
-        <div class="desc">"나의 거래소"와 "가격" 컬럼을 어떤 통화로 볼지 골라주세요. 실시간 환율로 자동 환산됩니다.</div>
+        <div class="desc" data-en="Choose the currency for the &quot;My exchanges&quot; and &quot;Price&quot; columns. Converted automatically at the live exchange rate.">"나의 거래소"와 "가격" 컬럼을 어떤 통화로 볼지 골라주세요. 실시간 환율로 자동 환산됩니다.</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">글자 크기</div>
+        <div class="setting-title" data-en="Text size">글자 크기</div>
         <div class="opt-row" id="fontOpts">
-          <div class="opt active" data-fs="1">기본</div>
-          <div class="opt" data-fs="1.12">크게</div>
-          <div class="opt" data-fs="1.24">더 크게</div>
+          <div class="opt active" data-fs="1" data-en="Default">기본</div>
+          <div class="opt" data-fs="1.12" data-en="Large">크게</div>
+          <div class="opt" data-fs="1.24" data-en="Larger">더 크게</div>
         </div>
-        <div class="desc">휴대폰에서 숫자가 작아 보이면 키워주세요. 가격 칸 너비도 같이 늘어나서 숫자가 잘리지 않아요.</div>
+        <div class="desc" data-en="Make it bigger if numbers look small on your phone. Price columns widen too, so numbers don't get cut off.">휴대폰에서 숫자가 작아 보이면 키워주세요. 가격 칸 너비도 같이 늘어나서 숫자가 잘리지 않아요.</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">저장 상태</div>
-        <div class="desc" id="storageDiag" style="margin-top:0;">확인 중…</div>
+        <div class="setting-title" data-en="Storage">저장 상태</div>
+        <div class="desc" id="storageDiag" style="margin-top:0;" data-en="Checking…">확인 중…</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">백업</div>
+        <div class="setting-title" data-en="Backup">백업</div>
         <div class="backup-btns">
-          <button type="button" class="wt-btn" id="backupExportBtn">백업하기</button>
-          <button type="button" class="wt-btn" id="backupImportBtn">불러오기</button>
+          <button type="button" class="wt-btn" id="backupExportBtn" data-en="Back up">백업하기</button>
+          <button type="button" class="wt-btn" id="backupImportBtn" data-en="Restore">불러오기</button>
         </div>
-        <div class="desc">관심 코인, 포트폴리오(거래 기록), 설정을 백업 코드 하나로 만들어요. 기기를 바꾸거나 앱을 지우기 전에 백업해 두면 그대로 되살릴 수 있어요. 코드는 이 기기에서만 만들어지고 어디에도 전송되지 않아요.</div>
+        <div class="desc" data-en="Bundles your watchlist, portfolios (transactions) and settings into a single backup code. Back up before switching devices or deleting the app and you can restore everything as it was. The code is created on this device only and never sent anywhere.">관심 코인, 포트폴리오(거래 기록), 설정을 백업 코드 하나로 만들어요. 기기를 바꾸거나 앱을 지우기 전에 백업해 두면 그대로 되살릴 수 있어요. 코드는 이 기기에서만 만들어지고 어디에도 전송되지 않아요.</div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">테마</div>
+        <div class="setting-title" data-en="Theme">테마</div>
         <div class="opt-row" id="themeOpts">
-          <div class="opt active" data-theme="dark">다크</div>
-          <div class="opt" data-theme="light">라이트</div>
+          <div class="opt active" data-theme="dark" data-en="Dark">다크</div>
+          <div class="opt" data-theme="light" data-en="Light">라이트</div>
         </div>
       </div>
       <div class="setting-group">
-        <div class="setting-title">버전</div>
+        <div class="setting-title" data-en="Version">버전</div>
         <div class="app-version" id="appVersion">-</div>
       </div>
     </section>
   </main>
 
-  <footer class="app-footer">
+  <footer class="app-footer" data-en="※ CoinWatchCap shows market prices and is not an exchange. Prices are for reference only and are not investment advice or a recommendation. Data may be delayed and may differ from actual market data.">
     ※ 코인워치캡은 시세 정보를 보여주는 앱이며, 거래소가 아닙니다. 제공되는 가격 정보는
     투자 판단의 참고용일 뿐 투자 권유나 자문이 아닙니다. 또한 제공되는 데이터는 실시간이
     아닐 수 있으며, 실제 데이터와 차이가 있을 수 있습니다.
@@ -264,7 +295,7 @@
 
 <!-- 맨 위로 버튼. 목록을 한 화면 넘게 내리면 오른쪽 아래에 나타난다 (layout.js).
      .app 바깥에 두는 이유는 아래 차트 패널과 같다 — .app에 transform이 걸리면 fixed 위치가 틀어진다 -->
-<button type="button" class="to-top" id="toTopBtn" aria-label="맨 위로" tabindex="-1">
+<button type="button" class="to-top" id="toTopBtn" aria-label="맨 위로" data-en-aria="Back to top" tabindex="-1">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
 </button>
 
@@ -274,7 +305,7 @@
 <div class="chart-panel" id="fxPanel" style="display:none;">
   <div class="chart-head">
     <div>
-      <div class="name">원/달러 환율</div>
+      <div class="name" data-en="USD/KRW exchange rate">원/달러 환율</div>
       <div class="panel-sub" id="fxChartSub"></div>
     </div>
     <div style="text-align:right; display:flex; align-items:flex-start; gap:8px;">
@@ -292,7 +323,7 @@
 <div class="coin-page" id="chartPanel" aria-hidden="true">
  <div class="coin-page-inner">
   <div class="coin-page-bar">
-    <button type="button" class="coin-back" id="chartCloseBtn" aria-label="뒤로">
+    <button type="button" class="coin-back" id="chartCloseBtn" aria-label="뒤로" data-en-aria="Back">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
     <div class="coin-page-title">
@@ -302,7 +333,7 @@
     <!-- 거래소로 가기: 누르면 말풍선에 거래소 목록, 고르면 새 탭으로 (레퍼럴 코드는 constants.js REFERRAL) -->
     <div class="ex-link-wrap">
       <button type="button" class="ex-link-btn" id="exLinkBtn" aria-haspopup="true" aria-expanded="false">
-        거래소<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 8.5l5-5M4.5 3.5h4v4"/></svg>
+        <span data-en="Trade">거래소</span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 8.5l5-5M4.5 3.5h4v4"/></svg>
       </button>
       <div class="ex-pop" id="exPop" hidden></div>
     </div>
@@ -315,14 +346,14 @@
       <div class="opt-row range-row" id="coinRangeOpts"></div>
       <div class="chart-tools-r">
         <!-- 확대해서 보고 있을 때만 나타난다 -->
-        <button class="detail-btn zoom-reset" id="coinZoomReset" hidden>전체</button>
+        <button class="detail-btn zoom-reset" id="coinZoomReset" hidden data-en="Reset">전체</button>
         <!-- 라인 / 캔들 (coinchart.js가 아이콘까지 만든다) -->
         <!-- 거래량 막대 켜기/끄기 -->
-        <button class="detail-btn vol-btn" id="coinVolBtn" aria-pressed="true">거래량</button>
+        <button class="detail-btn vol-btn" id="coinVolBtn" aria-pressed="true" data-en="Volume">거래량</button>
         <!-- 이동평균선(5·20·60·120) 켜기/끄기 -->
-        <button class="detail-btn vol-btn" id="coinMaBtn" aria-pressed="true">이평</button>
+        <button class="detail-btn vol-btn" id="coinMaBtn" aria-pressed="true" data-en="MA">이평</button>
         <div class="style-toggle" id="coinStyleToggle"></div>
-        <button class="detail-btn" id="tvOpenBtn">상세 ▸</button>
+        <button class="detail-btn" id="tvOpenBtn" data-en="Advanced ▸">상세 ▸</button>
       </div>
     </div>
     <div class="coin-graph" id="coinGraph"></div>
@@ -332,7 +363,7 @@
 
   <!-- 지표·드로잉툴이 필요할 때만 여는 트레이딩뷰 -->
   <div id="tvChartView" hidden>
-    <button class="detail-btn back" id="tvBackBtn">◂ 돌아가기</button>
+    <button class="detail-btn back" id="tvBackBtn" data-en="◂ Back">◂ 돌아가기</button>
     <div id="tvChartWrap">
       <div id="tvChartContainer"></div>
       <!-- 위젯이 뜨기 전까지 그 자리를 덮는 자리표시 (chart.js가 껐다 켠다) -->
@@ -345,20 +376,20 @@
   <!-- 차트 아래 요약 카드 (chart.js renderCoinStats) -->
   <div class="coin-stats">
     <div class="stat-card">
-      <div class="stat-label">시가총액</div>
+      <div class="stat-label" data-en="Market cap">시가총액</div>
       <div class="stat-value" id="statMcap">-</div>
       <div class="stat-sub" id="statMcapSub"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">1일 등락률</div>
+      <div class="stat-label" data-en="24h change">1일 등락률</div>
       <div class="stat-value" id="stat1d">-</div>
       <!-- 표의 등락률 아래와 같은 막대: 왼쪽 끝 24시간 최저 ~ 오른쪽 끝 최고, 점 = 현재가 -->
       <span class="range-bar is-empty" id="stat1dBar"><span class="range-dot"></span></span>
       <div class="range-ends"><span id="stat1dLo"></span><span id="stat1dHi"></span></div>
-      <div class="stat-sub">24시간 최저 ~ 최고</div>
+      <div class="stat-sub" data-en="24h low ~ high">24시간 최저 ~ 최고</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">52주 등락률</div>
+      <div class="stat-label" data-en="52-week change">52주 등락률</div>
       <div class="stat-value" id="stat52w">-</div>
       <span class="range-bar is-empty" id="stat52wBar"><span class="range-dot"></span></span>
       <div class="range-ends"><span id="stat52wLo"></span><span id="stat52wHi"></span></div>
@@ -369,31 +400,31 @@
   <!-- 이 코인의 공포·탐욕과 기간별 기술적 지표 요약 (signals.js) -->
   <div class="coin-signals">
     <div class="stat-card">
-      <div class="stat-label">공포·탐욕 <span class="stat-label-sub">이 코인</span></div>
+      <div class="stat-label"><span data-en="Fear &amp; Greed">공포·탐욕</span> <span class="stat-label-sub" data-en="this coin">이 코인</span></div>
       <div class="cfg-row"><span class="stat-value" id="cfgVal">-</span><span class="cfg-label" id="cfgLabel"></span></div>
       <span class="fg-bar is-empty" id="cfgBar"><span class="range-dot"></span></span>
-      <div class="range-ends"><span>공포</span><span>탐욕</span></div>
+      <div class="range-ends"><span data-en="Fear">공포</span><span data-en="Greed">탐욕</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">기술적 지표 요약</div>
+      <div class="stat-label" data-en="Technical summary">기술적 지표 요약</div>
       <div class="sig-row">
-        <span class="sig-tf">단기<small>1시간봉</small></span>
+        <span class="sig-tf" data-en="Short<small>1h candles</small>">단기<small>1시간봉</small></span>
         <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-short"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-short"></span></span>
         <span class="sig-rating" id="sig-short">…</span>
       </div>
       <div class="sig-row">
-        <span class="sig-tf">중기<small>1일봉</small></span>
+        <span class="sig-tf" data-en="Mid<small>1D candles</small>">중기<small>1일봉</small></span>
         <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-mid"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-mid"></span></span>
         <span class="sig-rating" id="sig-mid">…</span>
       </div>
       <div class="sig-row">
-        <span class="sig-tf">장기<small>1주봉</small></span>
+        <span class="sig-tf" data-en="Long<small>1W candles</small>">장기<small>1주봉</small></span>
         <span class="sig-meter"><span class="sig-bar is-empty" id="sigb-long"><span class="range-dot"></span></span><span class="sig-counts" id="sigc-long"></span></span>
         <span class="sig-rating" id="sig-long">…</span>
       </div>
     </div>
   </div>
-  <div class="sig-note">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
+  <div class="sig-note" data-en="Reference values calculated mechanically from exchange candles (moving averages, RSI, MACD, etc.). Not investment advice or a recommendation.">이동평균·RSI·MACD 등을 거래소 캔들로 기계적으로 계산한 참고값이며, 투자 권유나 조언이 아닙니다.</div>
  </div>
 </div>
 <!-- 포트폴리오 가격 기준 거래소. 툴바의 거래소 버튼을 누르면 아래에서 올라온다 (portfolio.js) -->
@@ -401,26 +432,26 @@
   <div class="sheet ex-sheet" role="dialog" aria-modal="true" aria-labelledby="pfExTitle">
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="ts-head">
-      <div class="ts-title" id="pfExTitle">가격 기준 거래소</div>
-      <button type="button" class="ts-close" data-close aria-label="닫기">✕</button>
+      <div class="ts-title" id="pfExTitle" data-en="Price source exchanges">가격 기준 거래소</div>
+      <button type="button" class="ts-close" data-close aria-label="닫기" data-en-aria="Close">✕</button>
     </div>
-    <div class="ex-desc">이 포트폴리오의 평가 금액을 어느 거래소 시세로 볼지 골라주세요. 2곳 이상 고르면 평균으로 계산해요.</div>
-    <div class="ex-group-title">국내</div>
+    <div class="ex-desc" data-en="Choose which exchange prices to value this portfolio with. Pick two or more and their average is used.">이 포트폴리오의 평가 금액을 어느 거래소 시세로 볼지 골라주세요. 2곳 이상 고르면 평균으로 계산해요.</div>
+    <div class="ex-group-title" data-en="Korea">국내</div>
     <div class="ex-grid">
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="upbit"><span class="ex-tile-body"><span class="ex-tile-name">업비트</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bithumb"><span class="ex-tile-body"><span class="ex-tile-name">빗썸</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinone"><span class="ex-tile-body"><span class="ex-tile-name">코인원</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="upbit"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Upbit">업비트</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bithumb"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Bithumb">빗썸</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinone"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Coinone">코인원</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
     </div>
-    <div class="ex-group-title">해외 <span>실시간 환율로 원화 환산</span></div>
+    <div class="ex-group-title" data-en="Global <span>converted to KRW at the live rate</span>">해외 <span>실시간 환율로 원화 환산</span></div>
     <div class="ex-grid">
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="binance"><span class="ex-tile-body"><span class="ex-tile-name">바이낸스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="binance"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Binance">바이낸스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
           <label class="ex-tile"><input type="checkbox" class="pfex-check" value="okx"><span class="ex-tile-body"><span class="ex-tile-name">OKX</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bybit"><span class="ex-tile-body"><span class="ex-tile-name">바이빗</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinbase"><span class="ex-tile-body"><span class="ex-tile-name">코인베이스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="kraken"><span class="ex-tile-body"><span class="ex-tile-name">크라켄</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
-          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bitflyer"><span class="ex-tile-body"><span class="ex-tile-name">비트플라이어</span><span class="ex-tile-sub">일본</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bybit"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Bybit">바이빗</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="coinbase"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Coinbase">코인베이스</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="kraken"><span class="ex-tile-body"><span class="ex-tile-name" data-en="Kraken">크라켄</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
+          <label class="ex-tile"><input type="checkbox" class="pfex-check" value="bitflyer"><span class="ex-tile-body"><span class="ex-tile-name" data-en="bitFlyer">비트플라이어</span><span class="ex-tile-sub" data-en="Japan">일본</span><span class="ex-tile-check" aria-hidden="true"></span></span></label>
     </div>
-    <button type="button" class="ts-submit ex-done" data-close>완료</button>
+    <button type="button" class="ts-submit ex-done" data-close data-en="Done">완료</button>
   </div>
 </div>
 <!-- 설정 › 백업하기 / 불러오기. 같은 창을 두 가지로 쓴다 (backup.js) -->
@@ -428,19 +459,19 @@
   <div class="sheet trade-sheet backup-sheet" role="dialog" aria-modal="true" aria-labelledby="backupTitle">
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="ts-head">
-      <div class="ts-title" id="backupTitle">백업하기</div>
-      <button type="button" class="ts-close" data-close aria-label="닫기">✕</button>
+      <div class="ts-title" id="backupTitle" data-en="Back up">백업하기</div>
+      <button type="button" class="ts-close" data-close aria-label="닫기" data-en-aria="Close">✕</button>
     </div>
     <div class="ex-desc backup-desc" id="backupDesc"></div>
-    <textarea class="backup-text" id="backupText" rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="백업 코드"></textarea>
+    <textarea class="backup-text" id="backupText" rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="백업 코드" data-en-aria="Backup code"></textarea>
     <div class="backup-hint" id="backupHint" aria-live="polite"></div>
     <div class="backup-acts" id="backupExportActs">
-      <button type="button" class="ts-submit ex-done" id="backupCopyBtn">코드 복사</button>
-      <button type="button" class="wt-btn" id="backupFileBtn">파일로 저장</button>
+      <button type="button" class="ts-submit ex-done" id="backupCopyBtn" data-en="Copy code">코드 복사</button>
+      <button type="button" class="wt-btn" id="backupFileBtn" data-en="Save as file">파일로 저장</button>
     </div>
     <div class="backup-acts" id="backupImportActs" hidden>
-      <button type="button" class="ts-submit ex-done" id="backupRestoreBtn">불러오기</button>
-      <button type="button" class="wt-btn" id="backupPickBtn">파일에서 고르기</button>
+      <button type="button" class="ts-submit ex-done" id="backupRestoreBtn" data-en="Restore">불러오기</button>
+      <button type="button" class="wt-btn" id="backupPickBtn" data-en="Choose file">파일에서 고르기</button>
       <input type="file" id="backupFileInput" accept=".json,.txt,application/json,text/plain" hidden>
     </div>
   </div>
@@ -450,45 +481,45 @@
   <div class="sheet trade-sheet" role="dialog" aria-modal="true" aria-labelledby="pfTradeTitle">
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="ts-head">
-      <div class="ts-title" id="pfTradeTitle">매수</div>
-      <button type="button" class="ts-close" id="pfTradeClose" aria-label="닫기">✕</button>
+      <div class="ts-title" id="pfTradeTitle" data-en="Buy">매수</div>
+      <button type="button" class="ts-close" id="pfTradeClose" aria-label="닫기" data-en-aria="Close">✕</button>
     </div>
     <!-- 검색하는 동안(.searching)에는 이 칸만 남기고 창을 키보드 위 보이는 영역에 꽉 채운다 -->
     <div class="ts-field ts-search-field">
-      <label class="ts-label" for="pfCoinSearch">코인</label>
+      <label class="ts-label" for="pfCoinSearch" data-en="Coin">코인</label>
       <div class="pf-pick-wrap">
         <div class="ts-search-row">
-          <input type="text" id="pfCoinSearch" placeholder="코인 검색" autocomplete="off">
-          <button type="button" class="ts-search-cancel" id="pfSearchCancel">취소</button>
+          <input type="text" id="pfCoinSearch" placeholder="코인 검색" data-en-ph="Search coins" autocomplete="off">
+          <button type="button" class="ts-search-cancel" id="pfSearchCancel" data-en="Cancel">취소</button>
         </div>
         <div id="pfCoinResults" class="pf-coin-results" style="display:none;"></div>
       </div>
     </div>
     <div class="ts-field">
       <!-- ⇅: 수량 대신 금액(표시 통화)으로 입력. 금액 ÷ 단가 = 수량 -->
-      <label class="ts-label" for="pfAmount" id="pfAmountLabel">수량</label>
+      <label class="ts-label" for="pfAmount" id="pfAmountLabel" data-en="Amount">수량</label>
       <div class="ts-amt-row">
         <div class="ts-input-wrap">
           <input type="number" id="pfAmount" placeholder="0" step="any" min="0" inputmode="decimal">
-          <span class="ts-unit" id="pfAmountUnit">개</span>
+          <span class="ts-unit" id="pfAmountUnit" data-en="">개</span>
         </div>
-        <button type="button" class="ts-swap" id="pfAmtToggle" aria-label="금액으로 입력하기">⇅</button>
+        <button type="button" class="ts-swap" id="pfAmtToggle" aria-label="금액으로 입력하기" data-en-aria="Enter by total">⇅</button>
       </div>
       <div class="ts-hint" id="pfAmtHint"></div>
     </div>
     <div class="ts-row">
       <div class="ts-field">
-        <label class="ts-label" for="pfPrice" id="pfPriceLabel">단가 ($) <span class="ts-opt">(선택)</span></label>
+        <label class="ts-label" for="pfPrice" id="pfPriceLabel" data-en="Price ($) <span class=&quot;ts-opt&quot;>(optional)</span>">단가 ($) <span class="ts-opt">(선택)</span></label>
         <input type="number" id="pfPrice" step="any" min="0" inputmode="decimal">
       </div>
       <div class="ts-field ts-date">
-        <label class="ts-label" for="pfDate">날짜</label>
+        <label class="ts-label" for="pfDate" data-en="Date">날짜</label>
         <input type="date" id="pfDate">
       </div>
     </div>
-    <button type="button" class="ts-submit buy" id="pfAddBtn">매수 추가</button>
+    <button type="button" class="ts-submit buy" id="pfAddBtn" data-en="Add buy">매수 추가</button>
   </div>
 </div>
-<script type="module" src="assets/main-XF74M6XS.js"></script>
+<script type="module" src="assets/main-HM6BX7MV.js"></script>
 </body>
 </html>

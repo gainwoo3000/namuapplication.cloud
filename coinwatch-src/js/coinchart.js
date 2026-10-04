@@ -12,6 +12,7 @@ import { prevValues, rollNumberByKey, flashOnChange } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
 import { medianGap, fmtGap, niceTicks, crossMarkup, bindScrub, bindZoomPan, smaSeries } from "./graph.js";
 import { saveState } from "./persist.js";
+import { t, IS_EN, compactEn } from "./i18n.js";
 
 let coin = null;                 // 지금 그려져 있는 코인
 const cache = {};                // "<코인id>:<기간>" -> fetchCoinCandles 결과
@@ -130,10 +131,10 @@ function renderStyleToggle(){
   const box = document.getElementById("coinStyleToggle");
   if(!box.childElementCount){
     box.innerHTML =
-      `<button class="st-btn" data-style="line" aria-label="라인 차트">
+      `<button class="st-btn" data-style="line" aria-label="${t("라인 차트", "Line chart")}">
          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 12l4-5 3 3 3-6 4 4"/></svg>
        </button>
-       <button class="st-btn" data-style="candle" aria-label="캔들 차트">
+       <button class="st-btn" data-style="candle" aria-label="${t("캔들 차트", "Candlestick chart")}">
          <svg viewBox="0 0 16 16" aria-hidden="true">
            <path d="M5 2v12M11 2v12"/><rect x="3" y="5" width="4" height="6"/><rect x="9" y="4" width="4" height="7"/>
          </svg>
@@ -187,7 +188,8 @@ async function loadAndDraw(quiet){
   if(seq !== loadSeq || !coin || asked !== key()) return; // 그 사이 코인·기간이 바뀌었으면 버린다
   if(!res){
     // 배경 갱신이 실패했을 뿐이면 화면에 떠 있는 차트를 지우지 않는다
-    if(!quiet) message("이 코인의 차트를 불러오지 못했습니다.<br>거래소에 상장되지 않았거나 기간 데이터가 없을 수 있어요.");
+    if(!quiet) message(t("이 코인의 차트를 불러오지 못했습니다.<br>거래소에 상장되지 않았거나 기간 데이터가 없을 수 있어요.",
+      "Couldn't load a chart for this coin.<br>It may not be listed on an exchange, or there's no data for this period."));
     return;
   }
   res.at = Date.now();
@@ -473,7 +475,7 @@ function draw(res){
 
   box.innerHTML = `
     <svg class="g-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
-         aria-label="${coin.name} 시세 차트">
+         aria-label="${t(coin.name + " 시세 차트", coin.name + " price chart")}">
       <defs>
         <linearGradient id="ccGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>
@@ -512,7 +514,7 @@ function draw(res){
 
   // 거래량을 켜 두면 툴팁 날짜 옆에 그 봉의 거래량도 적는다
   const sym = coin.symbol.toUpperCase();
-  const volText = p => withVol && p.v > 0 ? `  거래량 ${fmtVol(p.v)} ${sym}` : "";
+  const volText = p => withVol && p.v > 0 ? `  ${t("거래량", "Vol")} ${fmtVol(p.v)} ${sym}` : "";
   geom = { points: pts, xs, ys, W, H, padL, padT, iw, ih, tipY: candle ? 12 : null };
   scrubCtl = bindScrub(svg, () => geom,
     // 캔들이면 가격은 아래 정보 줄에 있으니 툴팁엔 날짜만
@@ -602,6 +604,11 @@ function volumeMarkup(pts, vis, xs, padL, y0, iw, volH, slot, candle){
 
 // 거래량 표기. 코인 개수라 1억 개가 넘는 밈코인부터 0.01개 단위 비트코인까지 폭이 넓다.
 function fmtVol(v){
+  // 영어: 12.3K · 123K · 4.5M · 678M — 앞자리가 세 자리면 소수는 뺀다
+  if(IS_EN && v >= 1e4){
+    const lead = v >= 1e9 ? v / 1e9 : v >= 1e6 ? v / 1e6 : v / 1e3;
+    return compactEn(v, lead >= 100 ? 0 : 1);
+  }
   if(v >= 1e8) return (v / 1e8).toFixed(v >= 1e9 ? 0 : 1) + "억";
   if(v >= 1e4) return (v / 1e4).toFixed(v >= 1e5 ? 0 : 1) + "만";
   if(v >= 100) return Math.round(v).toLocaleString();
@@ -610,7 +617,7 @@ function fmtVol(v){
 
 // ---------- 캔들 정보 줄 (최고·최저 / 시작·마지막) ----------
 const OHLC_BAND_H = 50;          // 캔들 모드의 위쪽 여백: 날짜 툴팁 한 줄 + 정보 두 줄
-const OHLC_ITEMS = [["h", "최고"], ["l", "최저"], ["o", "시작"], ["c", "마지막"]];
+const OHLC_ITEMS = [["h", t("최고", "High")], ["l", t("최저", "Low")], ["o", t("시작", "Open")], ["c", t("마지막", "Close")]];
 
 // 자리만 만들어 둔다 — 값은 fillOhlc가 채운다(십자선이 움직일 때마다 SVG를 다시 그리지 않게)
 function ohlcMarkup(padL, W){
@@ -620,10 +627,10 @@ function ohlcMarkup(padL, W){
   ).join("");
 }
 
-// "최고 113,950,000원 (+0.15%)" — 원화는 ₩ 대신 뒤에 "원". %만 오르내림 색.
+// "최고 113,950,000원 (+0.15%)" — 원화는 ₩ 대신 뒤에 "원"(영어 화면은 ₩ 그대로). %만 오르내림 색.
 function fillOhlc(svg, p, base, cur){
   if(!svg) return;
-  const money = v => cur === "KRW" ? fmtCur(v, cur).replace("₩", "") + "원" : fmtCur(v, cur);
+  const money = v => cur === "KRW" && !IS_EN ? fmtCur(v, cur).replace("₩", "") + "원" : fmtCur(v, cur);
   for(const [k, name] of OHLC_ITEMS){
     const el = svg.querySelector(`.cc-ohlc-item[data-k="${k}"]`);
     if(!el) continue;
@@ -676,13 +683,14 @@ function renderSrcNote(res, all, vis, cur){
   const gap = fmtGap(medianGap(all));
   const src = CANDLE_SOURCE_LABEL[res.source] || res.source;
   // 받아온 통화와 보여주는 통화가 다르면(환율 환산) 그 사실을 밝힌다
-  const converted = (res.quote === "USD") !== (cur === "USD") ? " · 환율 환산" : "";
-  const count = view ? `${vis.length}/${all.length}개` : `${all.length}개`;
+  const converted = (res.quote === "USD") !== (cur === "USD") ? t(" · 환율 환산", " · FX converted") : "";
+  const count = view ? t(`${vis.length}/${all.length}개`, `${vis.length}/${all.length} candles`) : t(`${all.length}개`, `${all.length} candles`);
   // 페어 표기: 국내는 원화, 크라켄은 달러, 나머지 해외는 테더 페어
   const pairQuote = res.quote === "KRW" ? "/KRW" : res.source === "kraken" ? "/USD" : "/USDT";
   document.getElementById("chartSrcNote").textContent =
     `${src} ${coin.symbol.toUpperCase()}${pairQuote}${converted}` +
-    ` · ${gap} 간격 · ${count} · ${last.live ? "현재가" : "최종"} ${stamp} 기준`;
+    t(` · ${gap} 간격 · ${count} · ${last.live ? "현재가" : "최종"} ${stamp} 기준`,
+      ` · ${gap} interval · ${count} · ${last.live ? "live as of" : "last"} ${stamp}`);
 }
 
 // ---------- 다시 그리기 ----------

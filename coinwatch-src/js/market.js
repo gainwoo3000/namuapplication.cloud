@@ -8,6 +8,7 @@ import { selectCoin } from "./chart.js";
 import { searchExternalCoins, matchesLocalQuery } from "./search.js";
 import { rangeBarHtml, syncRangeBar } from "./rangebar.js";
 import { coinLogoHtml } from "./logo.js";
+import { t } from "./i18n.js";
 
 // ---------- 시세 탭 (시총 순위 + 페이지 + 검색) ----------
 let marketQuery = "";
@@ -76,13 +77,13 @@ function renderMarketPager(){
   const total = marketTotalPages();
   if(marketQuery || total <= 1){ pager.style.display = "none"; pager.innerHTML = ""; return; }
   marketPage = Math.min(Math.max(1, marketPage), total);
-  const parts = [`<button class="pg-btn pg-nav" data-page="${marketPage - 1}"${marketPage <= 1 ? " disabled" : ""}>이전</button>`];
+  const parts = [`<button class="pg-btn pg-nav" data-page="${marketPage - 1}"${marketPage <= 1 ? " disabled" : ""}>${t("이전", "Prev")}</button>`];
   for(const it of marketPageItems(marketPage, total)){
     parts.push(it === "gap"
       ? `<span class="pg-gap">…</span>`
       : `<button class="pg-btn${it === marketPage ? " active" : ""}" data-page="${it}">${it}</button>`);
   }
-  parts.push(`<button class="pg-btn pg-nav" data-page="${marketPage + 1}"${marketPage >= total ? " disabled" : ""}>다음</button>`);
+  parts.push(`<button class="pg-btn pg-nav" data-page="${marketPage + 1}"${marketPage >= total ? " disabled" : ""}>${t("다음", "Next")}</button>`);
   pager.innerHTML = parts.join("");
   pager.style.display = "flex";
 }
@@ -108,12 +109,12 @@ export function renderMarketGrid(){
     return;
   }
   lastMarketSig = sig;
-  let html = `<div class="grid-row grid-head"><div>코인</div><div style="text-align:right">가격</div><div style="text-align:right">1일 등락률</div></div>`;
+  let html = `<div class="grid-row grid-head"><div>${t("코인", "Coin")}</div><div style="text-align:right">${t("가격", "Price")}</div><div style="text-align:right">${t("1일 등락률", "24h change")}</div></div>`;
   if(list.length === 0){
     // 검색 결과가 없는 것과 아직 안 불러온 것은 다르다 — 후자만 자리표시를 깐다.
     // 순위 밖 검색 결과를 기다리는 동안에도 "없음"이라고 단정하지 않고 자리표시를 깐다.
     wrap.innerHTML = html + (marketQuery && !marketSearching
-      ? '<div class="loading">일치하는 코인이 없습니다.</div>'
+      ? '<div class="loading">' + t("일치하는 코인이 없습니다.", "No matching coins.") + '</div>'
       : skeletonRows("market", marketQuery ? 3 : 10));
     renderMarketPager();
     return;
@@ -121,9 +122,9 @@ export function renderMarketGrid(){
   list.forEach(c=>{
     const chgCls = chgClass(c.price_change_percentage_24h);
     const selCls = c.id === state.selectedCoinId ? "selected" : "";
-    const rankText = c.rank ? `${c.rank}위 · ` : "";
+    const rankText = c.rank ? t(`${c.rank}위 · `, `#${c.rank} · `) : "";
     const symLine = `${rankText}${c.symbol.toUpperCase()}`
-      + (c.searchOnly && c.current_price == null ? ` · <span class="mkt-tv">차트만</span>` : "");
+      + (c.searchOnly && c.current_price == null ? ` · <span class="mkt-tv">${t("차트만", "Chart only")}</span>` : "");
     const sub = priceSubText(c.current_price);
     html += `<div class="grid-row market-row ${selCls}" data-id="${c.id}">
       <div class="coin-cell">${coinLogoHtml(c)}<div class="coin-text"><div class="coin-name">${c.name}</div><div class="coin-sym">${symLine}</div></div></div>

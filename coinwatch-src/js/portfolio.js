@@ -1,4 +1,4 @@
-import { MAX_PORTFOLIOS } from "./constants.js";
+import { MAX_PORTFOLIOS, NAME_MAP } from "./constants.js";
 import { state } from "./state.js";
 import { skeletonRows, skeletonResultRows } from "./skeleton.js";
 import { collapseRow, prevValues, rollNumberByKey } from "./animate.js";
@@ -15,8 +15,26 @@ import { newTid, todayStr, recomputeHoldings, holdingAmount, tradedCoins, avgBuy
 import { openSheet, openOverlay, closeOverlay, syncViewport } from "./sheet.js";
 import { cleanText, cleanDate, parseNum } from "./sanitize.js";
 import { renderAlloc } from "./alloc.js";
+import { t, IS_EN, LOCALE } from "./i18n.js";
+const tr = t; // 거래 한 건을 t로 부르는 함수 안에서 쓰는 이름
 
 export function currentPortfolio(){ return state.portfolios[state.activePortfolioIdx]; }
+
+// 거래·보유 코인의 이름. 기록에는 담을 때의 이름이 들어 있어서(한국어 화면이면 "비트코인")
+// 지금 시세 목록의 이름(화면 언어를 따른다)을 먼저 쓴다. 시세를 아직 못 받았으면 기록의 이름 —
+// 영어 화면인데 그게 한글 이름이면 심볼로 대신한다.
+function coinName(x){
+  const c = findCoinAnywhere(x.id);
+  if(c && c.name) return c.name;
+  return IS_EN && NAME_MAP[x.symbol] === x.name ? x.symbol : x.name;
+}
+
+// 이름을 따로 짓지 않은 기본 이름("포트폴리오 1")은 화면 언어에 맞춰 보여준다 (저장된 값은 그대로)
+function pfName(name){
+  const m = /^(?:포트폴리오|Portfolio)(?: (\d+))?$/.exec(name);
+  if(!m) return name;
+  return t("포트폴리오", "Portfolio") + (m[1] ? " " + m[1] : "");
+}
 
 let pfSelectedCoin = null; // 포트폴리오에 담을 코인으로 현재 선택된 항목
 let pfCurrentResults = [];
@@ -96,13 +114,13 @@ function renderPfResults(query, extResults){
     // 순위 밖 검색이 아직 안 끝났으면 "없음"이라고 단정하지 않고 자리표시를 깐다
     box.innerHTML = pfSearchPending === query
       ? skeletonResultRows(3, false)
-      : '<div class="add-empty">일치하는 코인이 없습니다.</div>';
+      : '<div class="add-empty">' + t("일치하는 코인이 없습니다.", "No matching coins.") + '</div>';
     return;
   }
   box.innerHTML = pfCurrentResults.map((entry, idx)=>{
     const c = entry.coin;
     return `<div class="add-result-row" data-pfpick="${idx}" style="cursor:pointer;">
-      <div><span class="rank">${c.rank ? c.rank+"위" : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
+      <div><span class="rank">${c.rank ? t(c.rank + "위", "#" + c.rank) : "-"}</span>${c.name} <span style="color:var(--muted)">${c.symbol.toUpperCase()}</span></div>
     </div>`;
   }).join("");
   box.querySelectorAll("[data-pfpick]").forEach(el=>{
@@ -152,19 +170,20 @@ const MAX_INPUT = 1e15;
 
 // 수량 칸의 이름·단위와 그 아래 환산 한 줄(수량이면 ≈ 금액, 금액이면 ≈ 수량)
 function renderAmtField(){
-  const sym = pfSelectedCoin ? pfSelectedCoin.symbol.toUpperCase() : "개";
-  document.getElementById("pfAmountLabel").textContent = pfAmtByTotal ? `금액 (${curUnit()})` : "수량";
+  const sym = pfSelectedCoin ? pfSelectedCoin.symbol.toUpperCase() : t("개", "");
+  document.getElementById("pfAmountLabel").textContent = pfAmtByTotal ? t("금액", "Total") + ` (${curUnit()})` : t("수량", "Amount");
   document.getElementById("pfAmountUnit").textContent = pfAmtByTotal ? curUnit() : sym;
-  document.getElementById("pfAmtToggle").setAttribute("aria-label", pfAmtByTotal ? "수량으로 입력하기" : "금액으로 입력하기");
+  document.getElementById("pfAmtToggle").setAttribute("aria-label", pfAmtByTotal
+    ? t("수량으로 입력하기", "Enter by amount") : t("금액으로 입력하기", "Enter by total"));
   // 금액으로 넣을 때는 수량을 구하려면 단가가 있어야 한다
-  document.getElementById("pfPriceLabel").innerHTML = `단가 (${curUnit()}) `
-    + (pfAmtByTotal ? '<span class="ts-req">(필수)</span>' : '<span class="ts-opt">(선택)</span>');
+  document.getElementById("pfPriceLabel").innerHTML = t("단가", "Price") + ` (${curUnit()}) `
+    + (pfAmtByTotal ? `<span class="ts-req">${t("(필수)", "(required)")}</span>` : `<span class="ts-opt">${t("(선택)", "(optional)")}</span>`);
   const v = numVal("pfAmount"), price = numVal("pfPrice");
   let hint = "";
   if(v > 0 && price > 0){
     hint = pfAmtByTotal ? `≈ ${fmtAmount(v / price)} ${sym}` : `≈ ${fmtMoney(v * price)}`;
   }else if(pfAmtByTotal && v > 0){
-    hint = "단가를 넣으면 수량으로 바꿔 드려요";
+    hint = t("단가를 넣으면 수량으로 바꿔 드려요", "Enter a price to convert it to an amount");
   }
   document.getElementById("pfAmtHint").textContent = hint;
 }
@@ -192,9 +211,9 @@ function openTradeSheet(side){
   document.getElementById("pfCoinResults").style.display = "none";
   setSearchMode(false);
   document.getElementById("pfDate").value = todayStr();
-  document.getElementById("pfTradeTitle").textContent = side === "sell" ? "매도" : "매수";
+  document.getElementById("pfTradeTitle").textContent = side === "sell" ? t("매도", "Sell") : t("매수", "Buy");
   const btn = document.getElementById("pfAddBtn");
-  btn.textContent = side === "sell" ? "매도 추가" : "매수 추가";
+  btn.textContent = side === "sell" ? t("매도 추가", "Add sell") : t("매수 추가", "Add buy");
   btn.classList.toggle("buy", side !== "sell");
   btn.classList.toggle("sell", side === "sell");
   renderAmtField();
@@ -215,15 +234,16 @@ document.addEventListener("keydown", e=>{
 });
 
 document.getElementById("pfAddBtn").addEventListener("click", ()=>{
-  if(!pfSelectedCoin){ showAlert("코인을 검색해서 골라주세요."); return; }
+  if(!pfSelectedCoin){ showAlert(t("코인을 검색해서 골라주세요.", "Search for a coin and pick it.")); return; }
   const v = numVal("pfAmount");
   const price = numVal("pfPrice");
-  if(price !== null && !(price >= 0 && price <= MAX_INPUT)){ showAlert("단가를 확인해주세요."); return; }
-  if(!(v > 0)){ showAlert(pfAmtByTotal ? "금액을 입력해주세요." : "수량을 입력해주세요."); return; }
-  if(v > MAX_INPUT){ showAlert(pfAmtByTotal ? "금액이 너무 커요. 다시 확인해주세요." : "수량이 너무 커요. 다시 확인해주세요."); return; }
-  if(pfAmtByTotal && !(price > 0)){ showAlert("금액으로 입력하려면 단가가 필요해요."); return; }
+  if(price !== null && !(price >= 0 && price <= MAX_INPUT)){ showAlert(t("단가를 확인해주세요.", "Please check the price.")); return; }
+  if(!(v > 0)){ showAlert(pfAmtByTotal ? t("금액을 입력해주세요.", "Please enter a total.") : t("수량을 입력해주세요.", "Please enter an amount.")); return; }
+  if(v > MAX_INPUT){ showAlert(pfAmtByTotal ? t("금액이 너무 커요. 다시 확인해주세요.", "That total is too large. Please check it.")
+    : t("수량이 너무 커요. 다시 확인해주세요.", "That amount is too large. Please check it.")); return; }
+  if(pfAmtByTotal && !(price > 0)){ showAlert(t("금액으로 입력하려면 단가가 필요해요.", "A price is needed to enter by total.")); return; }
   const amount = pfAmtByTotal ? parseFloat((v / price).toPrecision(12)) : v;
-  if(!(amount > 0 && Number.isFinite(amount))){ showAlert("수량을 확인해주세요."); return; }
+  if(!(amount > 0 && Number.isFinite(amount))){ showAlert(t("수량을 확인해주세요.", "Please check the amount.")); return; }
   const pf = currentPortfolio();
   // 매도는 보유량과 상관없이 기록한다(이 앱에 적기 전부터 갖고 있던 코인을 판 경우 등).
   // 보유량이 0 아래로 내려간 코인은 보유 목록에 나오지 않는다(recomputeHoldings).
@@ -254,16 +274,16 @@ export function exitPfEditMode(){ setPfEditMode(false); }
 // ---------- 보유 코인 정렬 ----------
 // "보유 코인" 헤더를 누를 때마다 추가순 → 금액 오름차순 → 내림차순 순으로 돌아간다.
 const SORT_CYCLE = ["added", "asc", "desc"];
-const SORT_LABEL = { added: "추가순", asc: "금액 ↑", desc: "금액 ↓" };
+const SORT_LABEL = { added: t("추가순", "Added"), asc: t("금액 ↑", "Value ↑"), desc: t("금액 ↓", "Value ↓") };
 
-// 표시할 순서대로 { p, idx, value, est } 목록을 만든다.
+// 표시할 순서대로 { p, idx, name, coin, value, est } 목록을 만든다.
 // idx는 holdings 배열의 원래 위치 — 삭제가 이 값을 쓰므로 정렬해도 함께 들고 다녀야 한다.
 function sortedRows(holdings, exSet){
   const rows = holdings.map((p, idx)=>{
     const c = findCoinAnywhere(p.id);
     const pr = c ? pfCoinPriceUsd(c, exSet) : null;
     // coin: 로고용. 시세 풀에 없는 코인이면 보유 항목의 심볼만으로 아이콘을 찾는다.
-    return { p, idx, coin: c || { symbol: p.symbol }, value: pr && pr.usd !== null ? pr.usd * p.amount : null, est: !!(pr && pr.est) };
+    return { p, idx, name: coinName(p), coin: c || { symbol: p.symbol }, value: pr && pr.usd !== null ? pr.usd * p.amount : null, est: !!(pr && pr.est) };
   });
   if(state.pfSortMode === "added") return rows;
   const dir = state.pfSortMode === "asc" ? 1 : -1;
@@ -320,8 +340,8 @@ function updatePortfolioValues(rows){
 }
 
 // 시세·관심 코인 탭과 같은 표 머리글 (한 줄로 두고 본문만 갈아끼운다)
-const PF_HEAD = `<div class="grid-row grid-head"><div>코인</div>`
-  + `<div style="text-align:right">보유 수량</div><div style="text-align:right">평가 금액</div></div>`;
+const PF_HEAD = `<div class="grid-row grid-head"><div>${t("코인", "Coin")}</div>`
+  + `<div style="text-align:right">${t("보유 수량", "Amount")}</div><div style="text-align:right">${t("평가 금액", "Value")}</div></div>`;
 
 // 보유량 표 + 거래 기록 + 추가 폼(단가 칸 통화 표시)을 함께 갱신. force=true면 표 행을 새로 만든다.
 export function renderPortfolio(force){
@@ -356,7 +376,7 @@ function renderHoldings(force){
   }
   lastPfSignature = sig;
   if(holdings.length === 0){
-    list.innerHTML = PF_HEAD + '<div class="empty">거래를 추가하면 보유 코인이 여기에 표시됩니다.</div>';
+    list.innerHTML = PF_HEAD + '<div class="empty">' + t("거래를 추가하면 보유 코인이 여기에 표시됩니다.", "Add a transaction and your holdings will show up here.") + '</div>';
     document.getElementById("pfTotal").textContent = totalLabel;
     return;
   }
@@ -375,7 +395,7 @@ function renderHoldings(force){
     // 관심 코인 탭과 같은 방식: 편집 모드에서는 행이 오른쪽으로 밀리고 왼쪽에 ✕가 나온다
     html += `<div class="grid-row pf-row ${pfEditMode ? "editing" : ""}" data-id="${p.id}">
       ${pfEditMode ? `<div class="row-del" data-idx="${idx}">✕</div>` : ""}
-      <div class="coin-cell">${coinLogoHtml(coin)}<div class="coin-text"><div class="coin-name">${p.name}</div><div class="coin-sym">${p.symbol}</div></div></div>
+      <div class="coin-cell">${coinLogoHtml(coin)}<div class="coin-text"><div class="coin-name">${coinName(p)}</div><div class="coin-sym">${p.symbol}</div></div></div>
       <div class="pf-amt">${amtCell}</div>
       <div class="price${est ? " myx-est" : ""}"><span class="roll-wrap"><span class="roll-cur">${valText}</span></span></div>
     </div>`;
@@ -401,20 +421,20 @@ function renderHoldings(force){
 
 // ---------- 포트폴리오 전환 / 추가 / 삭제 ----------
 export function renderPortfolioHeaderBtn(){
-  document.getElementById("pfPortfolioBtn").textContent = currentPortfolio().name + " ▾";
+  document.getElementById("pfPortfolioBtn").textContent = pfName(currentPortfolio().name) + " ▾";
 }
 
 function renderPortfolioDropdown(){
   const box = document.getElementById("pfPortfolioPanel");
   let html = state.portfolios.map((p, idx)=>`
     <div class="add-result-row" data-pfsel="${idx}" style="cursor:pointer;">
-      <div>${p.name}${idx===state.activePortfolioIdx ? ' <span style="color:var(--gold);">✓</span>' : ''}</div>
+      <div>${pfName(p.name)}${idx===state.activePortfolioIdx ? ' <span style="color:var(--gold);">✓</span>' : ''}</div>
       <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
         <span style="color:var(--muted); cursor:pointer;" data-pfrename="${idx}">✎</span>
         ${state.portfolios.length > 1 ? `<span style="color:var(--down); font-weight:700; cursor:pointer;" data-pfdel="${idx}">✕</span>` : ''}
       </div>
     </div>`).join("");
-  html += `<div class="add-result-row" data-pfnew="1" style="cursor:pointer; justify-content:center; color:var(--gold); font-weight:700;">+ 포트폴리오 추가</div>`;
+  html += `<div class="add-result-row" data-pfnew="1" style="cursor:pointer; justify-content:center; color:var(--gold); font-weight:700;">${t("+ 포트폴리오 추가", "+ New portfolio")}</div>`;
   box.innerHTML = html;
   box.querySelectorAll("[data-pfsel]").forEach(el=>{
     el.addEventListener("click", (e)=>{
@@ -449,10 +469,10 @@ function switchPortfolio(idx){
 
 function addPortfolio(){
   if(state.portfolios.length >= MAX_PORTFOLIOS){
-    showAlert("포트폴리오는 최대 " + MAX_PORTFOLIOS + "개까지 만들 수 있어요.");
+    showAlert(t(`포트폴리오는 최대 ${MAX_PORTFOLIOS}개까지 만들 수 있어요.`, `You can create up to ${MAX_PORTFOLIOS} portfolios.`));
     return;
   }
-  state.portfolios.push({ name: "포트폴리오 " + (state.portfolios.length+1), holdings:[], trades:[], exchanges:["upbit"] });
+  state.portfolios.push({ name: t("포트폴리오 ", "Portfolio ") + (state.portfolios.length+1), holdings:[], trades:[], exchanges:["upbit"] });
   state.activePortfolioIdx = state.portfolios.length - 1;
   renderPortfolioHeaderBtn();
   renderPortfolioDropdown();
@@ -464,7 +484,7 @@ function addPortfolio(){
 
 async function renamePortfolio(idx){
   const p = state.portfolios[idx];
-  const newName = await showPrompt("포트폴리오 이름을 입력해주세요", p.name);
+  const newName = await showPrompt(t("포트폴리오 이름을 입력해주세요", "Enter a portfolio name"), pfName(p.name));
   if(newName === null) return; // 취소
   // 화면에 HTML로 들어가는 이름이라 태그를 열 수 있는 글자는 걷는다(sanitize.js)
   const trimmed = cleanText(newName, 20);
@@ -479,7 +499,8 @@ async function deletePortfolio(idx){
   if(state.portfolios.length <= 1) return; // 최소 1개는 유지
   const p = state.portfolios[idx];
   if(p.trades.length > 0){
-    const ok = await showConfirm(`"${p.name}"의 거래 기록 ${p.trades.length}개가 함께 삭제됩니다. 정말 삭제하시겠어요?`);
+    const ok = await showConfirm(t(`"${pfName(p.name)}"의 거래 기록 ${p.trades.length}개가 함께 삭제됩니다. 정말 삭제하시겠어요?`,
+      `This will also delete ${p.trades.length} transaction${p.trades.length === 1 ? "" : "s"} in "${pfName(p.name)}". Delete it?`));
     if(!ok) return;
   }
   state.portfolios.splice(idx, 1);
@@ -498,12 +519,13 @@ export function syncPfExCheckboxes(){
   renderPfExBtn();
 }
 
-// 툴바 버튼에 지금 고른 거래소를 요약: "업비트", "업비트 외 2곳"
+// 툴바 버튼에 지금 고른 거래소를 요약: "업비트", "업비트 외 2곳" (영어: "Upbit", "Upbit +2")
 function renderPfExBtn(){
   const names = [...document.querySelectorAll(".pfex-check:checked")]
     .map(cb => cb.closest(".ex-tile").querySelector(".ex-tile-name").textContent);
   document.getElementById("pfExBtn").textContent =
-    (names.length === 0 ? "거래소 설정" : names.length === 1 ? names[0] : `${names[0]} 외 ${names.length - 1}곳`) + " ▾";
+    (names.length === 0 ? t("거래소 설정", "Exchanges") : names.length === 1 ? names[0]
+      : t(`${names[0]} 외 ${names.length - 1}곳`, `${names[0]} +${names.length - 1}`)) + " ▾";
 }
 
 document.getElementById("pfPortfolioBtn").addEventListener("click", ()=>{
@@ -537,7 +559,8 @@ async function deleteHolding(h, row){
   if(!h) return;
   const pf = currentPortfolio();
   const n = pf.trades.filter(t => t.id === h.id).length;
-  const ok = await showConfirm(`${h.name}(${h.symbol})의 거래 기록 ${n}개가 함께 삭제됩니다. 삭제할까요?`);
+  const ok = await showConfirm(t(`${coinName(h)}(${h.symbol})의 거래 기록 ${n}개가 함께 삭제됩니다. 삭제할까요?`,
+    `This will also delete ${n} transaction${n === 1 ? "" : "s"} for ${coinName(h)} (${h.symbol}). Delete?`));
   if(!ok) return;
   const go = ()=>{
     pf.trades = pf.trades.filter(t => t.id !== h.id);
@@ -607,12 +630,18 @@ let pfTypeFilter = "all"; // "all" | "buy" | "sell"
 let pfCoinFilter = "all"; // "all" | 코인 id
 let lastTradesHtml = null;
 
-const TYPE_LABEL = { all: "모든 유형", buy: "매수", sell: "매도" };
+const TYPE_LABEL = { all: t("모든 유형", "All types"), buy: t("매수", "Buy"), sell: t("매도", "Sell") };
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
+const LEGACY_LABEL = t("기존 보유", "Existing holding");
 
 function dateLabel(date){
-  if(!date) return "기존 보유";
+  if(!date) return LEGACY_LABEL;
   const [y, m, d] = date.split("-").map(Number);
+  if(IS_EN){
+    // "Mon, Sep 29" / 올해가 아니면 "Mon, Sep 29, 2025"
+    return new Date(y, m - 1, d).toLocaleDateString(LOCALE, { weekday: "short", month: "short", day: "numeric",
+      year: y === new Date().getFullYear() ? undefined : "numeric" });
+  }
   const wd = WEEKDAY[new Date(y, m - 1, d).getDay()];
   const yearPart = y === new Date().getFullYear() ? "" : y + "년 ";
   return `${yearPart}${m}월 ${d}일 (${wd})`;
@@ -620,7 +649,7 @@ function dateLabel(date){
 
 document.getElementById("pfTypeBtn").addEventListener("click", ()=>{
   openSheet({
-    title: "거래 유형",
+    title: t("거래 유형", "Transaction type"),
     options: ["all", "buy", "sell"].map(v => ({ value: v, label: TYPE_LABEL[v] })),
     selected: pfTypeFilter,
     onPick: v => { pfTypeFilter = v; renderPfTrades(); }
@@ -630,9 +659,9 @@ document.getElementById("pfTypeBtn").addEventListener("click", ()=>{
 document.getElementById("pfCoinBtn").addEventListener("click", ()=>{
   const coins = tradedCoins(currentPortfolio().trades);
   openSheet({
-    title: "코인",
-    options: [{ value: "all", label: "모든 코인" },
-      ...coins.map(c => ({ value: c.id, label: `${c.name} (${c.symbol})` }))],
+    title: t("코인", "Coin"),
+    options: [{ value: "all", label: t("모든 코인", "All coins") },
+      ...coins.map(c => ({ value: c.id, label: `${coinName(c)} (${c.symbol})` }))],
     selected: pfCoinFilter,
     onPick: v => { pfCoinFilter = v; renderPfTrades(); }
   });
@@ -648,16 +677,16 @@ function renderPfTrades(){
   typeBtn.textContent = TYPE_LABEL[pfTypeFilter] + " ▾";
   typeBtn.classList.toggle("on", pfTypeFilter !== "all");
   const coinBtn = document.getElementById("pfCoinBtn");
-  coinBtn.textContent = (coin ? coin.symbol : "모든 코인") + " ▾";
+  coinBtn.textContent = (coin ? coin.symbol : t("모든 코인", "All coins")) + " ▾";
   coinBtn.classList.toggle("on", !!coin);
 
   let cards = "";
   if(coin){
     const { avg, partial } = avgBuyPrice(pf.trades, coin.id);
     cards = `<div class="pf-cards">
-      <div class="pf-card"><div class="label">평균 매수가</div><div class="val">${fmtMoney(avg)}</div>
-        ${partial ? '<div class="note">단가 없는 기록 제외</div>' : ""}</div>
-      <div class="pf-card"><div class="label">보유량</div>
+      <div class="pf-card"><div class="label">${t("평균 매수가", "Avg. buy price")}</div><div class="val">${fmtMoney(avg)}</div>
+        ${partial ? `<div class="note">${t("단가 없는 기록 제외", "Excludes entries without a price")}</div>` : ""}</div>
+      <div class="pf-card"><div class="label">${t("보유량", "Holding")}</div>
         <div class="val">${fmtAmount(holdingAmount(pf.trades, coin.id))} <span class="unit">${coin.symbol}</span></div></div>
     </div>`;
   }
@@ -670,9 +699,9 @@ function renderPfTrades(){
 
   let body;
   if(pf.trades.length === 0){
-    body = '<div class="empty">거래를 추가하면 여기에 기록됩니다.</div>';
+    body = '<div class="empty">' + t("거래를 추가하면 여기에 기록됩니다.", "Transactions you add will be listed here.") + '</div>';
   }else if(list.length === 0){
-    body = '<div class="empty">조건에 맞는 거래가 없습니다.</div>';
+    body = '<div class="empty">' + t("조건에 맞는 거래가 없습니다.", "No transactions match these filters.") + '</div>';
   }else{
     body = "";
     let curDate;
@@ -685,11 +714,11 @@ function renderPfTrades(){
       const c = findCoinAnywhere(t.id) || { symbol: t.symbol };
       const px = priceInDisplay(t.price, t.cur);
       const buy = t.side === "buy";
-      const kind = t.legacy ? "기존 보유" : (buy ? "매수" : "매도");
-      const sub = px !== null ? `${kind} · 단가 ${fmtMoney(px)}` : `${kind} · 단가 미입력`;
+      const kind = t.legacy ? LEGACY_LABEL : TYPE_LABEL[buy ? "buy" : "sell"];
+      const sub = px !== null ? `${kind} · ${tr("단가", "Price")} ${fmtMoney(px)}` : `${kind} · ${tr("단가 미입력", "No price")}`;
       body += `<div class="tx-row" data-tid="${t.tid}" role="button">
         ${coinLogoHtml(c)}
-        <div class="tx-main"><div class="tx-title">${t.name}</div><div class="tx-sub">${sub}</div></div>
+        <div class="tx-main"><div class="tx-title">${coinName(t)}</div><div class="tx-sub">${sub}</div></div>
         <div class="tx-right"><div class="tx-amt ${buy ? "up" : "down"}">${buy ? "+" : "−"}${fmtAmount(t.amount)} ${t.symbol}</div>
           <div class="tx-sub">${px !== null ? fmtMoney(px * t.amount) : "-"}</div></div>
       </div>`;
@@ -712,12 +741,12 @@ document.getElementById("pfTradeList").addEventListener("click", (e)=>{
   const pf = currentPortfolio();
   const t = pf.trades.find(x => x.tid === row.dataset.tid);
   if(!t) return;
-  const kind = t.legacy ? "기존 보유" : (t.side === "buy" ? "매수" : "매도");
+  const kind = t.legacy ? LEGACY_LABEL : TYPE_LABEL[t.side];
   openSheet({
     title: `${t.symbol} ${kind} · ${fmtAmount(t.amount)} ${t.symbol}`,
     options: [
-      { value: "price", label: t.price === null ? "단가 입력" : "단가 수정" },
-      { value: "delete", label: "기록 삭제", danger: true }
+      { value: "price", label: t.price === null ? tr("단가 입력", "Add price") : tr("단가 수정", "Edit price") },
+      { value: "delete", label: tr("기록 삭제", "Delete transaction"), danger: true }
     ],
     onPick: v => v === "price" ? editTradePrice(t) : deleteTrade(t)
   });
@@ -726,13 +755,14 @@ document.getElementById("pfTradeList").addEventListener("click", (e)=>{
 async function editTradePrice(t){
   const cur = priceInDisplay(t.price, t.cur);
   const unit = state.displayCurrency === "krw" ? "₩" : "$";
-  const v = await showPrompt(`${t.symbol} 1개당 단가 (${unit})\n비워 두면 단가 없이 저장돼요.`, cur !== null ? String(roundPrice(cur)) : "");
+  const v = await showPrompt(tr(`${t.symbol} 1개당 단가 (${unit})\n비워 두면 단가 없이 저장돼요.`,
+    `Price per ${t.symbol} (${unit})\nLeave it empty to save without a price.`), cur !== null ? String(roundPrice(cur)) : "");
   if(v === null) return;
   const s = v.replace(/,/g, "").trim();
   if(s === ""){ t.price = null; t.cur = null; }
   else{
     const n = parseNum(s); // "12abc"·"1e400"은 null
-    if(!(n >= 0 && n <= MAX_INPUT)){ showAlert("단가를 확인해주세요."); return; }
+    if(!(n >= 0 && n <= MAX_INPUT)){ showAlert(tr("단가를 확인해주세요.", "Please check the price.")); return; }
     t.price = n; t.cur = state.displayCurrency;
   }
   renderPfTrades();
@@ -742,7 +772,7 @@ async function editTradePrice(t){
 async function deleteTrade(t){
   const pf = currentPortfolio();
   const rest = pf.trades.filter(x => x !== t);
-  if(!await showConfirm("이 거래 기록을 삭제할까요?")) return;
+  if(!await showConfirm(tr("이 거래 기록을 삭제할까요?", "Delete this transaction?"))) return;
   pf.trades = rest;
   recomputeHoldings(pf);
   renderPortfolio();

@@ -1,6 +1,8 @@
 // 앱 버전. 형식: v.연월일.시분 (한국 시각, 예: v.260926.1529)
 // 설정 탭 맨 아래에 보인다. 배포 직후 폰이 새 코드를 받았는지 확인하는 용도.
 // npm run build가 빌드 시각으로 index.html의 window.APP_VERSION에 넣는다(빌드 안 한 개발 화면은 "dev").
+import { t } from "./i18n.js";
+
 export const APP_VERSION = window.APP_VERSION || "-";
 
 // 바이낸스를 1순위 소스로 사용 (키 불필요, 요청 한도가 넉넉하고 CORS 허용).
@@ -18,7 +20,7 @@ export const UPBIT_CANDLES_PROXY = API_BASE + "/upbit/candles"; // 업비트 캔
 
 export const EX_LABEL = {binance:"바이낸스", okx:"OKX", bybit:"바이빗", coinbase:"코인베이스", kraken:"크라켄"};
 
-// 상위 종목 표시용 한글/영문 이름 매핑 (없으면 심볼 그대로 표시)
+// 상위 종목 표시용 한글 이름 매핑 (영어 화면에서는 쓰지 않고 CoinGecko 영문 이름을 그대로 쓴다 — api.js)
 export const NAME_MAP = {
   BTC:"비트코인", ETH:"이더리움", BNB:"바이낸스코인", SOL:"솔라나", XRP:"리플",
   ADA:"에이다", DOGE:"도지코인", TRX:"트론", TON:"톤코인", AVAX:"아발란체",
@@ -46,12 +48,12 @@ export const ALL_DAYS = 99999;
 // 코인 차트의 기간 버튼. days는 라벨용이고, 실제 요청은 거래소마다 규격이 달라서
 // 아래 CANDLE_SPEC에 따로 적어둔다.
 export const COIN_RANGES = [
-  { days: 1,   label: "1일"   },
-  { days: 7,   label: "1주"   },
-  { days: 30,  label: "1개월" },
-  { days: 90,  label: "3개월" },
-  { days: 365, label: "1년"   },
-  { days: ALL_DAYS, label: "전체" }
+  { days: 1,   label: t("1일", "1D")   },
+  { days: 7,   label: t("1주", "1W")   },
+  { days: 30,  label: t("1개월", "1M") },
+  { days: 90,  label: t("3개월", "3M") },
+  { days: 365, label: t("1년", "1Y")   },
+  { days: ALL_DAYS, label: t("전체", "All") }
 ];
 
 // 기간 -> 거래소별 봉 규격. 같은 "1개월"이라도 4시간봉을 주는 곳과 6시간봉밖에 없는 곳이
@@ -85,18 +87,19 @@ export const REFERRAL = {
 // 바이낸스는 어느 주소에나 ?ref=를 붙이면 추천이 적용된다. OKX·바이빗은 추천이 가입(초대) 링크로만
 // 확실히 적용되므로, 코드가 있으면 초대 링크로, 없으면 그 코인 거래 화면으로 보낸다.
 export const EXCHANGE_LINKS = [
-  { key: "binance", name: "바이낸스", url: (sym, code) =>
+  { key: "binance", name: t("바이낸스", "Binance"), url: (sym, code) =>
       `https://www.binance.com/en/trade/${sym}_USDT?type=spot` + (code ? `&ref=${encodeURIComponent(code)}` : "") },
   { key: "okx",     name: "OKX",      url: (sym, code) =>
       code ? `https://www.okx.com/join/${encodeURIComponent(code)}` : `https://www.okx.com/trade-spot/${sym.toLowerCase()}-usdt` },
-  { key: "bybit",   name: "바이빗",   url: (sym, code) =>
+  { key: "bybit",   name: t("바이빗", "Bybit"),   url: (sym, code) =>
       code ? `https://www.bybit.com/invite?ref=${encodeURIComponent(code)}` : `https://www.bybit.com/trade/spot/${sym}/USDT` },
-  { key: "upbit",   name: "업비트",   url: sym => `https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${sym}` },
-  { key: "bithumb", name: "빗썸",     url: sym => `https://www.bithumb.com/react/trade/order/${sym}-KRW` },
+  { key: "upbit",   name: t("업비트", "Upbit"),   url: sym => `https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${sym}` },
+  { key: "bithumb", name: t("빗썸", "Bithumb"),     url: sym => `https://www.bithumb.com/react/trade/order/${sym}-KRW` },
 ];
 
 export const CANDLE_SOURCE_LABEL = {
-  binance:"바이낸스", okx:"OKX", bybit:"바이빗", kraken:"크라켄", upbit:"업비트", bithumb:"빗썸"
+  binance: t("바이낸스", "Binance"), okx: "OKX", bybit: t("바이빗", "Bybit"),
+  kraken: t("크라켄", "Kraken"), upbit: t("업비트", "Upbit"), bithumb: t("빗썸", "Bithumb")
 };
 
 // "상세" 버튼으로 여는 트레이딩뷰 위젯의 interval/range 매핑 (기간 버튼 값 기준)
@@ -109,6 +112,7 @@ export const TV_RANGE_MAP = {
   [ALL_DAYS]: { interval: "W", range: "ALL" }
 };
 
+// 영어 화면에서는 alternative.me가 주는 영문 분류를 그대로 쓴다 (fng.js)
 export const FNG_LABEL = {
   "Extreme Fear":"극도의 공포",
   "Fear":"공포",
@@ -120,17 +124,17 @@ export const FNG_LABEL = {
 // 헤더의 환율을 눌렀을 때 뜨는 추이 그래프의 기간 버튼 (일 단위).
 // 여기 days는 워커 /fx/history가 아는 값이어야 한다 (다른 값을 보내면 90일로 처리됨).
 export const FX_RANGES = [
-  { days: 1,   label: "1일"   },
-  { days: 30,  label: "1개월" },
-  { days: 90,  label: "3개월" },
-  { days: 180, label: "6개월" },
-  { days: 365, label: "1년"  }
+  { days: 1,   label: t("1일", "1D")   },
+  { days: 30,  label: t("1개월", "1M") },
+  { days: 90,  label: t("3개월", "3M") },
+  { days: 180, label: t("6개월", "6M") },
+  { days: 365, label: t("1년", "1Y")  }
 ];
 
 // 워커가 돌려주는 source 코드 -> 그래프 아래 출처 줄에 쓸 이름
 export const FX_SOURCE_LABEL = {
-  yahoo: "야후 파이낸스",
-  naver: "네이버 금융"
+  yahoo: t("야후 파이낸스", "Yahoo Finance"),
+  naver: t("네이버 금융", "Naver Finance")
 };
 
 // 시세 자동 갱신 주기(초). 설정에서 고르던 것을 15초로 고정했다

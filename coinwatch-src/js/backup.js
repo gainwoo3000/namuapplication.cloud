@@ -3,6 +3,7 @@ import { buildSavedState, storageDiagnostics, freezeSaves } from "./persist.js";
 import { openOverlay, closeOverlay } from "./sheet.js";
 import { showAlert, showConfirm } from "./dialog.js";
 import { BACKUP_VERSION, MAX_INPUT, encodeCode, decodeInput, summarize, fmtWhen } from "./backup-codec.js";
+import { t } from "./i18n.js";
 
 // ---------- 설정 › 백업 ----------
 // 저장된 데이터(관심 코인·포트폴리오·설정) 전체를 글자 한 줄(백업 코드)로 만들어 두고,
@@ -37,7 +38,7 @@ function setHint(msg, isError){
 
 function openBackupSheet(mode){
   const isExport = mode === "export";
-  titleEl.textContent = isExport ? "백업하기" : "불러오기";
+  titleEl.textContent = isExport ? t("백업하기", "Back up") : t("불러오기", "Restore");
   exportActs.hidden = !isExport;
   importActs.hidden = isExport;
   box.readOnly = isExport;
@@ -45,11 +46,13 @@ function openBackupSheet(mode){
   if(isExport){
     const payload = makePayload();
     descEl.textContent = summarize(payload.data)
-      + "\n아래 코드를 전부 복사해서 메모·메신저 등에 보관해 두세요. 이 코드만 있으면 다른 기기에서도 그대로 되살릴 수 있어요.";
+      + t("\n아래 코드를 전부 복사해서 메모·메신저 등에 보관해 두세요. 이 코드만 있으면 다른 기기에서도 그대로 되살릴 수 있어요.",
+          "\nCopy the whole code below and keep it somewhere safe, like a note or a message to yourself. With this code you can restore everything on any device.");
     box.value = encodeCode(payload);
     box.placeholder = "";
   }else{
-    descEl.textContent = "백업해 둔 코드를 붙여 넣어 주세요. 지금 이 기기의 관심 코인·포트폴리오·설정은 백업 내용으로 바뀌어요.";
+    descEl.textContent = t("백업해 둔 코드를 붙여 넣어 주세요. 지금 이 기기의 관심 코인·포트폴리오·설정은 백업 내용으로 바뀌어요.",
+      "Paste your backup code. The watchlist, portfolios and settings on this device will be replaced with the backup.");
     box.value = "";
     box.placeholder = "CW1:…";
   }
@@ -85,8 +88,8 @@ document.getElementById("backupCopyBtn").addEventListener("click", async ()=>{
       ok = document.execCommand("copy");
     }catch(e2){}
   }
-  setHint(ok ? "복사했어요. 메모나 메신저에 붙여 넣어 보관하세요."
-             : "자동 복사가 안 돼요. 코드 칸을 길게 눌러 전체 선택 후 복사해 주세요.", !ok);
+  setHint(ok ? t("복사했어요. 메모나 메신저에 붙여 넣어 보관하세요.", "Copied. Paste it into a note or message to keep it.")
+             : t("자동 복사가 안 돼요. 코드 칸을 길게 눌러 전체 선택 후 복사해 주세요.", "Couldn't copy automatically. Long-press the code, select all, and copy it."), !ok);
 });
 
 document.getElementById("backupFileBtn").addEventListener("click", ()=>{
@@ -100,7 +103,7 @@ document.getElementById("backupFileBtn").addEventListener("click", ()=>{
   a.click();
   a.remove();
   setTimeout(()=> URL.revokeObjectURL(url), 1000);
-  setHint("파일로 저장했어요. 다운로드 폴더를 확인해 주세요.");
+  setHint(t("파일로 저장했어요. 다운로드 폴더를 확인해 주세요.", "Saved as a file. Check your Downloads folder."));
 });
 
 // ---------- 불러오기 ----------
@@ -109,7 +112,7 @@ fileInput.addEventListener("change", async ()=>{
   const f = fileInput.files && fileInput.files[0];
   fileInput.value = ""; // 같은 파일을 다시 골라도 change가 오게
   if(!f) return;
-  if(f.size > MAX_INPUT){ setHint("파일이 너무 커요. 백업 파일이 맞는지 확인해 주세요.", true); return; }
+  if(f.size > MAX_INPUT){ setHint(t("파일이 너무 커요. 백업 파일이 맞는지 확인해 주세요.", "That file is too large. Make sure it's a backup file."), true); return; }
   box.value = await f.text();
   restoreFrom(box.value);
 });
@@ -126,18 +129,19 @@ async function restoreFrom(text){
     return;
   }
   if(!storageDiagnostics().writable){
-    setHint("이 환경에서는 저장이 막혀 있어서 불러올 수 없어요.", true);
+    setHint(t("이 환경에서는 저장이 막혀 있어서 불러올 수 없어요.", "Saving is blocked here, so the backup can't be restored."), true);
     return;
   }
   const when = fmtWhen(parsed.savedAt);
   const ok = await showConfirm(
-    `${when ? when + "에 만든 백업이에요.\n" : ""}${summarize(parsed.data)}\n\n`
-    + "지금 이 기기의 관심 코인·포트폴리오·설정이 이 내용으로 바뀌어요. 불러올까요?");
+    `${when ? t(when + "에 만든 백업이에요.\n", "Backup made on " + when + ".\n") : ""}${summarize(parsed.data)}\n\n`
+    + t("지금 이 기기의 관심 코인·포트폴리오·설정이 이 내용으로 바뀌어요. 불러올까요?",
+        "The watchlist, portfolios and settings on this device will be replaced with this. Restore it?"));
   if(!ok) return;
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed.data));
   }catch(e){
-    await showAlert("저장하지 못했어요. 기기 저장공간을 확인한 뒤 다시 해 주세요.");
+    await showAlert(t("저장하지 못했어요. 기기 저장공간을 확인한 뒤 다시 해 주세요.", "Couldn't save. Check your device storage and try again."));
     return;
   }
   freezeSaves();

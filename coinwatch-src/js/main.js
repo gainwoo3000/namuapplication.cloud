@@ -1,3 +1,4 @@
+import "./i18n.js"; // 맨 먼저 — 다른 모듈이 화면 문구를 읽기 전에 영어 문구로 갈아 끼운다
 import { state } from "./state.js";
 import { loadFromGecko, loadFromBinance, fetchCmcKrw } from "./api.js";
 import { enrichIntlPrices, enrichDomesticPrices, applyExchangeTickers } from "./pricing.js";
@@ -9,7 +10,8 @@ import { ensureUsdKrw, refreshUsdKrw, renderFxMini } from "./fx.js";
 import { loadFearGreed } from "./fng.js";
 import { loadMarketCap } from "./mcap.js";
 import { loadState, applyLoadedUIState, requestPersistentStorage } from "./persist.js";
-import { restartRefreshTimer, renderStorageDiag } from "./settings.js";
+import { restartRefreshTimer, renderStorageDiag, reopenSettingsAfterLangChange } from "./settings.js";
+import { t, LOCALE } from "./i18n.js";
 import "./layout.js";
 import "./swipe.js"; // 좌우 스와이프로 탭 넘기기
 import "./pull.js";  // 위에서 아래로 당겨서 새로고침(가짜)
@@ -53,8 +55,9 @@ export async function loadMarkets(){
       state.lastSource = "binance";
     }catch(e2){
       document.getElementById("gridWrap").innerHTML =
-        '<div class="loading">시세를 불러오지 못했습니다.<br>(' + e1.message + ' / ' + e2.message + ')<br>네트워크 연결을 확인하고 아래 버튼을 눌러주세요.</div>' +
-        '<button class="more-btn" id="marketsRetryBtn" style="margin-top:0;">다시 시도</button>';
+        '<div class="loading">' + t("시세를 불러오지 못했습니다.", "Couldn't load prices.") + '<br>(' + e1.message + ' / ' + e2.message + ')<br>'
+        + t("네트워크 연결을 확인하고 아래 버튼을 눌러주세요.", "Check your connection and tap the button below.") + '</div>' +
+        '<button class="more-btn" id="marketsRetryBtn" style="margin-top:0;">' + t("다시 시도", "Try again") + '</button>';
       document.getElementById("marketsRetryBtn").addEventListener("click", loadMarkets);
       return;
     }
@@ -70,7 +73,8 @@ export async function loadMarkets(){
   state.coinsList = buildCoinsList(); // 우선 캐시된 값(있다면)으로 즉시 렌더
   renderGrid();
   renderMarketGrid();
-  document.getElementById("updatedAt").textContent = "업데이트: " + new Date().toLocaleTimeString() + (state.lastSource==="binance" ? " (대체 소스)":"");
+  document.getElementById("updatedAt").textContent = t("업데이트: ", "Updated ") + new Date().toLocaleTimeString(LOCALE)
+    + (state.lastSource==="binance" ? t(" (대체 소스)", " (backup source)") : "");
   // 시세 목록의 가격·등락률·고저가를 거래소 실시간 값으로 덮어쓴 뒤 다시 그림
   // (CoinGecko는 순위·이름만 담당 → 워커 캐시를 길게 잡아도 가격은 실시간)
   if(await applyExchangeTickers(state.allTickers)) renderMarketGrid();
@@ -122,6 +126,7 @@ renderGrid();
 renderPortfolio();
 // 자리표시 행들이 높이를 만들어 주므로 임시 높이는 걷는다
 document.querySelectorAll(".grid-wrap.is-boot").forEach(el => el.classList.remove("is-boot"));
+reopenSettingsAfterLangChange(); // 설정 › 언어를 바꿔서 새로 연 거면 설정 탭으로 돌아간다
 // 첫 목록이 오면, 주소로 코인 페이지(#coin/<id>)가 열려 있었는지 본다
 loadMarkets().then(openCoinFromHash);
 loadFearGreed();

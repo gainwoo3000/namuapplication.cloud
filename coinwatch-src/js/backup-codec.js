@@ -4,6 +4,8 @@
 // 따옴표를 바꾸거나 줄을 접어도 깨지지 않게(공백·줄바꿈은 읽을 때 걸러낸다).
 // 파일로 저장할 때는 사람이 열어 볼 수 있게 JSON 그대로 쓴다. 읽을 때는 둘 다 받는다.
 
+import { t } from "./i18n.js";
+
 export const CODE_PREFIX = "CW1:";
 export const BACKUP_VERSION = 1;
 export const MAX_INPUT = 2_000_000; // 붙여 넣은 글자 수 상한. 거래 수천 건이어도 이 안에 든다
@@ -20,8 +22,8 @@ export function encodeCode(payload){
 // 백업 코드든 백업 파일(JSON)이든 받아서 payload로. 알아볼 수 없으면 사용자에게 보일 문장을 던진다.
 export function decodeInput(text){
   const raw = String(text || "").trim();
-  if(!raw) throw new Error("백업 코드를 붙여 넣어 주세요.");
-  if(raw.length > MAX_INPUT) throw new Error("내용이 너무 길어요. 백업 코드가 맞는지 확인해 주세요.");
+  if(!raw) throw new Error(t("백업 코드를 붙여 넣어 주세요.", "Please paste a backup code."));
+  if(raw.length > MAX_INPUT) throw new Error(t("내용이 너무 길어요. 백업 코드가 맞는지 확인해 주세요.", "That's too long. Make sure it's a backup code."));
   let payload;
   try{
     if(raw.startsWith("{")){
@@ -35,17 +37,19 @@ export function decodeInput(text){
       payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
     }
   }catch(e){
-    throw new Error("백업 코드를 읽지 못했어요. 앞뒤가 잘리지 않고 전부 복사됐는지 확인해 주세요.");
+    throw new Error(t("백업 코드를 읽지 못했어요. 앞뒤가 잘리지 않고 전부 복사됐는지 확인해 주세요.",
+      "Couldn't read the backup code. Make sure the whole code was copied, with nothing cut off."));
   }
   if(!payload || payload.app !== "coinwatch" || !payload.data || typeof payload.data !== "object"){
-    throw new Error("코인워치캡 백업이 아니에요.");
+    throw new Error(t("코인워치캡 백업이 아니에요.", "This isn't a CoinWatchCap backup."));
   }
   if(payload.v > BACKUP_VERSION){
-    throw new Error("더 새 버전의 앱에서 만든 백업이에요. 앱을 최신으로 새로 고친 뒤 다시 해 주세요.");
+    throw new Error(t("더 새 버전의 앱에서 만든 백업이에요. 앱을 최신으로 새로 고친 뒤 다시 해 주세요.",
+      "This backup was made with a newer version of the app. Update or reload the app and try again."));
   }
   const d = payload.data;
   if(!Array.isArray(d.watchlist) && !Array.isArray(d.portfolios)){
-    throw new Error("백업 안에 관심 코인·포트폴리오가 없어요.");
+    throw new Error(t("백업 안에 관심 코인·포트폴리오가 없어요.", "This backup has no watchlist or portfolios."));
   }
   return { savedAt: payload.savedAt, data: stripMarkup(d) };
 }
@@ -71,7 +75,8 @@ export function summarize(d){
   const wl = Array.isArray(d.watchlist) ? d.watchlist.length : 0;
   const pfs = Array.isArray(d.portfolios) ? d.portfolios : [];
   const trades = pfs.reduce((n, p) => n + (p && Array.isArray(p.trades) ? p.trades.length : 0), 0);
-  return `관심 코인 ${wl}개 · 포트폴리오 ${pfs.length}개 (거래 ${trades}건)`;
+  return t(`관심 코인 ${wl}개 · 포트폴리오 ${pfs.length}개 (거래 ${trades}건)`,
+    `${wl} watchlist coin${wl === 1 ? "" : "s"} · ${pfs.length} portfolio${pfs.length === 1 ? "" : "s"} (${trades} transaction${trades === 1 ? "" : "s"})`);
 }
 
 export function fmtWhen(iso){

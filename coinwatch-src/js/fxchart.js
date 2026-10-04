@@ -7,9 +7,10 @@ import { FX_RANGES } from "./constants.js";
 import { fetchFxHistory } from "./api.js";
 import { rollNumberByKey } from "./animate.js";
 import { skeletonLine } from "./skeleton.js";
-import { medianGap, crossMarkup, bindScrub } from "./graph.js";
+import { medianGap, fmtGap, crossMarkup, bindScrub } from "./graph.js";
 import { ensureUsdKrw } from "./fx.js";
 import { closeChart } from "./chart.js";
+import { t, IS_EN } from "./i18n.js";
 
 let fxDays = 90;                  // 현재 선택된 기간 (FX_RANGES의 days)
 const fxCache = {};               // days -> {source, points} — 같은 기간을 다시 누르면 재요청 없이 즉시 그림
@@ -71,7 +72,8 @@ function renderFxDelta(points){
   const label = (FX_RANGES.find(r => r.days === fxDays) || {}).label || "";
   const sign = diff >= 0 ? "+" : "−";
   sub.className = "panel-sub " + (diff >= 0 ? "up" : "down");
-  sub.textContent = `${label} ${sign}${fmtRate(Math.abs(diff))}원 (${sign}${Math.abs(pct).toFixed(2)}%)`;
+  const amt = IS_EN ? "₩" + fmtRate(Math.abs(diff)) : fmtRate(Math.abs(diff)) + "원";
+  sub.textContent = `${label} ${sign}${amt} (${sign}${Math.abs(pct).toFixed(2)}%)`;
 }
 
 // ---------- 기간 버튼 ----------
@@ -110,7 +112,8 @@ async function loadAndDraw(days, quiet){
   const res = await fetchFxHistory(days);
   if(fxDays !== days) return;     // 불러오는 사이에 다른 기간을 눌렀으면 이 응답은 버린다
   if(!res){
-    box.innerHTML = '<div class="loading">환율 추이를 불러오지 못했습니다.<br>네트워크를 확인하고 기간을 다시 눌러주세요.</div>';
+    box.innerHTML = '<div class="loading">' + t("환율 추이를 불러오지 못했습니다.<br>네트워크를 확인하고 기간을 다시 눌러주세요.",
+      "Couldn't load the exchange rate history.<br>Check your connection and tap a period again.") + '</div>';
     document.getElementById("fxSrcNote").textContent = ""; // 남아 있던 자리표시 정리
     renderFxDelta(null);
     return;
@@ -180,7 +183,7 @@ function drawFxChart(res){
 
   box.innerHTML = `
     <svg class="g-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
-         aria-label="원/달러 환율 추이 그래프">
+         aria-label="${t("원/달러 환율 추이 그래프", "USD/KRW exchange rate chart")}">
       <defs>
         <linearGradient id="fxGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/>
@@ -200,9 +203,12 @@ function drawFxChart(res){
   const d = new Date(last.t * 1000);
   const stamp = `${p2(d.getFullYear() % 100)}.${p2(d.getMonth() + 1)}.${p2(d.getDate())} ` +
                 `${p2(d.getHours())}:${p2(d.getMinutes())}`;
-  document.getElementById("fxSrcNote").textContent =
-    `${res.source} · ${res.interval} 간격 · ${res.points.length}개` +
-    (last.live ? ` · 현재가 ${stamp} 기준` : ` · 최종 ${stamp}`);
+  // 간격 이름은 워커가 한국어로 준다("1시간") — 영어 화면에서는 점에서 다시 잰다(워커와 같은 중앙값)
+  document.getElementById("fxSrcNote").textContent = IS_EN
+    ? `${res.source} · ${fmtGap(medianGap(res.points))} interval · ${res.points.length} points` +
+      (last.live ? ` · live as of ${stamp}` : ` · last ${stamp}`)
+    : `${res.source} · ${res.interval} 간격 · ${res.points.length}개` +
+      (last.live ? ` · 현재가 ${stamp} 기준` : ` · 최종 ${stamp}`);
 
   fxGeom = { points, xs, ys, W, H, padT, ih, padL, iw };
   bindScrub(box.querySelector(".g-svg"), () => fxGeom,

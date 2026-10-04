@@ -1,4 +1,5 @@
 import { FNG_LABEL } from "./constants.js";
+import { IS_EN } from "./i18n.js";
 
 // ---------- 공포·탐욕 지수 ----------
 // alternative.me의 크립토 Fear & Greed Index (0=극도의 공포 ~ 100=극도의 탐욕). 하루 1회 갱신.
@@ -24,7 +25,7 @@ export async function loadFearGreed(){
     valEl.textContent = v;
     valEl.style.color = fngColor(v);
     const clsEl = document.getElementById("fngClass");
-    clsEl.textContent = FNG_LABEL[d.value_classification] || d.value_classification || "-";
+    clsEl.textContent = (!IS_EN && FNG_LABEL[d.value_classification]) || d.value_classification || "-";
     clsEl.style.color = fngColor(v);
     const y = data.data[1];
     const chgEl = document.getElementById("fngChg");

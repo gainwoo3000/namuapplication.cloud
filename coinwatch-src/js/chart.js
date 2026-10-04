@@ -19,6 +19,7 @@ import { fetchCoinCandles } from "./api.js";
 import { range24hPct } from "./rangebar.js";
 import { renderCoinSignals } from "./signals.js";
 import { cleanId } from "./sanitize.js";
+import { t, IS_EN, compactEn } from "./i18n.js";
 
 // 트레이딩뷰 상세를 보고 있는지. 코인을 바꿔도, 패널을 닫았다 열어도 그대로 따라간다 —
 // 지표를 보려고 상세를 켠 사람은 다음 코인도 상세로 보고 싶어한다.
@@ -160,7 +161,7 @@ function openExPop(){
     const code = REFERRAL[e.key] || "";
     const sub = e.key === "upbit" || e.key === "bithumb" ? sym + "/KRW" : sym + "/USDT";
     return `<a href="${e.url(sym, code)}" target="_blank" rel="noopener">${e.name}<span class="ex-sub">${sub} ↗</span></a>`;
-  }).join("") + `<div class="ex-note">새 탭에서 거래소가 열려요</div>`;
+  }).join("") + `<div class="ex-note">${t("새 탭에서 거래소가 열려요", "Opens the exchange in a new tab")}</div>`;
   exPop.hidden = false;
   exBtn.setAttribute("aria-expanded", "true");
 }
@@ -188,6 +189,7 @@ const yearCache = {};             // 코인 id -> { at, pct, short } (pct가 nul
 const YEAR_TTL = 10 * 60 * 1000;
 
 function fmtBigKrw(v){
+  if(IS_EN) return "₩" + compactEn(v, v >= 1e14 ? 0 : 1);
   if(v >= 1e12) return "₩" + (v / 1e12).toLocaleString(undefined, { maximumFractionDigits: v >= 1e14 ? 0 : 1 }) + "조";
   if(v >= 1e8)  return "₩" + Math.round(v / 1e8).toLocaleString() + "억";
   return "₩" + Math.round(v).toLocaleString();
@@ -212,6 +214,7 @@ function fmtEnd(v, quote){
   if(state.displayCurrency === "krw"){
     const krw = quote === "KRW" ? v : (rate > 0 ? v * rate : null);
     if(krw == null) return fmtPrice(v);
+    if(IS_EN) return krw >= 1e6 ? "₩" + compactEn(krw, 2) : fmtKrw(krw);
     if(krw >= 1e8) return "₩" + (krw / 1e8).toFixed(2) + "억";
     if(krw >= 1e6) return "₩" + Math.round(krw / 1e4).toLocaleString() + "만";
     return fmtKrw(krw);
@@ -236,7 +239,7 @@ function renderCoinStats(c){
   const krw = state.displayCurrency === "krw" && state.usdKrw > 0;
   document.getElementById("statMcap").textContent =
     cap > 0 ? (krw ? fmtBigKrw(cap * state.usdKrw) : fmtBigUsd(cap)) : "-";
-  document.getElementById("statMcapSub").textContent = c.rank ? "시총 " + c.rank + "위" : "";
+  document.getElementById("statMcapSub").textContent = c.rank ? t("시총 " + c.rank + "위", "Rank #" + c.rank) : "";
   setChg(document.getElementById("stat1d"), c.price_change_percentage_24h ?? null);
   setBar(document.getElementById("stat1dBar"), range24hPct(c), c.price_change_percentage_24h ?? null);
   setEnds("stat1dLo", "stat1dHi", c.low_24h, c.high_24h, "USD"); // 시세 목록의 고저가는 달러 기준
@@ -248,7 +251,8 @@ function renderCoinStats(c){
     setChg(el52, hit.pct);
     setBar(bar52, hit.pos, hit.pct);
     setEnds("stat52wLo", "stat52wHi", hit.lo, hit.hi, hit.quote);
-    sub52.textContent = hit.pct == null ? "데이터 없음" : hit.short ? "상장 이후 최저 ~ 최고" : "52주 최저 ~ 최고";
+    sub52.textContent = hit.pct == null ? t("데이터 없음", "No data")
+      : hit.short ? t("상장 이후 최저 ~ 최고", "Low ~ high since listing") : t("52주 최저 ~ 최고", "52-week low ~ high");
     if(Date.now() - hit.at < YEAR_TTL) return;
   }else{
     setChg(el52, null);          // 처음 받는 중
@@ -416,14 +420,14 @@ async function renderTVChart(){
   // 여기서는 24시간 등락으로 채운다 — 어느 코인이든 맞는 값이다.
   const sub = document.getElementById("chartCoinSub");
   sub.className = "panel-sub " + chgClass(c.price_change_percentage_24h);
-  sub.textContent = "24시간 " + fmtChg(c.price_change_percentage_24h);
+  sub.textContent = t("24시간 ", "24h ") + fmtChg(c.price_change_percentage_24h);
 
   try{
     await loadTvScript();
   }catch(e){
     clearTvWatch(); setTvSkeleton(false);
     document.getElementById("chartSrcNote").textContent =
-      "트레이딩뷰를 불러오지 못했습니다. 네트워크를 확인하고 다시 눌러주세요.";
+      t("트레이딩뷰를 불러오지 못했습니다. 네트워크를 확인하고 다시 눌러주세요.", "Couldn't load TradingView. Check your connection and tap again.");
     return;
   }
   if(!tvOpen) return; // 받아오는 사이에 돌아가기를 눌렀으면 그리지 않는다
@@ -438,7 +442,7 @@ async function renderTVChart(){
       range: cfg.range,
       timezone: "Asia/Seoul",
       style: "1",
-      locale: "kr",
+      locale: t("kr", "en"),
       enable_publishing: false,
       hide_legend: true,
       allow_symbol_change: false,
@@ -446,11 +450,11 @@ async function renderTVChart(){
       container_id: "tvChartContainer",
       ...tvTheme()
     });
-    document.getElementById("chartSrcNote").textContent = "차트: TradingView (" + tvSymbol + ")";
+    document.getElementById("chartSrcNote").textContent = t("차트: ", "Chart: ") + "TradingView (" + tvSymbol + ")";
   }catch(e){
     clearTvWatch(); setTvSkeleton(false);
     document.getElementById("chartSrcNote").textContent =
-      "TradingView 차트를 불러오지 못했습니다. 트레이딩뷰에 없는 심볼일 수 있어요.";
+      t("TradingView 차트를 불러오지 못했습니다. 트레이딩뷰에 없는 심볼일 수 있어요.", "Couldn't load the TradingView chart. The symbol may not be on TradingView.");
   }
 }
 

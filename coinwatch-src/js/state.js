@@ -1,7 +1,10 @@
 // 화면 여러 곳(모듈 여러 개)에서 함께 읽고 쓰는 전역 상태.
 // ES 모듈에서는 다른 파일이 import한 let 바인딩을 재할당할 수 없기 때문에,
 // 재할당이 필요한 값은 전부 이 객체의 속성으로 모아두고 state.xxx 형태로 접근한다.
+import { LANG, t } from "./i18n.js";
+
 export const state = {
+  lang: LANG,            // 화면 언어 "ko" | "en" (설정 › 언어). 바꾸면 저장하고 새로 연다 (settings.js)
   coinsList: [],       // 현재 화면에 표시되는 관심 코인 목록(최대 30개)
   allTickers: [],       // 검색/추가용 전체 마켓 풀
   watchlist: [],       // 사용자가 선택한 코인 id 목록 (순서 유지)
@@ -29,7 +32,7 @@ export const state = {
   fakeRefreshSeq: 0,      // 누를 때마다 +1. 목록 서명에 넣어서, 끝나면 자리표시를 걷고 반드시 다시 그리게 한다
   rowAnimating: false,    // 코인 행 삭제 애니메이션 중에는 목록 재렌더를 잠깐 멈춤
   // {name, trades:[거래 기록(trades.js)], holdings:[{id,symbol,name,amount}] (거래 합계로 계산), exchanges:[...]}
-  portfolios: [ { name:"포트폴리오 1", holdings:[], trades:[], exchanges:["upbit"] } ],
+  portfolios: [ { name: t("포트폴리오 1", "Portfolio 1"), holdings:[], trades:[], exchanges:["upbit"] } ],
   activePortfolioIdx: 0,
   pfSortMode: "added", // 보유 코인 표시 순서: "added"(추가순) | "asc"(금액 오름차순) | "desc"(내림차순)
   pfSection: "holdings", // 포트폴리오 탭에서 보고 있는 섹션: "holdings"(개요) | "trades"(거래)

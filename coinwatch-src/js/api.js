@@ -1,6 +1,7 @@
 import { REFRESH_SEC, BINANCE, GECKO, CMC_PROXY, CG_MARKETS_PROXY, FX_HISTORY_PROXY, FX_RATE_PROXY, API_BASE, UPBIT_CANDLES_PROXY, FX_SOURCE_LABEL, NAME_MAP, CANDLE_SPEC } from "./constants.js";
 import { state } from "./state.js";
 import { cleanText, cleanSym, cleanImage } from "./sanitize.js";
+import { t, IS_EN } from "./i18n.js";
 
 // ---------- 시세 그리드 ----------
 // 순위는 시가총액 기준(CoinGecko)으로 매기고, 가격/등락률은 가능하면 바이낸스 실시간 값으로 덮어써서 사용
@@ -24,7 +25,7 @@ async function fetchGeckoMarkets(){
     }
   }catch(e){ /* 프록시 미배포/오류 → 직접 호출로 폴백 */ }
   const [p1, p2] = await Promise.allSettled([fetchGeckoPage(1), fetchGeckoPage(2)]);
-  if(p1.status !== "fulfilled") throw (p1.reason instanceof Error ? p1.reason : new Error("gecko page1 실패"));
+  if(p1.status !== "fulfilled") throw (p1.reason instanceof Error ? p1.reason : new Error("gecko page1 failed"));
   return p2.status === "fulfilled" ? p1.value.concat(p2.value) : p1.value;
 }
 
@@ -48,7 +49,7 @@ export async function loadFromGecko(){
     mapped.push({
       id,
       symbol: sym,
-      name: NAME_MAP[short] || enName,
+      name: (!IS_EN && NAME_MAP[short]) || enName,
       enName, // 한글 이름(NAME_MAP)으로 name을 덮어써도 영문 이름으로 검색할 수 있게 따로 보관
       current_price: c.current_price,
       price_change_percentage_24h: c.price_change_percentage_24h,
@@ -80,7 +81,7 @@ export async function loadFromBinance(){
     return {
       id: short + "USDT",
       symbol: short.toLowerCase(),
-      name: NAME_MAP[short] || short,
+      name: (!IS_EN && NAME_MAP[short]) || short,
       current_price: parseFloat(t.lastPrice),
       price_change_percentage_24h: parseFloat(t.priceChangePercent),
       rank: idx+1, // 시총 데이터를 못 가져왔을 때의 임시 순위(거래대금 기준)
@@ -355,7 +356,7 @@ export async function fetchFxHistory(days){
         .map(([day, o]) => ({ t: Date.parse(day + "T00:00:00+09:00") / 1000, v: o && o.KRW }))
         .filter(pt => pt.v > 0 && !isNaN(pt.t))
         .sort((a, b) => a.t - b.t);
-      if(points.length > 1) return { source: "ECB 참고환율", interval: "1일", points };
+      if(points.length > 1) return { source: t("ECB 참고환율", "ECB reference rate"), interval: t("1일", "1d"), points };
     }catch(e){ /* 아래에서 null */ }
   }
 

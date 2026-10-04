@@ -1,6 +1,7 @@
 import { state } from "./state.js";
 import { ALL_DAYS } from "./constants.js";
 import { fetchCoinCandles } from "./api.js";
+import { t } from "./i18n.js";
 
 // ---------- 코인 상세 페이지: 코인별 공포·탐욕 + 기간별 기술적 지표 요약 ----------
 // 둘 다 거래소 캔들로 직접 계산하는 참고값이다(어디서 받아 오는 지수가 아니다).
@@ -112,11 +113,11 @@ function fearGreed(k){
 
 // ---------- 표시 ----------
 function fgLabel(v){
-  if(v < 25) return "극도의 공포";
-  if(v < 45) return "공포";
-  if(v <= 55) return "중립";
-  if(v <= 75) return "탐욕";
-  return "극도의 탐욕";
+  if(v < 25) return t("극도의 공포", "Extreme Fear");
+  if(v < 45) return t("공포", "Fear");
+  if(v <= 55) return t("중립", "Neutral");
+  if(v <= 75) return t("탐욕", "Greed");
+  return t("극도의 탐욕", "Extreme Greed");
 }
 function fgColor(v){ // 헤더 공포·탐욕 지수와 같은 색
   if(v < 25) return "#F05464";
@@ -126,24 +127,24 @@ function fgColor(v){ // 헤더 공포·탐욕 지수와 같은 색
   return "#3ECF8E";
 }
 function ratingLabel(s){
-  if(s <= -0.5) return ["강한 매도", "down"];
-  if(s < -0.1)  return ["매도", "down"];
-  if(s <= 0.1)  return ["중립", "flat"];
-  if(s < 0.5)   return ["매수", "up"];
-  return ["강한 매수", "up"];
+  if(s <= -0.5) return [t("강한 매도", "Strong sell"), "down"];
+  if(s < -0.1)  return [t("매도", "Sell"), "down"];
+  if(s <= 0.1)  return [t("중립", "Neutral"), "flat"];
+  if(s < 0.5)   return [t("매수", "Buy"), "up"];
+  return [t("강한 매수", "Strong buy"), "up"];
 }
 
 function paint(entry){
   const fgVal = document.getElementById("cfgVal"), fgLab = document.getElementById("cfgLabel");
   const fgBar = document.getElementById("cfgBar");
   if(!entry || entry.loading){
-    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = "계산 중…";
+    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = t("계산 중…", "Calculating…");
     fgBar.classList.add("is-empty");
   }else if(entry.flat){
-    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = "가격이 거의 안 움직이는 코인이라 해당 없음";
+    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = t("가격이 거의 안 움직이는 코인이라 해당 없음", "N/A — this coin's price barely moves");
     fgBar.classList.add("is-empty");
   }else if(entry.fg == null){
-    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = "데이터 부족";
+    fgVal.textContent = "-"; fgVal.style.color = ""; fgLab.textContent = t("데이터 부족", "Not enough data");
     fgBar.classList.add("is-empty");
   }else{
     fgVal.textContent = entry.fg; fgVal.style.color = fgColor(entry.fg);
@@ -156,13 +157,13 @@ function paint(entry){
     const bar = document.getElementById("sigb-" + tf.key);
     const r = entry && !entry.loading && !entry.flat ? entry.ratings[tf.key] : null;
     if(!r){
-      lab.textContent = !entry || entry.loading ? "…" : entry.flat ? "해당 없음" : "데이터 부족";
+      lab.textContent = !entry || entry.loading ? "…" : entry.flat ? t("해당 없음", "N/A") : t("데이터 부족", "Not enough data");
       lab.className = "sig-rating flat"; cnt.textContent = ""; bar.classList.add("is-empty");
       continue;
     }
     const [text, cls] = ratingLabel(r.score);
     lab.textContent = text; lab.className = "sig-rating " + cls;
-    cnt.textContent = `매수 ${r.buy} · 중립 ${r.neutral} · 매도 ${r.sell}`;
+    cnt.textContent = t(`매수 ${r.buy} · 중립 ${r.neutral} · 매도 ${r.sell}`, `Buy ${r.buy} · Neutral ${r.neutral} · Sell ${r.sell}`);
     bar.classList.remove("is-empty");
     bar.firstElementChild.style.left = ((r.score + 1) / 2 * 100) + "%";
   }
