@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>사고사례 환류관리</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 상단 바(양식 선택 · 작성/결과/규정 전환 · 로그인) + 가운데 양식 카드 열. 결과·규정은 넓은 열 */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --surface-2:#e6eaed; --line:#d3dade;
+  --fg:#16202a; --muted:#5a6872; --accent:#0e5a78; --accent-soft:#dbeaf1; --on-accent:#ffffff;
+  --red:#b02a20; --red-soft:#fbe3df; --amber:#8f5a00; --amber-soft:#faedd2;
+  --green:#1b673b; --green-soft:#dcefe2; --grey:#8a979f;
+  --c1:#2f6db3; --c2:#c8691f; --c3:#2a8468; --c4:#8a57b3; --c5:#bd4274; --c6:#7a8791;
+  --f-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1418; --surface:#151d23; --surface-2:#1d272e; --line:#29353e;
+  --fg:#e2e8ec; --muted:#93a1ab; --accent:#62b4d4; --accent-soft:#15303c; --on-accent:#0b1b22;
+  --red:#ef8a7f; --red-soft:#3a1c18; --amber:#e3b45c; --amber-soft:#33280f;
+  --green:#7cc896; --green-soft:#14301f; --grey:#6c7a84;
+  --c1:#6fa4e6; --c2:#eb9a5c; --c3:#5cc0a0; --c4:#b88ee0; --c5:#e57aa5; --c6:#8d9aa3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --surface:#151d23; --surface-2:#1d272e; --line:#29353e;
+  --fg:#e2e8ec; --muted:#93a1ab; --accent:#62b4d4; --accent-soft:#15303c; --on-accent:#0b1b22;
+  --red:#ef8a7f; --red-soft:#3a1c18; --amber:#e3b45c; --amber-soft:#33280f;
+  --green:#7cc896; --green-soft:#14301f; --grey:#6c7a84;
+  --c1:#6fa4e6; --c2:#eb9a5c; --c3:#5cc0a0; --c4:#b88ee0; --c5:#e57aa5; --c6:#8d9aa3; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14.5px;line-height:1.6}
+img{max-width:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+
+/* 상단 바 */
+body{padding-top:env(safe-area-inset-top,0px)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:center;gap:9px;margin-right:auto;min-width:0}
+.brand-mark{width:26px;height:26px;border-radius:50%;border:3px solid var(--accent);display:grid;place-items:center;flex:none}
+.brand-mark::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.brand b{font-family:var(--f-display);font-weight:400;font-size:19px;line-height:1;white-space:nowrap}
+.ver{font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap}
+.who{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);min-width:0}
+.who span{max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs{display:flex;gap:4px;overflow-x:auto;max-width:100%}
+.tabs button{border:0;background:none;padding:7px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;color:var(--muted);font-weight:500}
+.tabs button:hover{color:var(--fg);background:var(--surface-2)}
+.tabs button[aria-pressed="true"]{color:var(--accent);background:var(--accent-soft);font-weight:700}
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.mode button{border:0;background:var(--surface);padding:7px 13px;cursor:pointer;font-weight:600;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}
+.mode button+button{border-left:1px solid var(--line)}
+.mode button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.badge{font-family:var(--f-mono);font-size:11.5px;border-radius:99px;padding:0 7px;background:var(--surface-2);color:var(--fg)}
+.mode button[aria-pressed="true"] .badge{background:var(--on-accent);color:var(--accent)}
+
+.wrap{padding-block:26px calc(72px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.col{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.col.wide{max-width:1100px}
+
+/* 양식 */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.form-head{border-top:8px solid var(--accent)}
+.form-head h1{font-family:var(--f-display);font-weight:400;font-size:30px;line-height:1.2;margin:0;text-wrap:balance}
+.form-head p{margin:0;color:var(--muted);max-width:62ch}
+.req-note{font-size:12.5px;color:var(--red)}
+.sec-title{padding:12px 4px 0}
+.sec-title .no,.eyebrow{font-family:var(--f-mono);font-size:12px;color:var(--accent);letter-spacing:.04em}
+.sec-title h2{font-size:18px;margin:2px 0 0;text-wrap:balance}
+.sec-title p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.q{transition:border-color .15s}
+.q:focus-within{border-color:var(--accent)}
+.q.err{border-color:var(--red)}
+.q-label{font-weight:600;font-size:15px}
+.q-label .star{color:var(--red);margin-left:3px}
+.q-help{font-size:12.5px;color:var(--muted);margin-top:-6px}
+.q-err{color:var(--red);font-size:12.5px;font-weight:500}
+.inp{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:8px 2px;border-radius:0}
+.inp:focus{outline:none;border-bottom:2px solid var(--accent);padding-bottom:7px}
+textarea.inp{resize:vertical;min-height:72px;line-height:1.6}
+input[type=date].inp,input[type=datetime-local].inp{width:auto;min-width:200px}
+.box{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 10px;min-width:0}
+textarea.box{resize:vertical;line-height:1.55}
+select.box{padding:7px 8px}
+.opts{display:flex;flex-direction:column;gap:2px}
+.opt{display:flex;align-items:flex-start;gap:10px;padding:7px 4px;border-radius:6px;cursor:pointer}
+.opt:hover{background:var(--surface-2)}
+.opt input{margin-top:4px;width:17px;height:17px;accent-color:var(--accent);flex:none}
+.opt small{display:block;color:var(--muted);font-size:12.5px}
+.opt .other{flex:1;min-width:0}
+.grid-q{overflow-x:auto}
+.grid-q table{border-collapse:collapse;width:100%;min-width:480px}
+.grid-q th{font-size:12.5px;font-weight:500;color:var(--muted);padding:6px;text-align:center}
+.grid-q td{padding:9px 6px;border-top:1px solid var(--line);text-align:center}
+.grid-q td:first-child{text-align:left;font-size:13.5px}
+.grid-q input{width:17px;height:17px;accent-color:var(--accent)}
+.scale{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.scale label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 10px;cursor:pointer;font-family:var(--f-mono)}
+.scale input{width:18px;height:18px;accent-color:var(--accent)}
+.scale .end{font-size:12.5px;color:var(--muted)}
+.actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:4px}
+
+/* 사진 */
+.thumbs{display:flex;flex-wrap:wrap;gap:8px}
+.thumb{position:relative;width:96px;height:96px;margin:0;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-size:12px;color:var(--muted)}
+.thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.thumb img.broken{opacity:0}
+.thumb .x{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:0;background:var(--fg);color:var(--bg);cursor:pointer;line-height:1;font-size:15px}
+.ph-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* 위반 법령 */
+.vio-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ai-msg{font-size:13px;padding:9px 12px;border-radius:8px;background:var(--accent-soft)}
+.ai-msg.warn{background:var(--amber-soft)}
+.vrow{border:1px solid var(--line);border-radius:9px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.vrow-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vrow-head .sp{margin-left:auto}
+.vgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vgrid .full{grid-column:1/-1}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span{font-size:12px;color:var(--muted);font-weight:600}
+.art-text{font-size:12.5px;color:var(--muted);background:var(--surface-2);border-radius:7px;padding:8px 10px;white-space:pre-wrap;max-height:9em;overflow:auto}
+.reason{font-size:12.5px;color:var(--muted)}
+.reason b{color:var(--fg)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);padding:9px 22px}
+.btn.primary:hover{filter:brightness(1.08);color:var(--on-accent)}
+.btn.soft{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.ghost:hover{color:var(--accent)}
+.btn.danger{color:var(--red);border-color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.notice{display:flex;gap:10px;padding:11px 14px;border-radius:8px;font-size:13.5px;background:var(--amber-soft);flex-wrap:wrap;align-items:center}
+.notice b{color:var(--amber);flex:none}
+.notice span{flex:1 1 260px}
+.notice.info{background:var(--accent-soft)}
+.notice.info b{color:var(--accent)}
+.done-card{align-items:flex-start}
+.done-card h2{font-family:var(--f-display);font-weight:400;font-size:26px;margin:0}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+
+/* 결과 */
+.res-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.res-head h1{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0;line-height:1.2}
+.res-head p{margin:2px 0 0;color:var(--muted);max-width:70ch}
+.subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.subtabs button{border:0;background:none;padding:9px 14px;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.subtabs button[aria-pressed="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.sum-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.sum-grid .span{grid-column:1/-1}
+.meta{color:var(--muted);font-size:12.5px}
+.card-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.card-head h3{margin:0;font-size:15px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.brow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 62px;gap:10px;align-items:center;font-size:13px}
+.brow .lab{min-width:0;overflow-wrap:anywhere}
+.brow .lab.ok{font-weight:700;color:var(--green)}
+.track{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.brow .n{font-family:var(--f-mono);text-align:right;font-size:12.5px;white-space:nowrap}
+.stack-row{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.stack{display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--surface-2)}
+.stack i{display:block;height:100%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend span::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--c)}
+.c-green{--c:var(--green)} .c-red{--c:var(--red)} .c-amber{--c:var(--amber)} .c-grey{--c:var(--grey)}
+.texts{display:flex;flex-direction:column}
+.texts div{padding:8px 0;border-top:1px solid var(--line);font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.texts div:first-child{border-top:0}
+.texts small{display:block;color:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.big{font-family:var(--f-mono);font-size:30px;line-height:1}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty b{color:var(--fg);font-size:16px}
+
+.pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ans{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
+.ans:first-of-type{border-top:0}
+.ans .k{font-size:12.5px;color:var(--muted);font-weight:500}
+.ans .v{white-space:pre-wrap;overflow-wrap:anywhere}
+.none{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-green{background:var(--green-soft);color:var(--green)} .p-red{background:var(--red-soft);color:var(--red)}
+.p-amber{background:var(--amber-soft);color:var(--amber)} .p-grey{background:var(--surface-2);color:var(--muted)}
+.mini{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:1px 8px;font-size:12.5px;white-space:nowrap}
+.vlist{display:flex;flex-direction:column;gap:8px;white-space:normal}
+.vlist>div{border-left:3px solid var(--red);padding:2px 0 2px 10px}
+.vlist .pen{display:block;font-size:12.5px;color:var(--red);font-weight:600}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.table-wrap table{border-collapse:collapse;font-size:12.5px;min-width:100%}
+.table-wrap th{background:var(--surface-2);text-align:left;padding:8px 10px;font-weight:600;color:var(--muted);white-space:nowrap}
+.table-wrap td{padding:8px 10px;border-top:1px solid var(--line);vertical-align:top;min-width:110px;max-width:280px;overflow-wrap:anywhere;white-space:pre-wrap}
+.table-wrap tr.rowlink:hover td{background:var(--accent-soft)}
+
+/* 통계 */
+.stat-ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.kpi b{font-family:var(--f-mono);font-size:26px;font-weight:500;line-height:1.2}
+.kpi em{font-style:normal;font-size:12.5px;overflow-wrap:anywhere}
+.chart-scroll{overflow-x:auto}
+.cc{min-width:calc(var(--n) * 40px + 30px)}
+.cc-plot{display:grid;grid-template-columns:repeat(var(--n),minmax(28px,1fr));gap:6px;height:190px;border-bottom:1px solid var(--line);
+  background:repeating-linear-gradient(to top,transparent 0,transparent 47px,var(--surface-2) 47px,var(--surface-2) 48px)}
+.cc-col{display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;height:100%;min-width:0}
+.cc-total{font-family:var(--f-mono);font-size:11.5px;text-align:center;color:var(--fg);line-height:1.6}
+.cc-stack{display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;min-height:0}
+.cc-stack i{display:block;min-height:2px}
+.cc-labels{display:grid;grid-template-columns:repeat(var(--n),minmax(28px,1fr));gap:6px;margin-top:6px}
+.cc-labels span{font-size:11.5px;color:var(--muted);text-align:center;font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xt td,.xt th{text-align:center;min-width:56px;max-width:none;white-space:nowrap}
+.xt td:first-child,.xt th:first-child{text-align:left;min-width:150px;white-space:normal}
+.xt td.z{color:var(--muted)}
+.xt td.tot,.xt th.tot{font-weight:700;border-left:1px solid var(--line)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+
+/* 사례 요약 */
+.sumlist{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column}
+.sumlist li{counter-increment:s;display:grid;grid-template-columns:148px minmax(0,1fr);gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.sumlist li:first-child{border-top:0}
+.sumlist .k{font-weight:600;font-size:13.5px}
+.sumlist .k::before{content:counter(s) ". ";font-family:var(--f-mono);color:var(--accent)}
+.sumlist .v{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.ai-box{border:1px dashed var(--accent);border-radius:9px;padding:12px 14px;white-space:pre-wrap;font-size:14px}
+.ai-box .meta{display:block;margin-top:6px}
+
+/* 규정 */
+.reg{gap:10px}
+.reg-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.reg-head h3{margin:0;font-size:16px}
+.reg-head .sp{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.reg-toggle{border:0;background:none;padding:0;cursor:pointer;display:flex;gap:10px;align-items:center;text-align:left}
+.reg-toggle .arr{font-family:var(--f-mono);color:var(--muted);width:14px}
+.editor{border:1px solid var(--accent);border-radius:9px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.admins{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+.lb{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.78);display:grid;place-items:center;cursor:zoom-out;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.lb img{max-width:100%;max-height:100%;border-radius:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13px;z-index:80;max-width:calc(100% - 32px)}
+
+@media (max-width:820px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){
+  .card{padding:18px 16px}
+  .form-head h1{font-size:25px}
+  .sum-grid,.vgrid{grid-template-columns:minmax(0,1fr)}
+  .brow{grid-template-columns:minmax(0,1fr) 70px 58px}
+  .brand{margin-right:auto}
+  .sumlist li{grid-template-columns:minmax(0,1fr);gap:2px}
+}
+@media (prefers-reduced-motion:reduce){.q{transition:none}}
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-in">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span><b>사고사례 환류관리</b><span class="ver" id="ver"></span></div>
+  <div class="who" id="who"></div>
+  <nav class="tabs" id="form-tabs" aria-label="양식 선택"></nav>
+  <div class="mode" role="group" aria-label="보기 전환">
+    <button type="button" data-act="mode" data-m="fill" id="mode-fill">작성하기</button>
+    <button type="button" data-act="mode" data-m="results" id="mode-results">결과 보기 <span class="badge" id="count-badge">0</span></button>
+    <button type="button" data-act="mode" data-m="regs" id="mode-regs">규정 관리</button>
+  </div>
+</div></header>
+
+<div class="wrap"><main id="main"><noscript><div class="col"><div class="card">이 페이지는 자바스크립트가 필요합니다.</div></div></noscript></main></div>
+<div class="lb" id="lb" hidden data-act="lbClose"><img id="lb-img" alt="첨부 사진 확대"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module">
+import { firebaseConfig, functionsRegion } from './firebase-config.js';
+
+/* 화면 오른쪽 위 버전 표기. 올릴 때마다 v. yymmdd-HHmm(한국 시간)으로 바꾼다 */
+const VERSION='v. 261027-1248';
+const FB='https://www.gstatic.com/firebasejs/10.14.1/';
+
+/* ───────── 양식 정의 ───────── */
+const TYPES=['구내운전 사고','무선통화 오류','신호·진로 오류','출입문·PSD 사고','반복 인적 오류'];
+const ROLES=['사고 분석 담당자','안전 담당자','교육 담당자','현장 관리자','규정 소관 부서'];
+const FORMS=[
+ {id:'accident',name:'사고사례 분석표',
+  desc:'사고조사서, 사고보고서, 문답서, 재발방지대책을 바탕으로 사실관계, 관련 규정, 위반 판정, 개선대책을 기록합니다. 확인되지 않은 조문이나 규정 내용은 적지 않습니다.',
+  stats:{date:'when',dims:[['type','사고유형'],['verdict','위반 여부']],viol:true},
+  sections:[
+   {title:'사고 개요',fields:[
+     {id:'writerRole',type:'radio',label:'작성자 담당',req:1,options:ROLES},
+     {id:'title',type:'short',label:'사고명',req:1,ph:'예: 승강장 출입문 끼임 상태 출발'},
+     {id:'when',type:'datetime',label:'발생 일시',req:1},
+     {id:'place',type:'short',label:'발생 장소',req:1,ph:'예: ○○역 상선 승강장'},
+     {id:'type',type:'radio',label:'사고유형',req:1,options:TYPES,other:1},
+     {id:'task',type:'checkbox',label:'관련 업무',options:['구내운전','무선통화','신호·진로 확인','출입문·PSD 취급','정차 취급'],other:1},
+     {id:'actors',type:'short',label:'행위자 및 역할',ph:'예: 기관사(운전), 유도자(유도), 관제사'},
+     {id:'summary',type:'long',label:'사고 경위',req:1},
+     {id:'photos',type:'photos',label:'사고 경위 사진',help:'현장, 설비, 화면 기록 등. 한 장당 20MB 이하, 최대 10장까지 올릴 수 있습니다.'}]},
+   {title:'사실관계 및 행위 분석',desc:'막연한 표현보다 객관적으로 확인 가능한 행위로 세분화합니다.',fields:[
+     {id:'facts',type:'long',label:'확인된 행위 (시간순)',ph:'10:05 작업 전 협의 실시\n10:18 무선 응답이 불명확한 상태에서 진행'},
+     {id:'acts',type:'grid',label:'행위 단위 점검',req:1,
+      rows:['작업 전 협의가 이루어졌는가','무선통화 및 복명복창 절차를 이행했는가','신호와 진로 등 필요한 사항을 확인했는가','출입문 및 PSD 확인 절차를 이행했는가','이상 상황 시 정해진 보고·조치 절차를 따랐는가'],
+      cols:['이행','미이행','확인 불가','해당 없음'],colors:['green','red','amber','grey']}]},
+   {title:'관련 규정 및 증거',desc:'사고 발생 당시 유효한 규정을 적용하고, 적용 대상과 의무 주체를 확인합니다.',fields:[
+     {id:'violations',type:'violations',label:'위반 법령 · 조문 및 처벌 조항',
+      help:'사고 경위와 행위 점검 결과를 읽고 ‘규정 관리’에 등록된 규정에서 해당 조문을 찾아 채웁니다. 처벌 조항은 등록된 조문의 내용에서 가져옵니다. 자동으로 채운 내용은 반드시 규정 원문과 대조해 확인하세요.'},
+     {id:'evidence',type:'checkbox',label:'확인한 증거자료',options:['진술·문답서','운전일지','무전 기록','CCTV','설비 기록'],other:1}]},
+   {title:'위반 판정 및 개선대책',desc:'사고가 발생했다는 사실만으로 규정 위반을 단정하지 않습니다.',fields:[
+     {id:'verdict',type:'radio',label:'위반 여부 판정',req:1,colors:['red','amber','grey','green'],options:[
+       {v:'위반 확인',d:'적용 규정의 의무사항과 실제 미이행 사실이 객관적 자료로 확인됨'},
+       {v:'위반 의심·추가 확인 필요',d:'위반 가능성이 있으나 추가 증거 또는 사실관계 확인이 필요함'},
+       {v:'근거 또는 사실관계 불충분',d:'관련 조항이나 의무 주체 또는 구체적인 행위가 명확하지 않음'},
+       {v:'위반 확인되지 않음',d:'검토 결과 위반 사실이 확인되지 않음'}]},
+     {id:'factors',type:'checkbox',label:'사고 관련 요인',options:['교육 및 훈련의 적정성','관리자의 감독 및 점검','인력과 업무환경','설비 및 통신수단의 정상 작동 여부','업무절차의 명확성','기존 개선대책의 이행 여부']},
+     {id:'measureKinds',type:'checkbox',label:'개선대책 구분',options:['교육','현장점검','감독 개선','절차 개선','시설 개선','규정 개정']},
+     {id:'measure',type:'long',label:'개선대책 내용'},
+     {id:'owner',type:'radio',label:'조치 담당',options:ROLES},
+     {id:'due',type:'date',label:'조치기한'}]}]},
+ {id:'inspection',name:'현장 이행점검표',
+  desc:'교육 내용이 실제 업무에서 이행되는지 현장에서 확인하고, 미흡사항과 반복 오류를 기록합니다.',
+  stats:{date:'date',dims:[['inspType','점검 업무'],['retrain','보충교육 필요']]},
+  sections:[
+   {title:'점검 정보',fields:[
+     {id:'date',type:'date',label:'점검일',req:1},
+     {id:'site',type:'short',label:'사업소 · 장소',req:1},
+     {id:'inspector',type:'radio',label:'점검자 담당',options:['현장 관리자','안전 담당자','교육 담당자'],other:1},
+     {id:'inspType',type:'radio',label:'점검 업무',req:1,options:TYPES}]},
+   {title:'절차 이행 확인',fields:[
+     {id:'steps',type:'grid',label:'업무별 필수 확인사항',req:1,
+      rows:['작업 전 관계자와 작업 내용 협의','무선 지시 복명복창','신호·진로 확인 후 진행','출입문·PSD 닫힘 확인 후 출발','이상 시 정해진 보고·조치'],
+      cols:['이행','미흡','해당 없음'],colors:['green','red','grey']},
+     {id:'eduGap',type:'radio',label:'교육 내용과 실제 업무 수행 간 차이',options:['차이 없음','일부 차이','큰 차이'],colors:['green','amber','red']},
+     {id:'issues',type:'long',label:'미흡사항 및 반복 오류'}]},
+   {title:'후속 조치',fields:[
+     {id:'retrain',type:'radio',label:'보충교육 필요',req:1,options:['필요','불필요'],colors:['amber','green']},
+     {id:'action',type:'long',label:'조치 내용',ph:'보충교육, 업무절차 개선, 점검체계 보완 등'}]}]},
+ {id:'evaluation',name:'교육 후 평가',
+  desc:'사고사례 교육 직후 규정 이해도와 상황 판단 능력을 확인합니다. 정답이 있는 문항은 결과 화면에서 정답률로 집계됩니다.',
+  stats:{date:'date',dims:[['caseType','다룬 사고유형'],['practiced','상황별 대응 실습']]},
+  sections:[
+   {title:'교육 정보',fields:[
+     {id:'course',type:'short',label:'교육명',req:1,ph:'예: 출입문·PSD 사고 사례교육'},
+     {id:'date',type:'date',label:'교육일',req:1},
+     {id:'caseType',type:'radio',label:'다룬 사고유형',req:1,options:TYPES},
+     {id:'practiced',type:'radio',label:'상황별 대응 실습',req:1,options:['참여','미참여'],colors:['green','grey']}]},
+   {title:'이해도 확인',desc:'정답이 있는 문항입니다.',fields:[
+     {id:'q1',type:'radio',label:'사고가 발생했다면 관련 규정을 위반한 것으로 판정한다.',req:1,options:['맞다','아니다'],answer:'아니다'},
+     {id:'q2',type:'radio',label:'‘위반 확인’으로 판정하려면 무엇이 필요한가?',req:1,
+      options:['관련자의 진술만 있으면 된다','규정상 의무와 실제 미이행 사실이 객관적 자료로 확인되어야 한다','사고 결과가 중대하면 된다'],answer:'규정상 의무와 실제 미이행 사실이 객관적 자료로 확인되어야 한다'},
+     {id:'q3',type:'radio',label:'위반 여부를 검토할 때 적용하는 규정은?',req:1,options:['사고 발생 당시 유효한 규정','현재 시행 중인 최신 규정','둘 중 더 엄격한 규정'],answer:'사고 발생 당시 유효한 규정'}]},
+   {title:'자기 평가',fields:[
+     {id:'understand',type:'scale',label:'관련 규정을 이해한 정도',req:1,min:1,max:5,minLabel:'잘 모름',maxLabel:'설명할 수 있음'},
+     {id:'confident',type:'scale',label:'같은 상황에서 올바르게 대응할 자신감',req:1,min:1,max:5,minLabel:'낮음',maxLabel:'높음'},
+     {id:'weak',type:'checkbox',label:'보충이 필요한 분야',options:['구내운전','무선통화·복명복창','신호·진로 확인','출입문·PSD','이상 시 보고·조치']},
+     {id:'comment',type:'long',label:'의견'}]}]}
+];
+
+/* 관리자가 처음 한 번 "기본 규정 등록"으로 넣는 규정 목록.
+   철도안전법 조문은 국가법령정보센터 원문(시행 2026. 3. 3., 법률 제21188호)에서 확인한 것만 넣었다.
+   내부 규정 6개는 이름만 두고, 원문은 규정 관리 화면의 "원문 붙여넣기"로 등록한다. */
+const EMPTY_NOTE='조문 미등록 — 규정 원문을 ‘원문 붙여넣기’로 등록하세요';
+const DEFAULT_REGS=[
+ {id:'r01',name:'운전취급규정',kind:'규정',order:1,source:'',note:EMPTY_NOTE,articles:[]},
+ {id:'r02',name:'열차운전 시행세칙',kind:'세칙',order:2,source:'',note:EMPTY_NOTE,articles:[]},
+ {id:'r03',name:'철도안전보건 관리 규정',kind:'규정',order:3,source:'',note:EMPTY_NOTE,articles:[]},
+ {id:'r04',name:'철도사고조사 및 피해구상 세칙',kind:'세칙',order:4,source:'',note:EMPTY_NOTE,articles:[]},
+ {id:'r05',name:'철도안전법',kind:'법률',order:5,source:'국가법령정보센터 · 시행 2026. 3. 3. [법률 제21188호, 2025. 12. 2., 일부개정]',
+  note:'제40조의2만 우선 등록. 과태료(제82조) 등 나머지 조문은 원문 확인 후 추가',articles:[
+   {id:'a4002_1',no:'제40조의2 제1항',title:'철도종사자의 준수사항 (운전업무종사자)',
+    text:'운전업무종사자는 철도차량의 운전업무 수행 중 다음 각 호의 사항을 준수하여야 한다.\n1. 철도차량 출발 전 국토교통부령으로 정하는 조치 사항을 이행할 것\n2. 국토교통부령으로 정하는 철도차량 운행에 관한 안전 수칙을 준수할 것',
+    penaltyType:'',penalty:'',penaltyBasis:'',effective:'2026-03-03',note:'과태료(제82조) 해당 여부와 금액은 원문 확인 후 입력. 세부 조치사항은 시행규칙 확인'},
+   {id:'a4002_2',no:'제40조의2 제2항',title:'철도종사자의 준수사항 (관제업무종사자)',
+    text:'관제업무종사자는 관제업무 수행 중 다음 각 호의 사항을 준수하여야 한다.\n1. 국토교통부령으로 정하는 바에 따라 운전업무종사자 등에게 열차 운행에 관한 정보를 제공할 것\n2. 철도사고, 철도준사고 및 운행장애(이하 "철도사고등"이라 한다) 발생 시 국토교통부령으로 정하는 조치 사항을 이행할 것',
+    penaltyType:'벌금·징역',penalty:'3년 이하의 징역 또는 3천만원 이하의 벌금 — 철도사고등 발생 시 제2항제2호를 위반하여 사람을 사상에 이르게 하거나 철도차량 또는 철도시설을 파손에 이르게 한 경우',
+    penaltyBasis:'제79조제2항제4호',effective:'2026-03-03',note:'벌칙은 제2호 위반으로 사상·파손에 이른 경우에 한함. 제1호 위반의 과태료 여부는 원문 확인 필요'},
+   {id:'a4002_5',no:'제40조의2 제5항',title:'철도종사자의 준수사항 (사고 시 현장이탈 금지·후속조치)',
+    text:'철도사고등이 발생하는 경우 해당 철도차량의 운전업무종사자와 여객승무원은 철도사고등의 현장을 이탈하여서는 아니 되며, 철도차량 내 안전 및 질서유지를 위하여 승객 구호조치 등 국토교통부령으로 정하는 후속조치를 이행하여야 한다. 다만, 의료기관으로의 이송이 필요한 경우 등 국토교통부령으로 정하는 경우에는 그러하지 아니하다.',
+    penaltyType:'벌금·징역',penalty:'3년 이하의 징역 또는 3천만원 이하의 벌금 — 철도사고등 발생 시 제5항을 위반하여 사람을 사상에 이르게 하거나 철도차량 또는 철도시설을 파손에 이르게 한 경우',
+    penaltyBasis:'제79조제2항제4호',effective:'2026-03-03',note:''}]},
+ {id:'r06',name:'철도안전관리 시행세칙',kind:'세칙',order:6,source:'',note:EMPTY_NOTE,articles:[]},
+ {id:'r07',name:'철도차량 안전운전 시행세칙',kind:'세칙',order:7,source:'',note:EMPTY_NOTE,articles:[]}
+];
+
+const fieldsOf=f=>f.sections.flatMap(s=>s.fields);
+const fieldById=(form,id)=>fieldsOf(form).find(f=>f.id===id);
+const optV=o=>typeof o==='string'?o:o.v;
+const PCOL={green:'p-green',red:'p-red',amber:'p-amber',grey:'p-grey'};
+const PEN_TYPES=['','과태료','벌금·징역','징계','기타'];
+const REG_KINDS=['법률','시행령·시행규칙','규정','세칙','지침','기타'];
+
+/* ───────── 상태 ───────── */
+/* conn: pending(시작 중) · setup(Firebase 설정값 없음) · signedout · ready · error */
+const S={form:'accident',mode:'fill',tab:'summary',idx:0,submitted:null,busy:false,confirmDel:null,confirmClear:false,
+  conn:'pending',connErr:'',fb:null,user:null,admins:[],adminsExists:false,adminsLoaded:false,aiEnabled:true,
+  resp:{},loaded:{},err:{},regs:[],regsLoaded:false,unsubs:[],
+  photos:{},viol:{},stateInit:{},upBusy:0,aiBusy:false,aiToken:0,aiMsg:'',aiWarn:false,
+  statPeriod:'month',statYear:'',sumId:null,aiSum:{},
+  regOpen:null,regEdit:null,regBusy:false,regDel:null,adminDel:null,signingIn:false};
+FORMS.forEach(f=>{S.resp[f.id]=[];S.loaded[f.id]=false;});
+const ready=()=>S.conn==='ready';
+const canEdit=()=>ready()&&!!S.user?.email&&S.admins.includes(S.user.email.toLowerCase());
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const curForm=()=>FORMS.find(f=>f.id===S.form);
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,3200);}
+const pad=n=>String(n).padStart(2,'0');
+const fmtTime=iso=>{if(!iso)return'';const d=new Date(iso);if(isNaN(d))return esc(iso);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;};
+const isEmpty=v=>v==null||v===''||(Array.isArray(v)&&(!v.length||v.every(x=>x===''||x==null)));
+const lsGet=k=>{try{return JSON.parse(localStorage.getItem('korail:'+k)||'null');}catch(e){return null;}};
+const lsSet=(k,v)=>{try{v==null?localStorage.removeItem('korail:'+k):localStorage.setItem('korail:'+k,JSON.stringify(v));}catch(e){}};
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const artKey=no=>{const m=String(no||'').match(/제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?/);return m?[+m[1],+(m[2]||0),+(m[3]||0)]:[99999,0,0];};
+const sortArts=a=>[...(a||[])].sort((x,y)=>{const p=artKey(x.no),q=artKey(y.no);return p[0]-q[0]||p[1]-q[1]||p[2]-q[2];});
+const formatPenalty=a=>a&&a.penalty?`${a.penaltyType?`[${a.penaltyType}] `:''}${a.penalty}${a.penaltyBasis?` (근거: ${a.penaltyBasis})`:''}`:'';
+const violLabel=v=>`${v.regName||'규정 미선택'} ${v.articleNo||''}`.trim();
+const errCode=e=>String(e&&e.code||'').replace(/^(firestore|storage|functions|auth)\//,'');
+const photoSrc=p=>p&&p.url?p.url:'';
+
+/* ───────── 상단 바 ───────── */
+function renderBar(){
+  $('#ver').textContent=VERSION;
+  $('#form-tabs').innerHTML=FORMS.map(f=>`<button type="button" data-act="form" data-f="${f.id}" aria-pressed="${S.mode!=='regs'&&f.id===S.form}">${f.name}</button>`).join('');
+  ['fill','results','regs'].forEach(m=>$('#mode-'+m).setAttribute('aria-pressed',S.mode===m));
+  $('#count-badge').textContent=S.loaded[S.form]?S.resp[S.form].length:'–';
+  const who=$('#who');
+  if(S.user) who.innerHTML=`<span title="${esc(S.user.email||'')}">${esc(S.user.displayName||S.user.email||'로그인됨')}${canEdit()?' · 관리자':''}</span><button type="button" class="btn sm ghost" data-act="signOut">로그아웃</button>`;
+  else if(S.conn==='signedout') who.innerHTML=`<button type="button" class="btn sm" data-act="signIn" ${S.signingIn?'disabled':''}>Google 로그인</button>`;
+  else who.innerHTML='';
+}
+
+/* ───────── 작성 화면 ───────── */
+function fieldHTML(f,form){
+  const id=`q-${form.id}-${f.id}`, star=f.req?'<span class="star" aria-hidden="true">*</span>':'';
+  let body='';
+  if(f.type==='short') body=`<input class="inp" type="text" id="${id}" name="${f.id}" placeholder="${esc(f.ph||'내 답변')}">`;
+  else if(f.type==='long') body=`<textarea class="inp" id="${id}" name="${f.id}" rows="3" placeholder="${esc(f.ph||'내 답변')}"></textarea>`;
+  else if(f.type==='date') body=`<input class="inp" type="date" id="${id}" name="${f.id}">`;
+  else if(f.type==='datetime') body=`<input class="inp" type="datetime-local" id="${id}" name="${f.id}">`;
+  else if(f.type==='radio'||f.type==='checkbox'){
+    const t=f.type;
+    body=`<div class="opts" role="${t==='radio'?'radiogroup':'group'}" aria-labelledby="${id}-l">${f.options.map((o,i)=>{const v=optV(o);
+      return `<label class="opt"><input type="${t}" id="${id}-${i}" name="${f.id}" value="${esc(v)}"><span>${esc(v)}${o.d?`<small>${esc(o.d)}</small>`:''}</span></label>`;}).join('')}
+      ${f.other?`<label class="opt"><input type="${t}" id="${id}-o" name="${f.id}" value="__other"><span>기타:</span><input class="inp other" type="text" id="${id}-ot" name="${f.id}__ot" aria-label="기타 내용"></label>`:''}</div>`;
+  }
+  else if(f.type==='grid') body=`<div class="grid-q"><table><thead><tr><th></th>${f.cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
+    ${f.rows.map((r,i)=>`<tr><td>${esc(r)}</td>${f.cols.map((c,j)=>`<td><input type="radio" id="${id}-${i}-${j}" name="${f.id}__${i}" value="${esc(c)}" aria-label="${esc(r)}: ${c}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  else if(f.type==='scale'){const n=[];for(let v=f.min;v<=f.max;v++)n.push(v);
+    body=`<div class="scale" role="radiogroup" aria-labelledby="${id}-l"><span class="end">${esc(f.minLabel)}</span>${n.map(v=>`<label><span>${v}</span><input type="radio" id="${id}-${v}" name="${f.id}" value="${v}"></label>`).join('')}<span class="end">${esc(f.maxLabel)}</span></div>`;}
+  else if(f.type==='photos') body=`<div id="ph-box" style="display:flex;flex-direction:column;gap:10px"></div>`;
+  else if(f.type==='violations') body=`<div id="vio-box" style="display:flex;flex-direction:column;gap:12px"></div>`;
+  return `<div class="card q" id="${id}-card" data-fid="${f.id}"><div class="q-label" id="${id}-l">${esc(f.label)}${star}</div>${f.help?`<div class="q-help">${esc(f.help)}</div>`:''}${body}<div class="q-err" hidden></div></div>`;
+}
+function statusNotice(){
+  if(S.conn==='pending') return `<div class="notice info"><b>연결 중</b><span>저장소에 연결하고 있습니다.</span></div>`;
+  if(S.conn==='setup') return `<div class="notice"><b>설정 필요</b><span>Firebase 설정값이 아직 비어 있어 응답을 저장할 수 없습니다. 관리자는 <code>korail-firebase/README.md</code>의 순서대로 설정해 주세요.</span></div>`;
+  if(S.conn==='error') return `<div class="notice"><b>연결 실패</b><span>${esc(S.connErr||'저장소에 연결하지 못했습니다. 잠시 후 새로고침해 주세요.')}</span></div>`;
+  if(S.conn==='signedout') return `<div class="notice info"><b>로그인 필요</b><span>응답을 제출하려면 로그인하세요. 작성 중인 내용은 이 브라우저에 임시 보관됩니다.</span><button type="button" class="btn sm" data-act="signIn">Google 로그인</button></div>`;
+  return '';
+}
+const canSubmit=()=>ready()&&!S.busy&&!S.upBusy;
+function renderFill(){
+  const form=curForm();
+  if(S.submitted===form.id) return `<div class="col"><div class="card form-head done-card"><h2>응답이 기록되었습니다</h2>
+    <p>${esc(form.name)} 결과 화면에서 집계, 통계, 개별 응답을 확인할 수 있습니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="again">다른 응답 작성</button><button class="btn" data-act="mode" data-m="results">결과 보기</button></div></div></div>`;
+  return `<div class="col">
+   <div class="card form-head"><h1>${esc(form.name)}</h1><p>${esc(form.desc)}</p><div class="req-note">* 표시는 필수 항목입니다</div></div>
+   ${statusNotice()}
+   <form id="form" novalidate>
+   <div class="col">${form.sections.map((s,i)=>`<div class="sec-title"><div class="no">섹션 ${i+1} / ${form.sections.length}</div><h2>${esc(s.title)}</h2>${s.desc?`<p>${esc(s.desc)}</p>`:''}</div>
+     ${s.fields.map(f=>fieldHTML(f,form)).join('')}`).join('')}
+   <div class="actions"><button type="submit" class="btn primary" id="submit-btn" ${canSubmit()?'':'disabled'}>${S.busy?'제출 중…':'제출'}</button>
+     <button type="button" class="btn ghost" data-act="clear" id="clear-btn">${S.confirmClear?'한 번 더 누르면 지워집니다':'양식 지우기'}</button></div></div>
+   </form></div>`;
+}
+
+/* 사진: Firebase Storage photos/{uid}/ 아래에 올리고, 응답에는 {path,url}만 저장 */
+function renderPhotos(){
+  const box=$('#ph-box'); if(!box) return;
+  const list=S.photos[S.form]||[];
+  box.innerHTML=`<div class="thumbs">${list.map((p,i)=>`<figure class="thumb"><img src="${esc(photoSrc(p))}" alt="첨부 사진 ${i+1}" data-act="zoom" data-src="${esc(photoSrc(p))}"><button type="button" class="x" data-act="rmPhoto" data-i="${i}" aria-label="사진 ${i+1} 삭제">×</button></figure>`).join('')}
+    ${S.upBusy?`<div class="thumb">올리는 중…</div>`:''}</div>
+    <div class="ph-tools">${ready()?`<label class="btn sm" for="photo-file">사진 추가</label><input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden data-photo>`:
+      `<span class="meta">${S.conn==='pending'?'사진 업로드를 준비하고 있습니다.':'로그인하면 사진을 올릴 수 있습니다.'}</span>`}
+      <span class="meta mono">${list.length} / 10장</span></div>`;
+}
+async function uploadPhotos(files){
+  const {storage,st}=S.fb;
+  const formId=S.form;
+  const list=S.photos[formId]||(S.photos[formId]=[]);
+  const ok={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
+  for(const file of files){
+    if(list.length>=10){toast('사진은 최대 10장까지 올릴 수 있습니다');break;}
+    if(!ok[file.type]){toast(`${file.name}: JPG, PNG, WEBP, GIF 사진만 올릴 수 있습니다`);continue;}
+    if(file.size>20*1024*1024){toast(`${file.name}: 20MB를 넘는 사진은 올릴 수 없습니다`);continue;}
+    S.upBusy++;renderPhotos();updateSubmitBtn();
+    try{
+      const path=`photos/${S.user.uid}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ok[file.type]}`;
+      const r=st.ref(storage,path);
+      await st.uploadBytes(r,file,{contentType:file.type});
+      const url=await st.getDownloadURL(r);
+      list.push({path,url});
+    }catch(e){const c=errCode(e);
+      toast(c==='unauthorized'?'사진을 올릴 권한이 없습니다. 다시 로그인해 보세요':c==='quota-exceeded'?'사진 저장 공간이 가득 찼습니다':c==='retry-limit-exceeded'?'네트워크가 불안정합니다. 다시 올려 주세요':'사진을 올리지 못했습니다');}
+    finally{S.upBusy--;}
+  }
+  renderPhotos();updateSubmitBtn();saveDraft();
+}
+function deletePhoto(p){if(!p||!p.path||!S.fb||!S.user)return;const {storage,st}=S.fb;st.deleteObject(st.ref(storage,p.path)).catch(()=>{});}
+
+/* 위반 법령 */
+const aiReady=()=>ready()&&S.aiEnabled&&S.regs.length>0;
+function regOptions(sel){return `<option value="">규정 선택</option>${S.regs.map(r=>`<option value="${esc(r.id)}" ${r.id===sel?'selected':''}>${esc(r.name)}</option>`).join('')}<option value="__custom" ${sel==='__custom'?'selected':''}>목록에 없는 규정 (직접 입력)</option>`;}
+function renderViol(){
+  const box=$('#vio-box'); if(!box) return;
+  const rows=S.viol[S.form]||[];
+  let hint='';
+  if(ready()&&S.regsLoaded&&!S.regs.length) hint=`<div class="ai-msg warn">등록된 규정이 없습니다. ‘규정 관리’에서 규정과 조문을 등록하면 자동 채우기가 그 조문 안에서 찾아 넣습니다.</div>`;
+  else if(ready()&&!S.aiEnabled) hint=`<div class="ai-msg warn">자동 채우기 기능이 아직 설정되지 않았습니다. 아래 ‘직접 추가’로 입력하세요.</div>`;
+  else if(S.conn==='signedout') hint=`<div class="ai-msg">로그인하면 등록된 규정에서 위반 조문을 자동으로 찾아 넣을 수 있습니다.</div>`;
+  box.innerHTML=`<div class="vio-tools">
+      <button type="button" class="btn sm soft" data-act="aiFill" ${aiReady()&&!S.aiBusy?'':'disabled'}>${S.aiBusy?'분석 중…':'사고 경위로 자동 채우기'}</button>
+      ${S.aiBusy?'<button type="button" class="btn sm ghost" data-act="aiStop">중지</button>':''}
+      <button type="button" class="btn sm" data-act="addViol">직접 추가</button></div>
+    ${hint}${S.aiMsg?`<div class="ai-msg ${S.aiWarn?'warn':''}" role="status">${esc(S.aiMsg)}</div>`:''}
+    ${rows.length?rows.map((r,i)=>violRowHTML(r,i)).join(''):'<span class="meta">아직 입력된 위반 법령이 없습니다.</span>'}`;
+}
+function violRowHTML(r,i){
+  const reg=S.regs.find(x=>x.id===r.regId);
+  const arts=reg?sortArts(reg.articles):[];
+  const art=reg&&arts.find(a=>a.id===r.articleId);
+  const customArt=!art;
+  return `<div class="vrow" data-i="${i}">
+    <div class="vrow-head"><span class="chip">${r.source==='ai'?'자동 제안':'직접 입력'}</span>${r.confidence?`<span class="pill ${r.confidence==='높음'?'p-green':r.confidence==='중간'?'p-amber':'p-grey'}">확신도 ${esc(r.confidence)}</span>`:''}
+      <button type="button" class="btn sm ghost sp" data-act="rmViol" data-i="${i}">삭제</button></div>
+    <div class="vgrid">
+      <label class="fld"><span>규정</span><select class="box" id="v-${i}-reg" data-v="regId" data-i="${i}">${regOptions(r.regId)}</select></label>
+      ${r.regId==='__custom'?`<label class="fld"><span>규정명</span><input class="box" type="text" id="v-${i}-regname" data-v="regName" data-i="${i}" value="${esc(r.regName)}"></label>`:
+        `<label class="fld"><span>조문</span><select class="box" id="v-${i}-art" data-v="articleId" data-i="${i}" ${reg?'':'disabled'}>
+          <option value="">조문 선택</option>${arts.map(a=>`<option value="${esc(a.id)}" ${a.id===r.articleId?'selected':''}>${esc(a.no)}${a.title?` (${esc(a.title)})`:''}</option>`).join('')}
+          <option value="__custom" ${r.articleId==='__custom'?'selected':''}>목록에 없는 조문 (직접 입력)</option></select></label>`}
+      ${customArt?`<label class="fld ${r.regId==='__custom'?'':'full'}"><span>조문 · 항 · 호</span><input class="box" type="text" id="v-${i}-no" data-v="articleNo" data-i="${i}" value="${esc(r.articleNo)}" placeholder="원문에서 확인한 조문 (확인 전이면 ‘조문 확인 필요’)"></label>`:''}
+      ${art&&art.text?`<div class="art-text full">${esc(art.text)}</div>`:''}
+      <label class="fld"><span>규정상 의무</span><textarea class="box" rows="2" id="v-${i}-duty" data-v="duty" data-i="${i}">${esc(r.duty)}</textarea></label>
+      <label class="fld"><span>실제 행위와의 차이</span><textarea class="box" rows="2" id="v-${i}-gap" data-v="gap" data-i="${i}">${esc(r.gap)}</textarea></label>
+      <label class="fld full"><span>처벌 조항 (과태료 · 벌칙 · 징계 등)</span><textarea class="box" rows="2" id="v-${i}-pen" data-v="penalty" data-i="${i}" placeholder="등록된 조문에 처벌 조항이 있으면 자동으로 채워집니다. 해당 없으면 비워 두세요.">${esc(r.penalty)}</textarea></label>
+    </div>
+    ${r.reason?`<div class="reason"><b>판단 근거</b> ${esc(r.reason)}</div>`:''}</div>`;
+}
+function onViolChange(el){
+  const i=+el.dataset.i,k=el.dataset.v,rows=S.viol[S.form];if(!rows||!rows[i])return;const r=rows[i];
+  if(k==='regId'){r.regId=el.value;const reg=S.regs.find(x=>x.id===el.value);r.regName=reg?reg.name:'';r.articleId='';r.articleNo='';r.articleTitle='';r.penalty='';r.effective='';renderViol();}
+  else if(k==='articleId'){r.articleId=el.value;const reg=S.regs.find(x=>x.id===r.regId);const a=reg&&(reg.articles||[]).find(x=>x.id===el.value);
+    if(a){r.articleNo=a.no;r.articleTitle=a.title||'';r.penalty=formatPenalty(a);r.effective=a.effective||'';}else{r.articleNo='';r.articleTitle='';}
+    renderViol();}
+  else r[k]=el.value;
+  saveDraft();
+}
+function collectViol(form){
+  return (S.viol[form.id]||[]).filter(r=>r.regName||r.articleNo||r.duty||r.gap||r.penalty).map(r=>({
+    regId:r.regId||'',regName:r.regName||'',articleId:r.articleId||'',articleNo:r.articleNo||'',articleTitle:r.articleTitle||'',
+    duty:(r.duty||'').trim(),gap:(r.gap||'').trim(),penalty:(r.penalty||'').trim(),effective:r.effective||'',
+    source:r.source||'manual',reason:r.reason||'',confidence:r.confidence||''}));
+}
+/* AI 호출 공통: 서버(Cloud Functions)의 claude 함수가 API 키를 들고 대신 호출한다 */
+async function callAI(payload){
+  const {fn}=S.fb;
+  const res=await fn.claudeCall(payload);
+  return res.data||{};
+}
+function aiErrorText(e){
+  const c=errCode(e);
+  if(c==='not-found'){S.aiEnabled=false;return '자동 기능이 아직 배포되지 않았습니다. 관리자에게 Functions 배포를 요청하세요.';}
+  if(c==='failed-precondition')return e.message||'자동 기능 설정을 확인해야 합니다. 관리자에게 알려 주세요.';
+  if(c==='internal'){const m=String(e.message||'').trim();
+    return !m||m==='internal'?'자동 기능 서버에 연결하지 못했습니다. Functions가 배포되어 있는지 관리자에게 확인하세요.':m;}
+  if(c==='resource-exhausted')return e.message||'오늘 사용 한도에 도달했습니다. 내일 다시 시도하세요.';
+  if(c==='unauthenticated')return '로그인이 만료되었습니다. 다시 로그인한 뒤 시도하세요.';
+  if(c==='deadline-exceeded')return '응답이 늦어 중단했습니다. 다시 시도하세요.';
+  if(c==='invalid-argument')return e.message||'요청 내용을 확인하세요.';
+  return '자동 처리에 실패했습니다. 잠시 후 다시 시도하세요.';
+}
+async function aiFill(){
+  const form=curForm(),A=collect(form);
+  if(!A.summary){toast('사고 경위를 먼저 적어 주세요');document.getElementById(`q-${form.id}-summary`)?.focus();return;}
+  if(!aiReady()||S.aiBusy)return;
+  const acts=fieldById(form,'acts');
+  const library=S.regs.map(r=>({regId:r.id,name:r.name,kind:r.kind||'',articles:sortArts(r.articles).map(a=>({articleId:a.id,no:a.no,title:a.title||'',text:String(a.text||'').slice(0,700),hasPenalty:!!a.penalty}))}));
+  const record=[`사고명: ${A.title||'-'}`,`사고유형: ${A.type||'-'}`,`관련 업무: ${(A.task||[]).join(', ')||'-'}`,`행위자 및 역할: ${A.actors||'-'}`,
+    `사고 경위: ${A.summary}`,`확인된 행위(시간순): ${A.facts||'-'}`,
+    `행위 단위 점검:\n${acts.rows.map((row,i)=>`- ${row}: ${(A.acts||[])[i]||'미기재'}`).join('\n')}`,`확인한 증거자료: ${(A.evidence||[]).join(', ')||'-'}`].join('\n');
+  const token=++S.aiToken;
+  S.aiBusy=true;S.aiWarn=false;S.aiMsg='사고 경위를 읽고 등록된 조문과 대조하고 있습니다. 보통 10초에서 1분 정도 걸립니다.';renderViol();
+  try{
+    const data=await callAI({task:'violations',record:record.slice(0,8000),library});
+    if(token!==S.aiToken)return;
+    const res=data.result||{};
+    const list=Array.isArray(res.violations)?res.violations:[];
+    const rows=[];
+    list.slice(0,6).forEach(v=>{const reg=S.regs.find(r=>r.id===String(v&&v.regId));if(!reg)return;
+      const a=(reg.articles||[]).find(x=>x.id===String(v.articleId));
+      rows.push({source:'ai',regId:reg.id,regName:reg.name,articleId:a?a.id:'__custom',articleNo:a?a.no:'조문 확인 필요',articleTitle:a?(a.title||''):'',
+        duty:String(v.duty||''),gap:String(v.gap||''),penalty:a?formatPenalty(a):'',effective:a?(a.effective||''):'',reason:String(v.reason||''),
+        confidence:['높음','중간','낮음'].includes(v.confidence)?v.confidence:''});});
+    S.viol[form.id]=[...(S.viol[form.id]||[]).filter(r=>r.source!=='ai'),...rows];
+    const note=typeof res.note==='string'&&res.note?' '+res.note:'';
+    S.aiMsg=rows.length?`${rows.length}개 조문을 제안했습니다. 규정 원문과 대조해 확인하고 필요하면 고치세요.${note}`:`등록된 조문 중에서 해당하는 것을 찾지 못했습니다.${note}`;
+    S.aiWarn=!rows.length;
+  }catch(e){if(token!==S.aiToken)return;S.aiWarn=true;S.aiMsg=aiErrorText(e);}
+  finally{if(token===S.aiToken){S.aiBusy=false;renderViol();saveDraft();}}
+}
+
+function collect(form){
+  const el=$('#form'),A={};
+  fieldsOf(form).forEach(f=>{
+    if(['short','long','date','datetime'].includes(f.type)) A[f.id]=el.querySelector(`[name="${f.id}"]`).value.trim();
+    else if(f.type==='radio'||f.type==='scale'){const c=el.querySelector(`input[name="${f.id}"]:checked`);let v=c?c.value:'';
+      if(v==='__other'){const t=el.querySelector(`[name="${f.id}__ot"]`).value.trim();v=t?`기타: ${t}`:'기타';}
+      A[f.id]=f.type==='scale'&&v?Number(v):v;}
+    else if(f.type==='checkbox') A[f.id]=[...el.querySelectorAll(`input[name="${f.id}"]:checked`)].map(c=>{
+      if(c.value!=='__other')return c.value;const t=el.querySelector(`[name="${f.id}__ot"]`).value.trim();return t?`기타: ${t}`:'기타';});
+    else if(f.type==='grid') A[f.id]=f.rows.map((_,i)=>{const c=el.querySelector(`input[name="${f.id}__${i}"]:checked`);return c?c.value:'';});
+    else if(f.type==='photos') A[f.id]=(S.photos[form.id]||[]).map(p=>({path:p.path,url:p.url}));
+    else if(f.type==='violations') A[f.id]=collectViol(form);
+  });
+  return A;
+}
+function applyAnswers(form,A){
+  const el=$('#form'); if(!el) return;
+  if(!S.stateInit[form.id]){S.stateInit[form.id]=true;
+    S.photos[form.id]=A&&Array.isArray(A.photos)?clone(A.photos).filter(p=>p&&p.url):[];
+    S.viol[form.id]=A&&Array.isArray(A.violations)?clone(A.violations):[];}
+  renderPhotos();renderViol();
+  if(!A) return;
+  const setChoice=(name,v,f)=>{const vals=f.options?f.options.map(optV):[];
+    if(typeof v==='string'&&v.startsWith('기타')&&f.other&&!vals.includes(v)){const o=el.querySelector(`input[name="${name}"][value="__other"]`);if(o)o.checked=true;
+      const t=el.querySelector(`[name="${name}__ot"]`);if(t)t.value=v.replace(/^기타:?\s?/,'');return;}
+    el.querySelectorAll(`input[name="${name}"]`).forEach(i=>{if(i.value===String(v))i.checked=true;});};
+  fieldsOf(form).forEach(f=>{const v=A[f.id];if(isEmpty(v))return;
+    if(['short','long','date','datetime'].includes(f.type)){const i=el.querySelector(`[name="${f.id}"]`);if(i)i.value=v;}
+    else if(f.type==='radio'||f.type==='scale') setChoice(f.id,v,f);
+    else if(f.type==='checkbox') v.forEach(x=>setChoice(f.id,x,f));
+    else if(f.type==='grid') v.forEach((x,i)=>{if(x){const r=el.querySelector(`input[name="${f.id}__${i}"][value="${CSS.escape(x)}"]`);if(r)r.checked=true;}});
+  });
+}
+function validate(form,A){
+  let first=null;
+  fieldsOf(form).forEach(f=>{const card=document.getElementById(`q-${form.id}-${f.id}-card`);if(!card)return;const msg=card.querySelector('.q-err');
+    let bad='';
+    if(f.req&&isEmpty(A[f.id])) bad='필수 항목입니다.';
+    if(f.req&&f.type==='grid'&&A[f.id].some(x=>!x)) bad='모든 행에 답해 주세요.';
+    card.classList.toggle('err',!!bad); msg.hidden=!bad; msg.textContent=bad;
+    if(bad&&!first) first=card;});
+  if(first){first.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
+    const i=first.querySelector('input,textarea');i&&i.focus({preventScroll:true});}
+  return !first;
+}
+let draftT=null;
+function saveDraft(){clearTimeout(draftT);draftT=setTimeout(()=>{const f=curForm();if($('#form'))lsSet('draft:'+f.id,collect(f));},400);}
+
+async function submit(){
+  const form=curForm(),A=collect(form);
+  if(!validate(form,A)){toast('입력하지 않은 필수 항목이 있습니다');return;}
+  if(!canSubmit()){if(S.conn==='signedout')toast('로그인한 뒤 제출하세요');return;}
+  S.busy=true;updateSubmitBtn();
+  const {db,fs}=S.fb;
+  const ref=fs.doc(fs.collection(db,'forms',form.id,'responses'));
+  const body={answers:A,submittedAt:new Date().toISOString(),by:S.user.uid,byName:S.user.displayName||'',byEmail:S.user.email||''};
+  try{
+    try{await fs.setDoc(ref,body);}
+    catch(e){if(errCode(e)==='unavailable'){await new Promise(r=>setTimeout(r,700));await fs.setDoc(ref,body);}else throw e;}
+    lsSet('draft:'+form.id,null);S.photos[form.id]=[];S.viol[form.id]=[];S.aiMsg='';
+    S.submitted=form.id;S.busy=false;renderMain();window.scrollTo(0,0);toast('응답을 제출했습니다');
+  }catch(e){
+    S.busy=false;const c=errCode(e);updateSubmitBtn();
+    if(c==='permission-denied'||c==='unauthenticated')toast('이 계정으로는 응답을 저장할 수 없습니다. 다시 로그인해 보세요. 작성한 내용은 남아 있습니다');
+    else if(c==='resource-exhausted')toast('요청이 많아 저장하지 못했습니다. 잠시 후 다시 제출하세요');
+    else if(c==='invalid-argument')toast('저장할 수 없는 내용이 있습니다. 첨부나 글자 수를 줄여 보세요');
+    else toast('일시적으로 저장하지 못했습니다. 잠시 후 다시 제출하세요');
+  }
+}
+function updateSubmitBtn(){const b=$('#submit-btn');if(b){b.disabled=!canSubmit();b.textContent=S.busy?'제출 중…':S.upBusy?'사진 올리는 중…':'제출';}}
+
+/* ───────── 결과: 공통 ───────── */
+function countChoice(f,list){
+  const opts=f.options.map(optV),cnt=Object.fromEntries(opts.map(o=>[o,0]));let other=0,n=0;
+  list.forEach(r=>{const v=r.answers?.[f.id];if(isEmpty(v))return;n++;
+    (Array.isArray(v)?v:[v]).forEach(x=>{if(x in cnt)cnt[x]++;else other++;});});
+  return {opts,cnt,other,n};
+}
+function barRows(items,total,{ok}={}){
+  return `<div class="bars">${items.map(([lab,c,col])=>{const p=total?Math.round(c/total*100):0;
+    return `<div class="brow"><span class="lab ${ok===lab?'ok':''}">${ok===lab?'✓ ':''}${esc(lab)}</span><div class="track"><i style="width:${p}%;${col?`background:var(--${col})`:''}"></i></div><span class="n">${c} · ${p}%</span></div>`;}).join('')}</div>`;
+}
+function violCounts(list){
+  const m=new Map();
+  list.forEach(r=>{const seen=new Set();(r.answers?.violations||[]).forEach(v=>{const k=violLabel(v);if(seen.has(k))return;seen.add(k);
+    const e=m.get(k)||{label:k,reg:v.regName||'',no:v.articleNo||'',count:0,penalty:'',rows:[]};e.count++;if(v.penalty&&!e.penalty)e.penalty=v.penalty;e.rows.push(r);m.set(k,e);});});
+  return [...m.values()].sort((a,b)=>b.count-a.count);
+}
+function summaryCard(f,list){
+  const head=(extra='')=>`<div class="card-head"><h3>${esc(f.label)}</h3><span class="meta">${extra}</span></div>`;
+  if(f.type==='radio'||f.type==='checkbox'){
+    const {opts,cnt,other,n}=countChoice(f,list);
+    const items=opts.map((o,i)=>[o,cnt[o],f.colors?f.colors[i]:null]);if(f.other||other)items.push(['기타',other,null]);
+    let extra=`응답 ${n}개`;
+    if(f.answer){const rate=n?Math.round(cnt[f.answer]/n*100):0;extra=`정답률 <b class="mono">${rate}%</b> · 응답 ${n}개`;}
+    if(f.type==='checkbox')extra+=' · 복수 선택';
+    return `<div class="card">${head(extra)}${barRows(items,n,{ok:f.answer})}</div>`;
+  }
+  if(f.type==='grid'){
+    const n=list.filter(r=>!isEmpty(r.answers?.[f.id])).length;
+    return `<div class="card span">${head(`응답 ${n}개`)}
+      <div class="legend">${f.cols.map((c,j)=>`<span class="c-${f.colors[j]}">${c}</span>`).join('')}</div>
+      ${f.rows.map((row,i)=>{const cnt=f.cols.map(c=>list.filter(r=>r.answers?.[f.id]?.[i]===c).length);const t=cnt.reduce((a,b)=>a+b,0);
+        return `<div class="stack-row"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${esc(row)}</span><span class="mono meta">${cnt.map((c,j)=>`${f.cols[j]} ${c}`).join(' · ')}</span></div>
+        <div class="stack" role="img" aria-label="${esc(row)}: ${cnt.map((c,j)=>`${f.cols[j]} ${c}`).join(', ')}">${cnt.map((c,j)=>c?`<i style="width:${c/t*100}%;background:var(--${f.colors[j]})"></i>`:'').join('')}</div></div>`;}).join('')}</div>`;
+  }
+  if(f.type==='scale'){
+    const vals=list.map(r=>r.answers?.[f.id]).filter(v=>typeof v==='number');const n=vals.length;
+    const avg=n?(vals.reduce((a,b)=>a+b,0)/n).toFixed(1):'–';const items=[];for(let v=f.max;v>=f.min;v--)items.push([`${v}${v===f.max?' · '+f.maxLabel:v===f.min?' · '+f.minLabel:''}`,vals.filter(x=>x===v).length]);
+    return `<div class="card">${head(`응답 ${n}개`)}<div><span class="big">${avg}</span> <span class="meta">/ ${f.max} 평균</span></div>${barRows(items,n)}</div>`;
+  }
+  if(f.type==='violations'){
+    const vc=violCounts(list).slice(0,10),n=list.filter(r=>(r.answers?.violations||[]).length).length;
+    return `<div class="card span">${head(`위반 조문이 기록된 사례 ${n}건`)}${vc.length?barRows(vc.map(v=>[v.label,v.count,'red']),list.length):'<span class="meta">아직 기록된 위반 조문이 없습니다.</span>'}</div>`;
+  }
+  if(f.type==='photos'){
+    const withP=list.filter(r=>(r.answers?.photos||[]).length);const all=withP.flatMap(r=>r.answers.photos);
+    return `<div class="card">${head(`사진 첨부 사례 ${withP.length}건 · 사진 ${all.length}장`)}${all.length?`<div class="thumbs">${all.slice(0,8).map(p=>`<figure class="thumb"><img src="${esc(photoSrc(p))}" alt="첨부 사진" loading="lazy" data-act="zoom" data-src="${esc(photoSrc(p))}"></figure>`).join('')}</div>`:'<span class="meta">첨부된 사진이 없습니다.</span>'}</div>`;
+  }
+  const vals=list.filter(r=>!isEmpty(r.answers?.[f.id]));
+  return `<div class="card">${head(`응답 ${vals.length}개`)}${vals.length?`<div class="texts">${vals.slice(0,5).map(r=>`<div>${esc(String(r.answers[f.id]).replace('T',' '))}<small>${fmtTime(r.submittedAt)}</small></div>`).join('')}</div>
+    ${vals.length>5?`<button class="btn sm" data-act="tab" data-t="table" style="align-self:flex-start">전체 ${vals.length}개 표로 보기</button>`:''}`:'<span class="meta">아직 답변이 없습니다.</span>'}</div>`;
+}
+function violListHTML(v){
+  if(!v||!v.length) return '<span class="none">기록 없음</span>';
+  return `<div class="vlist">${v.map(x=>`<div><b>${esc(violLabel(x))}</b>${x.articleTitle?` <span class="meta">${esc(x.articleTitle)}</span>`:''}
+    ${x.duty?`<br><span class="meta">의무</span> ${esc(x.duty)}`:''}${x.gap?`<br><span class="meta">차이</span> ${esc(x.gap)}`:''}
+    ${x.penalty?`<span class="pen">처벌: ${esc(x.penalty)}</span>`:''}</div>`).join('')}</div>`;
+}
+const photosHTML=p=>p&&p.length?`<div class="thumbs">${p.map((x,i)=>`<figure class="thumb"><img src="${esc(photoSrc(x))}" alt="첨부 사진 ${i+1}" loading="lazy" data-act="zoom" data-src="${esc(photoSrc(x))}"></figure>`).join('')}</div>`:'<span class="none">첨부 없음</span>';
+function answerHTML(f,v){
+  if(f.type==='violations')return violListHTML(v);
+  if(f.type==='photos')return photosHTML(v);
+  if(isEmpty(v))return '<span class="none">응답 없음</span>';
+  if(f.type==='grid')return `<div class="mini">${f.rows.map((r,i)=>{const x=v[i];const j=f.cols.indexOf(x);return `<span>${esc(r)}</span><span>${x?`<span class="pill ${PCOL[f.colors[j]]||'p-grey'}">${esc(x)}</span>`:'<span class="none">—</span>'}</span>`;}).join('')}</div>`;
+  if(f.type==='checkbox')return `<div class="chips">${v.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`;
+  if(f.type==='radio'){const i=f.options.map(optV).indexOf(v);
+    if(f.answer)return `<span class="pill ${v===f.answer?'p-green':'p-red'}">${v===f.answer?'정답':'오답'}</span> ${esc(v)}`;
+    if(f.colors&&i>=0)return `<span class="pill ${PCOL[f.colors[i]]}">${esc(v)}</span>`;return esc(v);}
+  if(f.type==='scale')return `<span class="mono">${v}</span> <span class="none">/ ${f.max}</span>`;
+  if(f.type==='datetime')return esc(String(v).replace('T',' '));
+  return esc(v);
+}
+const tableCols=form=>fieldsOf(form).flatMap(f=>{
+  if(f.type==='grid')return f.rows.map((r,i)=>({f,i,label:`${f.label}: ${r}`}));
+  if(f.type==='violations')return [{f,kind:'law',label:'위반 법령 · 조문'},{f,kind:'pen',label:'처벌 조항'}];
+  if(f.type==='photos')return [{f,kind:'photos',label:'사진 수'}];
+  return [{f,label:f.label}];});
+const cellText=(c,A)=>{const v=A?.[c.f.id];
+  if(c.kind==='law')return (v||[]).map(violLabel).join('\n');
+  if(c.kind==='pen')return (v||[]).filter(x=>x.penalty).map(x=>`${violLabel(x)}: ${x.penalty}`).join('\n');
+  if(c.kind==='photos')return (v||[]).length?String(v.length):'';
+  if(c.i!=null)return v?.[c.i]||'';if(Array.isArray(v))return v.join(', ');return v==null?'':String(v).replace('T',' ');};
+
+/* ───────── 결과: 통계 ───────── */
+const dateOf=(form,r)=>{const v=r.answers?.[form.stats.date];const s=v?String(v):String(r.submittedAt||'');const m=s.match(/^(\d{4})-(\d{2})/);return m?{y:+m[1],m:+m[2]}:null;};
+const keyOf=(d,mode)=>mode==='year'?`${d.y}`:mode==='quarter'?`${d.y}-Q${Math.ceil(d.m/3)}`:`${d.y}-${pad(d.m)}`;
+const labelOf=(k,mode)=>mode==='year'?`${k}년`:mode==='quarter'?k.replace(/^(\d{4})-Q(\d)$/,(_,y,q)=>`${y.slice(2)}년 ${q}분기`):k.replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>`${y.slice(2)}.${m}`);
+function periodRange(ds,mode){
+  if(!ds.length)return [];
+  const min=ds.reduce((a,b)=>a.y*12+a.m<=b.y*12+b.m?a:b),max=ds.reduce((a,b)=>a.y*12+a.m>=b.y*12+b.m?a:b);
+  const out=[];
+  if(mode==='year'){for(let y=min.y;y<=max.y;y++)out.push(`${y}`);}
+  else if(mode==='quarter'){let y=min.y,q=Math.ceil(min.m/3);const ey=max.y,eq=Math.ceil(max.m/3);while(y<ey||(y===ey&&q<=eq)){out.push(`${y}-Q${q}`);q++;if(q>4){q=1;y++;}}}
+  else {let y=min.y,m=min.m;while(y<max.y||(y===max.y&&m<=max.m)){out.push(`${y}-${pad(m)}`);m++;if(m>12){m=1;y++;}}}
+  return out;
+}
+function dimCats(form,fid,recs){
+  const f=fieldById(form,fid);const opts=f.options.map(optV);const extra=new Set();
+  recs.forEach(x=>{const v=x.r.answers?.[fid];if(v&&!opts.includes(v))extra.add('기타');});
+  return {f,cats:[...opts,...extra]};
+}
+const catOf=(f,v)=>{if(!v)return null;const o=f.options.map(optV);return o.includes(v)?v:'기타';};
+function colChart(periods,mode,recs,f,cats,colorFor){
+  const tot=periods.map(p=>recs.filter(x=>x.k===p).length);const max=Math.max(1,...tot);
+  return `<div class="chart-scroll"><div class="cc" style="--n:${periods.length}">
+    <div class="cc-plot">${periods.map((p,i)=>{const segs=cats.map((c,j)=>[c,recs.filter(x=>x.k===p&&catOf(f,x.r.answers?.[f.id])===c).length,j]).filter(s=>s[1]);
+      return `<div class="cc-col" title="${esc(labelOf(p,mode))}: ${tot[i]}건"><span class="cc-total">${tot[i]||''}</span>
+        <div class="cc-stack" style="height:calc((100% - 20px) * ${(tot[i]/max).toFixed(4)})">${segs.map(([c,n,j])=>`<i style="flex:${n} 0 0;background:${colorFor(c,j)}" title="${esc(c)} ${n}건"></i>`).join('')}</div></div>`;}).join('')}</div>
+    <div class="cc-labels">${periods.map(p=>`<span>${esc(labelOf(p,mode))}</span>`).join('')}</div></div></div>
+    <div class="legend">${cats.map((c,j)=>`<span style="--c:${colorFor(c,j)}">${esc(c)}</span>`).join('')}</div>`;
+}
+function crossTable(rowsDef,periods,mode){
+  const max=Math.max(1,...rowsDef.flatMap(r=>r.vals));
+  return `<div class="table-wrap"><table class="xt"><thead><tr><th>구분</th>${periods.map(p=>`<th class="mono">${esc(labelOf(p,mode))}</th>`).join('')}<th class="tot">합계</th></tr></thead><tbody>
+    ${rowsDef.map(r=>{const t=r.vals.reduce((a,b)=>a+b,0);return `<tr><td>${r.head}</td>${r.vals.map(v=>v?`<td class="mono" style="background:color-mix(in srgb,var(--accent) ${Math.round(8+v/max*30)}%,transparent)">${v}</td>`:'<td class="mono z">·</td>').join('')}<td class="mono tot">${t}</td></tr>`;}).join('')}
+    <tr><td><b>합계</b></td>${periods.map((p,i)=>`<td class="mono"><b>${rowsDef.reduce((a,r)=>a+r.vals[i],0)}</b></td>`).join('')}<td class="mono tot">${rowsDef.reduce((a,r)=>a+r.vals.reduce((x,y)=>x+y,0),0)}</td></tr></tbody></table></div>`;
+}
+function renderStats(form,list){
+  const st=form.stats,mode=S.statPeriod;
+  const all=list.map(r=>({r,d:dateOf(form,r)})).filter(x=>x.d);
+  const years=[...new Set(all.map(x=>x.d.y))].sort((a,b)=>b-a);
+  if(!S.statYear||(S.statYear!=='all'&&!years.includes(+S.statYear)))S.statYear=years.length?String(years[0]):'all';
+  const recs=all.filter(x=>mode==='year'||S.statYear==='all'||x.d.y===+S.statYear).map(x=>({...x,k:keyOf(x.d,mode)}));
+  const periods=periodRange(recs.map(x=>x.d),mode);
+  const ctl=`<div class="stat-ctl"><span class="seg" role="group" aria-label="집계 단위">${[['year','연도별'],['quarter','분기별'],['month','월별']].map(([k,l])=>`<button type="button" data-act="statPeriod" data-p="${k}" aria-pressed="${mode===k}">${l}</button>`).join('')}</span>
+    ${mode!=='year'?`<select class="box" id="stat-year" data-chg="statYear" style="width:auto" aria-label="연도">${years.map(y=>`<option value="${y}" ${String(y)===S.statYear?'selected':''}>${y}년</option>`).join('')}<option value="all" ${S.statYear==='all'?'selected':''}>전체 기간</option></select>`:''}
+    <span class="meta">기준: ${esc(fieldById(form,st.date).label)}</span></div>`;
+  if(!recs.length) return ctl+`<div class="card empty"><b>집계할 응답이 없습니다</b><span>${esc(fieldById(form,st.date).label)}이(가) 입력된 응답이 있으면 기간별 통계가 표시됩니다.</span></div>`;
+  const [d0,d1]=st.dims;
+  const A=dimCats(form,d0[0],recs),B=dimCats(form,d1[0],recs);
+  const catColor=(c,j)=>`var(--c${Math.min(j+1,6)})`;
+  const semColor=(f)=>(c,j)=>{const i=f.options.map(optV).indexOf(c);return f.colors&&i>=0?`var(--${f.colors[i]})`:`var(--c${Math.min(j+1,6)})`;};
+  const topOf=(f,cats)=>{const cnt=cats.map(c=>[c,recs.filter(x=>catOf(f,x.r.answers?.[f.id])===c).length]).sort((a,b)=>b[1]-a[1]);return cnt[0]&&cnt[0][1]?cnt[0]:null;};
+  const t0=topOf(A.f,A.cats);
+  let kpis=`<div class="kpi"><span>대상 건수</span><b>${recs.length}</b><em class="meta">${periods.length?`${esc(labelOf(periods[0],mode))} ~ ${esc(labelOf(periods[periods.length-1],mode))}`:''}</em></div>
+    <div class="kpi"><span>가장 많은 ${esc(d0[1])}</span><b>${t0?t0[1]:0}</b><em>${t0?esc(t0[0]):'—'}</em></div>`;
+  let vc=[];
+  if(st.viol){
+    vc=violCounts(recs.map(x=>x.r));
+    const conf=recs.filter(x=>x.r.answers?.verdict==='위반 확인').length;
+    kpis+=`<div class="kpi"><span>위반 확인</span><b>${conf}</b><em class="meta">대상 대비 ${Math.round(conf/recs.length*100)}%</em></div>
+      <div class="kpi"><span>가장 많이 위반된 조문</span><b>${vc[0]?vc[0].count:0}</b><em>${vc[0]?esc(vc[0].label):'—'}</em></div>`;
+  } else {const t1=topOf(B.f,B.cats);
+    kpis+=`<div class="kpi"><span>가장 많은 ${esc(d1[1])}</span><b>${t1?t1[1]:0}</b><em>${t1?esc(t1[0]):'—'}</em></div><div class="kpi"><span>기간 수</span><b>${periods.length}</b><em class="meta">${mode==='year'?'년':mode==='quarter'?'분기':'개월'}</em></div>`;}
+  const rowsFor=(D,color)=>D.cats.map((c,j)=>({head:`<span class="sw" style="background:${color(c,j)}"></span>${esc(c)}`,vals:periods.map(p=>recs.filter(x=>x.k===p&&catOf(D.f,x.r.answers?.[D.f.id])===c).length)}));
+  let html=ctl+`<div class="kpis">${kpis}</div>
+    <div class="card"><div class="card-head"><h3>기간별 ${form.id==='accident'?'발생 건수':'응답 수'} · ${esc(d0[1])}</h3><span class="meta">${mode==='year'?'연도별':mode==='quarter'?'분기별':'월별'}</span></div>${colChart(periods,mode,recs,A.f,A.cats,catColor)}</div>
+    <div class="card"><div class="card-head"><h3>${esc(d0[1])} × 기간</h3></div>${crossTable(rowsFor(A,catColor),periods,mode)}</div>
+    <div class="card"><div class="card-head"><h3>${esc(d1[1])} × 기간</h3></div>${crossTable(rowsFor(B,semColor(B.f)),periods,mode)}</div>`;
+  if(st.viol){
+    html+=`<div class="card"><div class="card-head"><h3>위반 법령 · 조문 × 기간</h3><span class="meta">한 사례에 같은 조문이 여러 번 적혀도 1건으로 셉니다</span></div>
+      ${vc.length?crossTable(vc.map(v=>({head:`<b>${esc(v.reg)}</b> ${esc(v.no)}${v.penalty?`<br><span class="meta" style="color:var(--red)">처벌: ${esc(v.penalty)}</span>`:''}`,
+        vals:periods.map(p=>v.rows.filter(r=>keyOf(dateOf(form,r),mode)===p).length)})),periods,mode):'<span class="meta">이 기간에 기록된 위반 조문이 없습니다.</span>'}</div>`;
+    const byReg=new Map();vc.forEach(v=>byReg.set(v.reg||'규정 미선택',(byReg.get(v.reg||'규정 미선택')||0)+v.count));
+    if(byReg.size)html+=`<div class="card"><div class="card-head"><h3>규정별 위반 건수</h3></div>${barRows([...byReg.entries()].sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k,n,'red']),recs.length)}</div>`;
+  }
+  return html;
+}
+
+/* ───────── 결과: 사례 요약 ───────── */
+function summaryItems(r){
+  const A=r.answers||{},form=FORMS[0],acts=fieldById(form,'acts');
+  const j=v=>Array.isArray(v)?v.join(', '):(v||'');
+  const v=A.violations||[];
+  const actIssues=acts.rows.map((row,i)=>[row,(A.acts||[])[i]]).filter(([,x])=>x==='미이행'||x==='확인 불가');
+  const measure=[j(A.measureKinds)?`[${j(A.measureKinds)}]`:'',A.measure||''].filter(Boolean).join(' ');
+  const mo=[A.owner?`담당 ${A.owner}`:'',A.due?`기한 ${A.due}`:''].filter(Boolean).join(' · ');
+  const vi=fieldById(form,'verdict');const vIdx=vi.options.map(optV).indexOf(A.verdict);
+  const pens=v.filter(x=>x.penalty);
+  return [
+    ['사고명',esc(A.title),A.title],
+    ['사고유형',esc(A.type),A.type],
+    ['발생 일시',esc(String(A.when||'').replace('T',' ')),String(A.when||'').replace('T',' ')],
+    ['발생 장소',esc(A.place),A.place],
+    ['관련 업무',esc(j(A.task)),j(A.task)],
+    ['행위자 및 역할',esc(A.actors),A.actors],
+    ['사고 경위',esc(A.summary),A.summary],
+    ['확인된 행위',esc(A.facts),A.facts],
+    ['행위 점검 결과',actIssues.length?actIssues.map(([row,x])=>`<span class="pill ${x==='미이행'?'p-red':'p-amber'}">${x}</span> ${esc(row)}`).join('<br>'):((A.acts||[]).length?'미이행·확인 불가 항목 없음':''),
+      actIssues.length?actIssues.map(([row,x])=>`${x}: ${row}`).join(' / '):((A.acts||[]).length?'미이행·확인 불가 항목 없음':'')],
+    ['위반 법령 · 조문',v.length?v.map(x=>`<b>${esc(violLabel(x))}</b>${x.articleTitle?` (${esc(x.articleTitle)})`:''}${x.gap?` — ${esc(x.gap)}`:''}`).join('<br>'):'',v.map(x=>`${violLabel(x)}${x.articleTitle?` (${x.articleTitle})`:''}${x.gap?` — ${x.gap}`:''}`).join(' / ')],
+    ['처벌 조항',pens.length?pens.map(x=>`${esc(violLabel(x))}: <b style="color:var(--red)">${esc(x.penalty)}</b>`).join('<br>'):(v.length?'등록된 처벌 조항 없음 (확인 필요)':''),
+      pens.map(x=>`${violLabel(x)}: ${x.penalty}`).join(' / ')||(v.length?'등록된 처벌 조항 없음 (확인 필요)':'')],
+    ['위반 여부 판정',A.verdict?`<span class="pill ${vIdx>=0?PCOL[vi.colors[vIdx]]:'p-grey'}">${esc(A.verdict)}</span>`:'',A.verdict],
+    ['사고 관련 요인',esc(j(A.factors)),j(A.factors)],
+    ['개선대책',esc([measure,mo].filter(Boolean).join('\n')),[measure,mo].filter(Boolean).join(' / ')],
+    ['증거자료',esc(j(A.evidence)),j(A.evidence)],
+    ['첨부 사진',(A.photos||[]).length?photosHTML(A.photos):'',(A.photos||[]).length?`${A.photos.length}장`:''],
+    ['작성',`${esc(A.writerRole||'')}${r.byName?` · ${esc(r.byName)}`:''} · <span class="mono">${fmtTime(r.submittedAt)}</span>`,`${A.writerRole||''}${r.byName?` · ${r.byName}`:''} · ${fmtTime(r.submittedAt)}`]
+  ];
+}
+function renderCaseSummary(form,list){
+  const r=list.find(x=>x.id===S.sumId)||list[0];S.sumId=r.id;
+  const items=summaryItems(r);const ai=S.aiSum[r.id];const saved=r.aiSummary&&r.aiSummary.text;
+  return `<div class="card"><label class="fld"><span>사고명 선택</span><select class="box" id="sum-select" data-chg="sumSel">
+      ${list.map(x=>`<option value="${esc(x.id)}" ${x.id===r.id?'selected':''}>${esc(x.answers?.title||'(사고명 없음)')} · ${esc(String(x.answers?.when||'').replace('T',' ')||fmtTime(x.submittedAt))}</option>`).join('')}</select></label></div>
+    <div class="card"><div class="card-head"><h3>${esc(r.answers?.title||'사고 사례')}</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="copySum">요약 복사</button>
+      ${S.aiEnabled?`<button class="btn sm soft" data-act="aiSum" ${ai&&ai.busy?'disabled':''}>${ai&&ai.busy?'요약 작성 중…':saved||ai&&ai.text?'핵심 요약 다시 쓰기':'핵심 요약 쓰기'}</button>`:''}</div></div>
+      ${ai&&(ai.busy||ai.text||ai.err)?`<div class="ai-box" aria-live="polite">${ai.text?esc(ai.text):ai.busy?'사고 기록을 읽고 요약하고 있습니다…':''}${ai.err?`<span class="meta">${esc(ai.err)}</span>`:''}
+        ${ai.text&&!ai.busy?`<span class="meta">자동 작성한 요약입니다. 기록과 대조해 확인하세요. <button class="btn sm" data-act="saveSum">이 요약 저장</button></span>`:''}</div>`:
+        saved?`<div class="ai-box">${esc(saved)}<span class="meta">저장된 핵심 요약 · ${fmtTime(r.aiSummary.at)}</span></div>`:''}
+      <ol class="sumlist">${items.map(([k,h])=>`<li><span class="k">${k}</span><div class="v">${h||'<span class="none">기록 없음</span>'}</div></li>`).join('')}</ol>
+      <textarea id="copy-fallback" class="box" rows="6" hidden readonly aria-label="복사할 요약"></textarea></div>`;
+}
+async function aiSummary(){
+  const list=S.resp.accident,r=list.find(x=>x.id===S.sumId);if(!r||!ready())return;
+  const text=summaryItems(r).map(([k,,t],i)=>`${i+1}. ${k}: ${t||'기록 없음'}`).join('\n');
+  const st=S.aiSum[r.id]={busy:true,text:'',err:''};renderMain();
+  try{const data=await callAI({task:'summary',text:text.slice(0,12000)});st.text=String(data.text||'');if(!st.text)st.err='요약을 받지 못했습니다. 다시 시도하세요.';}
+  catch(e){st.err=aiErrorText(e);}
+  finally{st.busy=false;renderMain();}
+}
+
+/* ───────── 결과 화면 ───────── */
+function resultTabs(form){
+  const t=[['summary','문항별 집계'],['stats','통계']];
+  if(form.id==='accident')t.push(['case','사례 요약']);
+  t.push(['each','개별 응답'],['table','표']);return t;
+}
+function gateCard(){
+  if(S.conn==='pending')return `<div class="card empty"><b>불러오는 중</b><span>잠시만 기다려 주세요.</span></div>`;
+  if(S.conn==='setup')return setupCard();
+  if(S.conn==='error')return `<div class="card empty"><b>연결하지 못했습니다</b><span>${esc(S.connErr||'잠시 후 새로고침해 주세요.')}</span></div>`;
+  if(S.conn==='signedout')return `<div class="card empty"><b>로그인이 필요합니다</b><span>사고 기록은 로그인한 사람만 볼 수 있습니다.</span><button class="btn primary" data-act="signIn" ${S.signingIn?'disabled':''}>Google 로그인</button></div>`;
+  return '';
+}
+function setupCard(){
+  return `<div class="card"><h2 style="margin:0">Firebase 설정이 필요합니다</h2>
+    <p class="meta" style="margin:0">이 페이지는 응답·규정을 Firebase에 저장합니다. 관리자가 한 번만 아래를 해 주면 됩니다. 자세한 순서는 저장소의 <code>korail-firebase/README.md</code>에 있습니다.</p>
+    <ol class="steps"><li>Firebase 프로젝트를 만들고 Blaze 요금제로 전환</li><li>Authentication에서 Google 로그인 켜기, 승인된 도메인에 <code>namuapplication.cloud</code> 추가</li>
+    <li>Firestore·Storage 만들고 보안 규칙 배포</li><li>웹 앱 설정값을 <code>korail/firebase-config.js</code>에 붙여넣기</li><li>Claude API 키를 비밀값으로 등록하고 Functions 배포</li></ol></div>`;
+}
+function renderResults(){
+  const form=curForm(),list=S.resp[form.id];
+  const tabs=resultTabs(form);if(!tabs.some(t=>t[0]===S.tab))S.tab='summary';
+  const last=list[0]?.submittedAt;
+  let body=gateCard();
+  if(body){}
+  else if(!S.loaded[form.id]&&!S.err[form.id]) body=`<div class="card empty"><b>결과를 불러오는 중</b><span>잠시만 기다려 주세요.</span></div>`;
+  else if(S.err[form.id]) body=`<div class="card empty"><b>결과를 불러오지 못했습니다</b><span>${S.err[form.id]==='permission-denied'?'이 계정으로는 결과를 볼 수 없습니다.':'페이지를 새로 열어 다시 시도해 주세요.'}</span></div>`;
+  else if(!list.length) body=`<div class="card empty"><b>아직 제출된 응답이 없습니다</b><span>‘작성하기’에서 첫 응답을 제출하면 이곳에 집계, 통계, 개별 응답이 표시됩니다.</span><button class="btn primary" data-act="mode" data-m="fill">첫 응답 작성하기</button></div>`;
+  else if(S.tab==='summary') body=form.sections.map((s,i)=>`<div class="sec-title"><div class="no">섹션 ${i+1}</div><h2>${esc(s.title)}</h2></div>
+      <div class="sum-grid">${s.fields.map(f=>summaryCard(f,list)).join('')}</div>`).join('');
+  else if(S.tab==='stats') body=renderStats(form,list);
+  else if(S.tab==='case') body=renderCaseSummary(form,list);
+  else if(S.tab==='each'){
+    S.idx=Math.min(Math.max(0,S.idx),list.length-1);const r=list[S.idx];
+    body=`<div class="pager"><button class="btn sm" data-act="idx" data-d="-1" ${S.idx<=0?'disabled':''}>이전</button>
+      <span class="mono">${S.idx+1} / ${list.length}</span><button class="btn sm" data-act="idx" data-d="1" ${S.idx>=list.length-1?'disabled':''}>다음</button>
+      <span class="meta">최신순</span>${form.id==='accident'?`<button class="btn sm ghost" data-act="toSum" data-id="${esc(r.id)}">사례 요약으로 보기</button>`:''}</div>
+      <div class="card"><div class="card-head"><div><b class="mono">${fmtTime(r.submittedAt)}</b> <span class="meta">· 작성자 ${esc(r.byName||r.byEmail||'알 수 없음')}</span></div>
+        ${canEdit()?`<button class="btn sm ${S.confirmDel===r.id?'danger':''}" data-act="del" data-id="${esc(r.id)}">${S.confirmDel===r.id?'삭제 확인':'응답 삭제'}</button>`:''}</div></div>
+      ${form.sections.map(s=>`<div class="card"><h3 style="margin:0">${esc(s.title)}</h3>${s.fields.map(f=>`<div class="ans"><span class="k">${esc(f.label)}</span><div class="v">${answerHTML(f,r.answers?.[f.id])}</div></div>`).join('')}</div>`).join('')}`;
+  }
+  else {const cols=tableCols(form);
+    body=`<div style="display:flex;justify-content:flex-end"><button class="btn sm" data-act="csv">CSV로 내려받기</button></div>
+    <div class="table-wrap"><table><thead><tr><th>제출 시각</th><th>작성자</th>${cols.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>
+    ${list.map((r,i)=>`<tr class="rowlink" data-act="openEach" data-i="${i}" style="cursor:pointer"><td class="mono">${fmtTime(r.submittedAt)}</td><td>${esc(r.byName||r.byEmail||'')}</td>${cols.map(c=>`<td>${esc(cellText(c,r.answers))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
+  return `<div class="col wide"><div class="res-head"><div><div class="eyebrow">결과</div><h1>${esc(form.name)}</h1>
+    <p>응답 <b class="mono">${ready()?list.length:'–'}</b>개${last?` · 마지막 제출 <span class="mono">${fmtTime(last)}</span>`:''}</p></div>
+    <button class="btn" data-act="mode" data-m="fill">응답 작성</button></div>
+    <div class="subtabs" role="group" aria-label="결과 보기 방식">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-t="${k}" aria-pressed="${S.tab===k}">${l}</button>`).join('')}</div>
+    ${body}</div>`;
+}
+function downloadCSV(){
+  const form=curForm(),cols=tableCols(form),list=S.resp[form.id];
+  const q=s=>`"${String(s).replace(/"/g,'""')}"`;
+  const lines=[['제출 시각','작성자',...cols.map(c=>c.label)].map(q).join(',')];
+  list.forEach(r=>lines.push([fmtTime(r.submittedAt),r.byName||r.byEmail||'',...cols.map(c=>cellText(c,r.answers))].map(q).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const d=new Date();a.download=`${form.name}_응답_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.csv`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('CSV 파일을 내려받았습니다');
+}
+
+/* ───────── 규정 관리 ───────── */
+function artEditorHTML(reg,a){
+  a=a||{};
+  return `<div class="editor"><b>${a.id?'조문 수정':'조문 추가'} · ${esc(reg.name)}</b>
+    <div class="vgrid">
+      <label class="fld"><span>조문 · 항 · 호 *</span><input class="box" type="text" id="re-no" value="${esc(a.no)}" placeholder="예: 제40조의2 제1항"></label>
+      <label class="fld"><span>제목</span><input class="box" type="text" id="re-title" value="${esc(a.title)}" placeholder="예: 철도종사자의 준수사항"></label>
+      <label class="fld full"><span>조문 내용 (원문)</span><textarea class="box" rows="5" id="re-text">${esc(a.text)}</textarea></label>
+      <label class="fld"><span>처벌 종류</span><select class="box" id="re-ptype">${PEN_TYPES.map(t=>`<option value="${t}" ${t===(a.penaltyType||'')?'selected':''}>${t||'없음'}</option>`).join('')}</select></label>
+      <label class="fld"><span>처벌 근거 조문</span><input class="box" type="text" id="re-pbasis" value="${esc(a.penaltyBasis)}" placeholder="예: 제82조제1항제○호"></label>
+      <label class="fld full"><span>처벌 내용</span><textarea class="box" rows="2" id="re-pen" placeholder="예: ○○만원 이하의 과태료">${esc(a.penalty)}</textarea></label>
+      <label class="fld"><span>시행일</span><input class="box" type="date" id="re-eff" value="${esc(a.effective)}"></label>
+      <label class="fld"><span>비고</span><input class="box" type="text" id="re-note" value="${esc(a.note)}"></label>
+    </div>
+    <div style="display:flex;gap:8px"><button class="btn sm primary" data-act="saveArt" ${S.regBusy?'disabled':''}>저장</button><button class="btn sm" data-act="cancelEdit">취소</button></div></div>`;
+}
+function regMetaEditorHTML(reg){
+  reg=reg||{};
+  return `<div class="editor"><b>${reg.id?'규정 정보 수정':'새 규정'}</b>
+    <div class="vgrid">
+      <label class="fld"><span>규정명 *</span><input class="box" type="text" id="rm-name" value="${esc(reg.name)}"></label>
+      <label class="fld"><span>구분</span><select class="box" id="rm-kind">${REG_KINDS.map(k=>`<option ${k===(reg.kind||'규정')?'selected':''}>${k}</option>`).join('')}</select></label>
+      <label class="fld full"><span>출처 · 기준 버전</span><input class="box" type="text" id="rm-source" value="${esc(reg.source)}" placeholder="예: 국가법령정보센터, 시행 2026. 3. 3."></label>
+      <label class="fld full"><span>비고</span><input class="box" type="text" id="rm-note" value="${esc(reg.note)}"></label>
+    </div>
+    <div style="display:flex;gap:8px"><button class="btn sm primary" data-act="saveMeta" ${S.regBusy?'disabled':''}>저장</button><button class="btn sm" data-act="cancelEdit">취소</button></div></div>`;
+}
+function pasteEditorHTML(reg){
+  return `<div class="editor"><b>원문 붙여넣기로 조문 등록 · ${esc(reg.name)}</b>
+    <span class="meta">규정 원문을 붙여넣으면 줄 맨 앞의 ‘제○조(제목)’ 단위로 나눠 조문을 만듭니다. 같은 조문 번호가 이미 있으면 내용을 새 원문으로 바꿉니다. 처벌 조항은 저장 후 조문별로 입력하세요.</span>
+    <textarea class="box" rows="10" id="paste-text" data-input="paste" placeholder="제1조(목적) 이 규정은 …&#10;제2조(정의) …"></textarea>
+    <span class="meta" id="paste-preview">붙여넣은 내용이 없습니다.</span>
+    <div style="display:flex;gap:8px"><button class="btn sm primary" data-act="savePaste" ${S.regBusy?'disabled':''}>조문 등록</button><button class="btn sm" data-act="cancelEdit">취소</button></div></div>`;
+}
+function parseArticles(text){
+  const re=/(^|\n)[ \t]*(제\s*\d+\s*조(?:\s*의\s*\d+)?)[ \t]*(?:\(([^)\n]{1,60})\))?/g;
+  let hits=[];let m;while((m=re.exec(text))){hits.push({at:m.index+m[1].length,end:re.lastIndex,no:m[2].replace(/\s+/g,''),title:m[3]||''});}
+  /* 제목이 붙은 조문이 있으면 제목 없는 줄머리 인용(예: '제40조의2 제2항을 …')은 조문으로 보지 않음 */
+  if(hits.some(h=>h.title))hits=hits.filter(h=>h.title);
+  return hits.map((h,i)=>({no:h.no,title:h.title.trim(),text:text.slice(h.end,i+1<hits.length?hits[i+1].at:text.length).trim()})).filter(a=>a.no);
+}
+function adminCardHTML(){
+  if(!ready())return '';
+  const me=(S.user.email||'').toLowerCase();
+  if(!S.adminsLoaded)return '';
+  if(!S.adminsExists)return `<div class="card"><div class="card-head"><h3>관리자</h3></div>
+    <p class="meta" style="margin:0">아직 관리자가 없습니다. 관리자는 규정을 고치고 응답을 삭제할 수 있습니다. 배포 직후 담당자 계정으로 먼저 등록하세요.</p>
+    <div><button class="btn sm primary" data-act="claimAdmin">${esc(me)} 계정을 첫 관리자로 등록</button></div></div>`;
+  return `<div class="card"><div class="card-head"><h3>관리자</h3><span class="meta">규정 수정 · 응답 삭제 권한</span></div>
+    <div class="admins">${S.admins.map(e=>`<span class="chip">${esc(e)}${e===me?' (나)':''}</span>${canEdit()&&S.admins.length>1?`<button class="btn sm ${S.adminDel===e?'danger':'ghost'}" data-act="rmAdmin" data-e="${esc(e)}">${S.adminDel===e?'삭제 확인':'빼기'}</button>`:''}`).join('')}</div>
+    ${canEdit()?`<div class="filters" style="display:flex;gap:8px;flex-wrap:wrap"><input class="box" type="email" id="admin-email" placeholder="추가할 관리자 Google 계정 이메일" style="flex:1 1 240px;width:auto"><button class="btn sm" data-act="addAdmin">관리자 추가</button></div>`:''}</div>`;
+}
+function renderRegs(){
+  const can=canEdit();
+  let body=gateCard();
+  if(!body&&!S.regsLoaded) body=`<div class="card empty"><b>규정을 불러오는 중</b></div>`;
+  else if(!body){
+    const ed=S.regEdit;
+    body=(ed&&ed.kind==='newReg'?regMetaEditorHTML(null):'')+(S.regs.length?S.regs.map(r=>{
+      const open=S.regOpen===r.id||(ed&&ed.regId===r.id);const arts=sortArts(r.articles);
+      return `<div class="card reg"><div class="reg-head">
+        <button type="button" class="reg-toggle" data-act="regToggle" data-id="${esc(r.id)}" aria-expanded="${!!open}"><span class="arr">${open?'▾':'▸'}</span><h3>${esc(r.name)}</h3></button>
+        <span class="chip">${esc(r.kind||'규정')}</span><span class="meta">조문 ${arts.length}개${r.updatedAt?` · 수정 ${fmtTime(r.updatedAt)}`:''}</span>
+        ${can?`<span class="sp"><button class="btn sm" data-act="newArt" data-id="${esc(r.id)}">조문 추가</button><button class="btn sm" data-act="pasteArt" data-id="${esc(r.id)}">원문 붙여넣기</button>
+          <button class="btn sm ghost" data-act="editMeta" data-id="${esc(r.id)}">정보 수정</button>
+          <button class="btn sm ${S.regDel===r.id?'danger':'ghost'}" data-act="delReg" data-id="${esc(r.id)}">${S.regDel===r.id?'삭제 확인':'규정 삭제'}</button></span>`:''}</div>
+        ${r.source||r.note?`<span class="meta">${esc([r.source,r.note].filter(Boolean).join(' · '))}</span>`:''}
+        ${ed&&ed.regId===r.id&&ed.kind==='meta'?regMetaEditorHTML(r):''}
+        ${ed&&ed.regId===r.id&&ed.kind==='art'&&!ed.artId?artEditorHTML(r,null):''}
+        ${ed&&ed.regId===r.id&&ed.kind==='paste'?pasteEditorHTML(r):''}
+        ${open?(arts.length?`<div class="table-wrap"><table><thead><tr><th>조문</th><th>제목</th><th>내용</th><th>처벌 조항</th><th>시행일</th>${can?'<th></th>':''}</tr></thead><tbody>
+          ${arts.map(a=>ed&&ed.regId===r.id&&ed.artId===a.id?`<tr><td colspan="${can?6:5}" style="max-width:none">${artEditorHTML(r,a)}</td></tr>`:
+            `<tr><td class="mono" style="white-space:nowrap">${esc(a.no)}</td><td>${esc(a.title)}</td><td>${esc(String(a.text||'').slice(0,400))}${String(a.text||'').length>400?'…':''}</td>
+            <td>${a.penalty?`<span style="color:var(--red);font-weight:600">${esc(formatPenalty(a))}</span>`:'<span class="none">—</span>'}${a.note?`<br><span class="meta">${esc(a.note)}</span>`:''}</td>
+            <td class="mono">${esc(a.effective)}</td>${can?`<td style="min-width:0;white-space:nowrap"><button class="btn sm ghost" data-act="editArt" data-id="${esc(r.id)}" data-a="${esc(a.id)}">수정</button>
+            <button class="btn sm ${S.regDel===a.id?'danger':'ghost'}" data-act="delArt" data-id="${esc(r.id)}" data-a="${esc(a.id)}">${S.regDel===a.id?'삭제 확인':'삭제'}</button></td>`:''}</tr>`).join('')}</tbody></table></div>`:
+          `<span class="meta">등록된 조문이 없습니다.${can?' ‘원문 붙여넣기’로 규정 원문을 한 번에 등록할 수 있습니다.':''}</span>`):''}</div>`;}).join(''):
+      `<div class="card empty"><b>등록된 규정이 없습니다</b>${can?`<span>기본 규정 7개(운전취급규정, 열차운전 시행세칙, 철도안전보건 관리 규정, 철도사고조사 및 피해구상 세칙, 철도안전법, 철도안전관리 시행세칙, 철도차량 안전운전 시행세칙)를 한 번에 등록할 수 있습니다.</span><button class="btn primary" data-act="seedRegs" ${S.regBusy?'disabled':''}>기본 규정 7개 등록</button>`:'<span>관리자가 규정을 등록하면 여기에 표시됩니다.</span>'}</div>`);
+  }
+  return `<div class="col wide"><div class="res-head"><div><div class="eyebrow">규정 관리</div><h1>규정 · 법령 라이브러리</h1>
+    <p>사고사례 분석표의 자동 채우기는 여기에 등록된 규정과 조문 안에서만 찾고, 처벌 조항도 여기 적힌 내용을 가져갑니다. 규정이 개정되면 조문을 고쳐 최신 상태로 유지하세요.</p></div>
+    ${can?`<button class="btn primary" data-act="newReg">규정 추가</button>`:''}</div>
+    ${ready()&&S.adminsLoaded&&S.adminsExists&&!can?`<div class="notice info"><b>보기 전용</b><span>규정은 관리자만 고칠 수 있습니다.</span></div>`:''}
+    ${adminCardHTML()}
+    ${body}</div>`;
+}
+const regBody=r=>({name:r.name,kind:r.kind||'규정',order:r.order||0,source:r.source||'',note:r.note||'',articles:r.articles||[]});
+async function writeReg(id,body){
+  const {db,fs}=S.fb;
+  S.regBusy=true;
+  try{await fs.setDoc(fs.doc(db,'regs',id),{...body,updatedAt:new Date().toISOString()});S.regEdit=null;S.regBusy=false;renderMain();return true;}
+  catch(e){S.regBusy=false;const c=errCode(e);toast(c==='permission-denied'?'규정을 고칠 권한이 없습니다':c==='invalid-argument'?'규정이 너무 큽니다. 나눠서 등록하세요':'저장하지 못했습니다. 잠시 후 다시 시도하세요');renderMain();return false;}
+}
+const val=id=>(document.getElementById(id)?.value||'').trim();
+
+/* ───────── 렌더 ───────── */
+function renderMain(){
+  renderBar();
+  if(S.mode==='fill'){$('#main').innerHTML=renderFill();const f=curForm();if($('#form'))applyAnswers(f,lsGet('draft:'+f.id));}
+  else if(S.mode==='regs'){$('#main').innerHTML=renderRegs();}
+  else {$('#main').innerHTML=renderResults();}
+}
+/* 작성 중인 양식은 입력값을 보존한 채 상태 안내와 버튼만 갱신 */
+function renderMainKeep(){
+  if(S.mode==='fill'&&$('#form')){const f=curForm(),A=collect(f);renderMain();applyAnswers(f,A);}
+  else renderMain();
+}
+function setHash(){try{history.replaceState(null,'','#'+(S.mode==='regs'?'regs':S.form+(S.mode==='results'?'-results':'')));}catch(e){}}
+
+/* ───────── 이벤트 ───────── */
+const ACT={
+  form:el=>{S.form=el.dataset.f;S.idx=0;S.confirmDel=null;S.confirmClear=false;S.aiMsg='';if(S.mode==='regs')S.mode='fill';if(S.submitted!==S.form)S.submitted=null;renderMain();setHash();window.scrollTo(0,0);},
+  mode:el=>{if(S.aiBusy){S.aiToken++;S.aiBusy=false;S.aiMsg='';}S.mode=el.dataset.m;S.confirmDel=null;S.regEdit=null;S.regDel=null;if(S.mode==='fill'&&S.submitted===S.form&&el.closest('.done-card')==null)S.submitted=null;renderMain();setHash();window.scrollTo(0,0);},
+  again:()=>{S.submitted=null;renderMain();window.scrollTo(0,0);},
+  signIn:()=>signIn(),
+  signOut:()=>{S.fb&&S.fb.au.signOut(S.fb.auth).catch(()=>{});},
+  tab:el=>{S.tab=el.dataset.t;S.confirmDel=null;renderMain();},
+  idx:el=>{S.idx+= +el.dataset.d;S.confirmDel=null;renderMain();},
+  openEach:el=>{S.idx=+el.dataset.i;S.tab='each';renderMain();window.scrollTo(0,0);},
+  toSum:el=>{S.sumId=el.dataset.id;S.tab='case';renderMain();window.scrollTo(0,0);},
+  statPeriod:el=>{S.statPeriod=el.dataset.p;renderMain();},
+  clear:()=>{if(!S.confirmClear){S.confirmClear=true;$('#clear-btn').textContent='한 번 더 누르면 지워집니다';clearTimeout(ACT.ct);
+      ACT.ct=setTimeout(()=>{S.confirmClear=false;const b=$('#clear-btn');if(b)b.textContent='양식 지우기';},3000);return;}
+    S.confirmClear=false;const f=curForm();(S.photos[f.id]||[]).forEach(deletePhoto);
+    S.photos[f.id]=[];S.viol[f.id]=[];S.aiMsg='';lsSet('draft:'+f.id,null);renderMain();toast('작성 중인 내용을 지웠습니다');},
+  rmPhoto:el=>{const l=S.photos[S.form]||[];const p=l.splice(+el.dataset.i,1)[0];deletePhoto(p);renderPhotos();saveDraft();},
+  zoom:el=>{if(!el.dataset.src)return;$('#lb-img').src=el.dataset.src;$('#lb').hidden=false;},
+  lbClose:()=>{$('#lb').hidden=true;$('#lb-img').removeAttribute('src');},
+  aiFill:()=>aiFill(),
+  aiStop:()=>{S.aiToken++;S.aiBusy=false;S.aiWarn=true;S.aiMsg='자동 채우기를 중지했습니다.';renderViol();},
+  addViol:()=>{(S.viol[S.form]||(S.viol[S.form]=[])).push({source:'manual',regId:'',regName:'',articleId:'',articleNo:'',duty:'',gap:'',penalty:''});renderViol();saveDraft();
+    const n=S.viol[S.form].length-1;document.getElementById(`v-${n}-reg`)?.focus();},
+  rmViol:el=>{(S.viol[S.form]||[]).splice(+el.dataset.i,1);renderViol();saveDraft();},
+  del:async el=>{const id=el.dataset.id;if(S.confirmDel!==id){S.confirmDel=id;renderMain();return;}
+    S.confirmDel=null;el.disabled=true;const {db,fs}=S.fb;
+    try{await fs.deleteDoc(fs.doc(db,'forms',S.form,'responses',id));toast('응답을 삭제했습니다');}
+    catch(e){el.disabled=false;toast(errCode(e)==='permission-denied'?'응답은 관리자만 삭제할 수 있습니다':'삭제하지 못했습니다. 잠시 후 다시 시도하세요');}},
+  csv:()=>downloadCSV(),
+  copySum:()=>{const r=S.resp.accident.find(x=>x.id===S.sumId);if(!r)return;
+    const ai=S.aiSum[r.id]?.text||r.aiSummary?.text;
+    const txt=summaryItems(r).map(([k,,t],i)=>`${i+1}. ${k}: ${t||'기록 없음'}`).join('\n')+(ai?`\n\n핵심 요약: ${ai}`:'');
+    const fb=()=>{const t=$('#copy-fallback');if(t){t.hidden=false;t.value=txt;t.focus();t.select();toast('자동 복사가 막혀 있습니다. 표시된 내용을 선택해 복사하세요');}};
+    try{navigator.clipboard.writeText(txt).then(()=>toast('요약을 복사했습니다'),fb);}catch(e){fb();}},
+  aiSum:()=>aiSummary(),
+  saveSum:async el=>{const r=S.resp.accident.find(x=>x.id===S.sumId),st=r&&S.aiSum[r.id];if(!st||!st.text)return;el.disabled=true;const {db,fs}=S.fb;
+    try{await fs.updateDoc(fs.doc(db,'forms','accident','responses',r.id),{aiSummary:{text:st.text,at:new Date().toISOString(),by:S.user.uid}});delete S.aiSum[r.id];toast('핵심 요약을 저장했습니다');renderMain();}
+    catch(e){el.disabled=false;toast(errCode(e)==='permission-denied'?'요약을 저장할 권한이 없습니다':'저장하지 못했습니다');}},
+  regToggle:el=>{S.regOpen=S.regOpen===el.dataset.id?null:el.dataset.id;renderMain();},
+  newReg:()=>{S.regEdit={kind:'newReg'};renderMain();$('#rm-name')?.focus();},
+  editMeta:el=>{S.regEdit={kind:'meta',regId:el.dataset.id};renderMain();$('#rm-name')?.focus();},
+  newArt:el=>{S.regEdit={kind:'art',regId:el.dataset.id,artId:null};S.regOpen=el.dataset.id;renderMain();$('#re-no')?.focus();},
+  editArt:el=>{S.regEdit={kind:'art',regId:el.dataset.id,artId:el.dataset.a};S.regOpen=el.dataset.id;renderMain();$('#re-no')?.focus();},
+  pasteArt:el=>{S.regEdit={kind:'paste',regId:el.dataset.id};S.regOpen=el.dataset.id;renderMain();$('#paste-text')?.focus();},
+  cancelEdit:()=>{S.regEdit=null;renderMain();},
+  saveMeta:async()=>{const name=val('rm-name');if(!name){toast('규정명을 입력하세요');return;}
+    const ed=S.regEdit;const meta={name,kind:val('rm-kind'),source:val('rm-source'),note:val('rm-note')};
+    if(ed.kind==='newReg'){const order=Math.max(0,...S.regs.map(r=>r.order||0))+1;if(await writeReg(newId('r'),{...meta,order,articles:[]}))toast('규정을 추가했습니다');}
+    else{const r=S.regs.find(x=>x.id===ed.regId);if(r&&await writeReg(r.id,{...regBody(r),...meta}))toast('규정 정보를 고쳤습니다');}},
+  saveArt:async()=>{const ed=S.regEdit,r=S.regs.find(x=>x.id===ed.regId);if(!r)return;const no=val('re-no');if(!no){toast('조문 번호를 입력하세요');return;}
+    const art={id:ed.artId||newId('a'),no,title:val('re-title'),text:val('re-text'),penaltyType:val('re-ptype'),penalty:val('re-pen'),penaltyBasis:val('re-pbasis'),effective:val('re-eff'),note:val('re-note')};
+    const arts=[...(r.articles||[])];const i=arts.findIndex(x=>x.id===art.id);if(i>=0)arts[i]=art;else arts.push(art);
+    if(await writeReg(r.id,{...regBody(r),articles:arts}))toast('조문을 저장했습니다');},
+  savePaste:async()=>{const r=S.regs.find(x=>x.id===S.regEdit.regId);if(!r)return;const parsed=parseArticles(val('paste-text'));
+    if(!parsed.length){toast('‘제○조’로 시작하는 조문을 찾지 못했습니다');return;}
+    const arts=[...(r.articles||[])];
+    parsed.forEach(p=>{const i=arts.findIndex(a=>a.no===p.no);if(i>=0)arts[i]={...arts[i],title:p.title||arts[i].title,text:p.text};else arts.push({id:newId('a'),...p,penaltyType:'',penalty:'',penaltyBasis:'',effective:'',note:''});});
+    const body={...regBody(r),articles:arts};
+    if(new Blob([JSON.stringify(body)]).size>900000){toast('한 규정에 담기에는 원문이 너무 깁니다. 나눠서 다른 규정으로 등록하세요');return;}
+    if(await writeReg(r.id,body))toast(`조문 ${parsed.length}개를 등록했습니다`);},
+  delArt:async el=>{const id=el.dataset.a;if(S.regDel!==id){S.regDel=id;renderMain();return;}S.regDel=null;
+    const r=S.regs.find(x=>x.id===el.dataset.id);if(!r)return;if(await writeReg(r.id,{...regBody(r),articles:(r.articles||[]).filter(a=>a.id!==id)}))toast('조문을 삭제했습니다');},
+  delReg:async el=>{const id=el.dataset.id;if(S.regDel!==id){S.regDel=id;renderMain();return;}S.regDel=null;const {db,fs}=S.fb;
+    try{await fs.deleteDoc(fs.doc(db,'regs',id));toast('규정을 삭제했습니다. 이미 제출된 응답의 기록은 그대로 남습니다');}catch(e){toast(errCode(e)==='permission-denied'?'규정을 삭제할 권한이 없습니다':'삭제하지 못했습니다');}},
+  seedRegs:async()=>{const {db,fs}=S.fb;S.regBusy=true;renderMain();
+    try{const b=fs.writeBatch(db);const now=new Date().toISOString();DEFAULT_REGS.forEach(({id,...r})=>b.set(fs.doc(db,'regs',id),{...r,updatedAt:now}));await b.commit();toast('기본 규정 7개를 등록했습니다');}
+    catch(e){toast(errCode(e)==='permission-denied'?'규정을 등록할 권한이 없습니다':'등록하지 못했습니다');}
+    finally{S.regBusy=false;renderMain();}},
+  claimAdmin:async()=>{const {db,fs}=S.fb;const me=(S.user.email||'').toLowerCase();
+    try{await fs.setDoc(fs.doc(db,'settings','admins'),{emails:[me]});toast('관리자로 등록했습니다');}
+    catch(e){toast(errCode(e)==='permission-denied'?'이미 관리자가 있어 등록할 수 없습니다':'등록하지 못했습니다');}},
+  addAdmin:async()=>{const e=val('admin-email').toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast('이메일 주소를 확인하세요');return;}
+    if(S.admins.includes(e)){toast('이미 관리자입니다');return;}const {db,fs}=S.fb;
+    try{await fs.setDoc(fs.doc(db,'settings','admins'),{emails:[...S.admins,e]});toast('관리자를 추가했습니다');}catch(err){toast('추가하지 못했습니다');}},
+  rmAdmin:async el=>{const e=el.dataset.e;if(S.adminDel!==e){S.adminDel=e;renderMain();return;}S.adminDel=null;const {db,fs}=S.fb;
+    try{await fs.setDoc(fs.doc(db,'settings','admins'),{emails:S.admins.filter(x=>x!==e)});toast('관리자에서 뺐습니다');}catch(err){toast('바꾸지 못했습니다');}}
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||el.disabled)return;ACT[el.dataset.act]?.(el,e);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#lb').hidden)ACT.lbClose();
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.rowlink')){e.preventDefault();e.target.click();}});
+document.addEventListener('error',e=>{if(e.target&&e.target.tagName==='IMG')e.target.classList.add('broken');},true);
+document.addEventListener('submit',e=>{if(e.target.id==='form'){e.preventDefault();submit();}});
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.input==='paste'){const n=parseArticles(t.value);const p=$('#paste-preview');if(p)p.textContent=n.length?`조문 ${n.length}개를 찾았습니다: ${n.slice(0,6).map(a=>a.no+(a.title?`(${a.title})`:'')).join(', ')}${n.length>6?' 외':''}`:'‘제○조’로 시작하는 줄을 찾지 못했습니다.';return;}
+  if(t.closest('#form')){
+    if(t.dataset.v&&t.tagName!=='SELECT'){const rows=S.viol[S.form];if(rows&&rows[+t.dataset.i])rows[+t.dataset.i][t.dataset.v]=t.value;}
+    saveDraft();const c=t.closest('.q.err');if(c){c.classList.remove('err');c.querySelector('.q-err').hidden=true;}
+    if(t.classList.contains('other')&&t.value){const r=t.closest('.opt').querySelector('input[value="__other"]');if(r)r.checked=true;}}});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.dataset.chg==='statYear'){S.statYear=t.value;renderMain();return;}
+  if(t.dataset.chg==='sumSel'){S.sumId=t.value;renderMain();return;}
+  if(t.matches('[data-photo]')){const files=[...t.files];t.value='';if(files.length&&ready())uploadPhotos(files);return;}
+  if(t.closest('#form')){if(t.tagName==='SELECT'&&t.dataset.v){onViolChange(t);return;}
+    saveDraft();const c=t.closest('.q.err');if(c){c.classList.remove('err');c.querySelector('.q-err').hidden=true;}}});
+
+/* ───────── Firebase 연결 ───────── */
+async function signIn(){
+  if(!S.fb||S.signingIn)return;const {auth,au}=S.fb;
+  S.signingIn=true;renderBar();
+  const provider=new au.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
+  try{await au.signInWithPopup(auth,provider);}
+  catch(e){const c=errCode(e);
+    if(c==='popup-blocked'||c==='operation-not-supported-in-this-environment'){try{await au.signInWithRedirect(auth,provider);return;}catch(e2){toast('로그인 창을 열지 못했습니다');}}
+    else if(c==='unauthorized-domain')toast('이 주소가 Firebase 승인 도메인에 없습니다. 관리자에게 알려 주세요');
+    else if(c!=='popup-closed-by-user'&&c!=='cancelled-popup-request')toast('로그인하지 못했습니다. 다시 시도하세요');}
+  finally{S.signingIn=false;renderBar();}
+}
+function stopSubs(){S.unsubs.forEach(u=>{try{u();}catch(e){}});S.unsubs=[];}
+function startSubs(){
+  const {db,fs}=S.fb;stopSubs();
+  FORMS.forEach(f=>{
+    S.unsubs.push(fs.onSnapshot(fs.query(fs.collection(db,'forms',f.id,'responses'),fs.orderBy('submittedAt','desc'),fs.limit(1000)),snap=>{
+      S.resp[f.id]=snap.docs.map(d=>({id:d.id,...d.data()}));S.loaded[f.id]=true;delete S.err[f.id];onData(f.id);
+    },err=>{S.err[f.id]=errCode(err)||'unavailable';onData(f.id);}));
+  });
+  S.unsubs.push(fs.onSnapshot(fs.collection(db,'regs'),snap=>{
+    S.regs=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0)||String(a.name).localeCompare(String(b.name)));S.regsLoaded=true;
+    if(S.mode==='regs'){if(!S.regEdit)renderMain();}else if(S.mode==='fill')renderViol();
+  },()=>{S.regsLoaded=true;if(S.mode==='regs')renderMain();}));
+  S.unsubs.push(fs.onSnapshot(fs.doc(db,'settings','admins'),snap=>{
+    S.adminsExists=snap.exists();S.admins=(snap.exists()&&Array.isArray(snap.data().emails)?snap.data().emails:[]).map(e=>String(e).toLowerCase());S.adminsLoaded=true;
+    renderBar();if(S.mode!=='fill'&&!S.regEdit)renderMain();
+  },()=>{S.adminsLoaded=true;}));
+}
+function onData(fid){
+  renderBar();
+  if(S.mode==='results'&&fid===S.form&&!(S.aiSum[S.sumId]&&S.aiSum[S.sumId].busy))renderMain();
+}
+async function boot(){
+  const filled=firebaseConfig&&firebaseConfig.apiKey&&firebaseConfig.projectId;
+  if(!filled){S.conn='setup';renderMainKeep();return;}
+  try{
+    const [app,au,fs,st,fnm]=await Promise.all(['firebase-app','firebase-auth','firebase-firestore','firebase-storage','firebase-functions'].map(n=>import(FB+n+'.js')));
+    const fbApp=app.initializeApp(firebaseConfig);
+    const auth=au.getAuth(fbApp);
+    const functions=fnm.getFunctions(fbApp,functionsRegion);
+    S.fb={app:fbApp,auth,au,db:fs.getFirestore(fbApp),fs,storage:st.getStorage(fbApp),st,
+      fn:{claudeCall:fnm.httpsCallable(functions,'claude',{timeout:180000})}};
+    au.getRedirectResult(auth).catch(()=>{});
+    au.onAuthStateChanged(auth,user=>{
+      S.user=user||null;
+      if(user){S.conn='ready';startSubs();}
+      else{S.conn='signedout';stopSubs();FORMS.forEach(f=>{S.resp[f.id]=[];S.loaded[f.id]=false;});S.regs=[];S.regsLoaded=false;S.admins=[];S.adminsLoaded=false;S.adminsExists=false;}
+      renderMainKeep();
+    });
+  }catch(e){S.conn='error';S.connErr='Firebase를 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';renderMainKeep();}
+}
+
+/* ───────── 시작 ───────── */
+(function(){const h=(location.hash||'').slice(1);if(h==='regs'){S.mode='regs';return;}const m=h.match(/^([a-z]+)(-results)?$/);
+  if(m&&FORMS.some(f=>f.id===m[1])){S.form=m[1];if(m[2])S.mode='results';}})();
+renderMain();
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// 사고사례 환류관리(namuapplication.cloud/korail) Firestore 보안 규칙
+// - 로그인한 사람은 누구나 응답을 읽고 제출한다.
+// - 관리자(settings/admins 문서의 emails 목록)만 규정을 고치고 응답을 지운다.
+// - usage/(AI 사용량)는 서버 함수만 쓴다. 브라우저에서는 읽기·쓰기 모두 막힌다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/settings/admins)
+        && myEmail() in get(/databases/$(database)/documents/settings/admins).data.emails;
+    }
+
+    // 응답: forms/{accident|inspection|evaluation}/responses/{id}
+    match /forms/{formId}/responses/{rid} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && formId in ['accident', 'inspection', 'evaluation']
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['answers', 'submittedAt', 'by', 'byName', 'byEmail'])
+        && request.resource.data.answers is map;
+      // 제출된 응답은 '핵심 요약'만 덧붙일 수 있다(누구나). 그 밖의 수정은 관리자만.
+      allow update: if isAdmin()
+        || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiSummary']));
+      allow delete: if isAdmin();
+    }
+
+    // 규정 라이브러리
+    match /regs/{regId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // 관리자 목록. 문서가 없을 때만, 로그인한 사람이 자기 이메일 하나로 처음 만들 수 있다.
+    match /settings/admins {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly(['emails'])
+        && request.resource.data.emails == [myEmail()];
+      allow update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['emails'])
+        && request.resource.data.emails is list
+        && request.resource.data.emails.size() > 0;
+      allow delete: if false;
+    }
+  }
+}

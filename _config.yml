@@ -2,6 +2,7 @@
 # 원본(coinwatch-src)과 빌드 도구는 배포에서 뺀다.
 exclude:
   - coinwatch-src
+  - korail-firebase
   - scripts
   - package.json
   - package-lock.json

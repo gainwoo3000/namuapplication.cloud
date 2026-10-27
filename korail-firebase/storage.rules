@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// 사고 경위 사진: photos/{올린 사람 uid}/{파일}
+// - 로그인한 사람은 누구나 볼 수 있다.
+// - 자기 폴더에만 20MB 이하 사진(JPG·PNG·WEBP·GIF)을 올리고, 자기 사진만 지운다.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /photos/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
