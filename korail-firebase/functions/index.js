@@ -4,9 +4,10 @@
  * 브라우저는 API 키를 모른다. 로그인한 사용자가 이 함수를 부르면, 함수가 서버에 보관된
  * ANTHROPIC_API_KEY로 Claude를 대신 부르고 결과만 돌려준다.
  *
- * 받는 작업은 두 가지뿐이고, 프롬프트는 서버가 만든다(임의 프롬프트 중계 금지).
+ * 받는 작업은 세 가지뿐이고, 프롬프트는 서버가 만든다(임의 프롬프트 중계 금지).
  *   - violations : 사고 기록 + 등록된 규정 목록 → 위반 가능 조문 JSON
  *   - summary    : 사례 요약 목록 → 교육용 핵심 요약 3~5문장
+ *   - report     : 사례 요약 목록 → 개선사례 보고서(개요·개선내용·기타사항·기대효과) JSON
  *
  * 비용 보호: 사용자마다 하루(한국 시간) DAILY_LIMIT회까지만 호출된다.
  */
@@ -35,7 +36,7 @@ exports.claude = onCall(
     if (!request.auth) throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
     const data = request.data || {};
     const task = data.task;
-    if (task !== 'violations' && task !== 'summary') {
+    if (task !== 'violations' && task !== 'summary' && task !== 'report') {
       throw new HttpsError('invalid-argument', '알 수 없는 작업입니다.');
     }
 
@@ -51,8 +52,8 @@ exports.claude = onCall(
     } else {
       const text = String(data.text || '').slice(0, 12000);
       if (!text.trim()) throw new HttpsError('invalid-argument', '요약할 내용이 없습니다.');
-      prompt = summaryPrompt(text);
-      maxTokens = 900;
+      prompt = task === 'report' ? reportPrompt(text) : summaryPrompt(text);
+      maxTokens = task === 'report' ? 2500 : 900;
     }
 
     const key = ANTHROPIC_API_KEY.value();
@@ -61,7 +62,7 @@ exports.claude = onCall(
     await countUsage(request.auth.uid);
     const out = await callClaude(key, prompt, maxTokens);
 
-    if (task === 'violations') return { result: parseJson(out) };
+    if (task === 'violations' || task === 'report') return { result: parseJson(out) };
     return { text: out.trim() };
   }
 );
@@ -157,6 +158,30 @@ function summaryPrompt(text) {
   return `다음은 철도 사고사례 분석 기록입니다. 승무원 교육자료에 넣을 핵심 요약을 한국어 평서문 3~5문장으로 쓰세요.
 순서: 무슨 일이 있었는지 → 확인된 미이행 행위 → 관련 규정과 처벌 조항 → 판정과 개선대책.
 기록에 없는 사실, 조문, 금액은 추가하지 않습니다. '기록 없음'인 항목은 언급하지 않습니다. 제목, 목록, 마크다운 없이 문장만 씁니다.
+
+${text}`;
+}
+
+function reportPrompt(text) {
+  return `다음은 철도 사고사례 분석 기록입니다. 이 기록으로 사업소에 공유할 '개선사례 보고서' 초안을 쓰세요.
+
+항목(모두 한국어, 개조식 '- '로 시작하는 줄 1~4개, 문장은 '~함', '~필요' 같은 보고서체):
+- status   : 1. 개요 — 현황 (언제, 어디서, 무슨 사고가 어떻게 발생했는지)
+- problem  : 1. 개요 — 문제점 (미이행·확인 불가 행위, 위반 조문, 관련 요인)
+- plan     : 2. 개선내용 — 개선방안 (교육, 점검, 절차·시설 개선 등)
+- applied  : 2. 개선내용 — 적용내용 (누가, 언제까지, 무엇을 적용했거나 적용하는지)
+- needs    : 3. 기타사항 — 사업소 적용 시 필요사항 (인력, 교육 시간, 체크리스트 반영, 규정 원문 확인 등)
+- future   : 3. 기타사항 — 향후 활용계획 (교육자료, 평가문항, 현장 점검, 재발 추이 관리 등)
+- effects  : 4. 기대효과 — '- 교육 이해도: …', '- 업무 효율: …', '- 휴먼에러 예방: …' 세 줄을 반드시 포함
+
+규칙:
+- 기록에 있는 사실, 조문, 처벌 조항만 씁니다. 기록에 없는 날짜, 금액, 조문 번호, 수치를 만들어 내지 않습니다.
+- 기록이 없어 쓸 수 없는 내용은 '(확인 필요)'라고 씁니다.
+- 사고가 발생했다는 사실만으로 위반이라고 단정하지 않습니다.
+
+출력은 JSON 객체 하나만 씁니다. 다른 글은 쓰지 않습니다. 형식:
+{"status":"…","problem":"…","plan":"…","applied":"…","needs":"…","future":"…","effects":"…"}
+각 값 안의 줄바꿈은 \\n 으로 씁니다.
 
 ${text}`;
 }

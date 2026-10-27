@@ -65,7 +65,7 @@ firebase deploy --only firestore:rules,storage,functions
 |---|---|---|
 | 응답 작성 · 결과/통계/사례 요약 보기 · CSV 내려받기 | O | O |
 | 사진 올리기 (자기 사진만 지움) | O | O |
-| 핵심 요약 저장 | O | O |
+| 핵심 요약 · 개선사례 보고서 저장 | O | O |
 | 규정 · 조문 추가/수정/삭제 | | O |
 | 응답 삭제 · 관리자 추가/빼기 | | O |
 

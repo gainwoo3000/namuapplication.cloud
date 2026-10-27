@@ -28,9 +28,9 @@ service cloud.firestore {
         && request.resource.data.by == request.auth.uid
         && request.resource.data.keys().hasOnly(['answers', 'submittedAt', 'by', 'byName', 'byEmail'])
         && request.resource.data.answers is map;
-      // 제출된 응답은 '핵심 요약'만 덧붙일 수 있다(누구나). 그 밖의 수정은 관리자만.
+      // 제출된 응답에는 '핵심 요약'과 '개선사례 보고서'만 덧붙일 수 있다(누구나). 그 밖의 수정은 관리자만.
       allow update: if isAdmin()
-        || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiSummary']));
+        || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['aiSummary', 'report']));
       allow delete: if isAdmin();
     }
 
