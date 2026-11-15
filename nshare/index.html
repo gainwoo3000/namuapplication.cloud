@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NShare · 휴대폰과 PC 화면을 TV로</title>
+<meta name="description" content="Google TV·Android TV에서 iPhone, iPad, Mac(AirPlay), Android 폰, Windows PC의 화면과 소리를 바로 받아 보세요.">
+<meta property="og:title" content="NShare · 휴대폰과 PC 화면을 TV로">
+<meta property="og:description" content="Google TV에서 iPhone·Android·Windows 화면 공유">
+<meta property="og:image" content="https://namuapplication.cloud/nshare/logo.png">
+<meta property="og:url" content="https://namuapplication.cloud/nshare/">
+<meta name="theme-color" content="#0B0D12">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #0B0D12;
+    --bg2: #13284D;
+    --card: rgba(255, 255, 255, 0.05);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #F1F3F7;
+    --muted: #A5ADBB;
+    --brand: #1A73E8;
+    --accent: #A8C7FA;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Roboto, sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 700px at 0% 0%, var(--bg2), var(--bg) 70%) fixed, var(--bg);
+    line-height: 1.6;
+    word-break: keep-all;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header { display: flex; align-items: center; gap: 12px; padding: 22px 0; }
+  header img { width: 40px; height: 40px; }
+  header .name { font-size: 22px; font-weight: 700; flex: 1; }
+  .lang { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+  .lang button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+
+  .hero { padding: 40px 0 28px; }
+  .hero h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.2; margin: 0 0 14px; letter-spacing: -0.02em; }
+  .hero p { font-size: clamp(16px, 2.4vw, 19px); color: var(--muted); margin: 0; max-width: 640px; }
+
+  h2 { font-size: 15px; letter-spacing: 0.02em; color: var(--accent); margin: 44px 0 14px; font-weight: 600; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; display: flex; flex-direction: column; }
+  .card h3 { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 12px; }
+  .icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(26, 115, 232, 0.22); display: grid; place-items: center; flex: none; }
+  .icon svg { width: 22px; height: 22px; fill: var(--accent); }
+  .card p { color: var(--muted); margin: 12px 0 0; font-size: 15px; }
+  .steps { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; position: relative; padding-left: 30px; margin: 8px 0; font-size: 15px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 21px; height: 21px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); font-size: 12px; display: grid; place-items: center; color: var(--text); }
+  .actions { margin-top: auto; padding-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 15px; padding: 11px 18px; border-radius: 12px; background: var(--brand); color: #fff; }
+  .btn.secondary { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+  .btn.disabled { background: rgba(255, 255, 255, 0.06); color: var(--muted); pointer-events: none; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .tv { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: center; }
+  @media (min-width: 760px) { .tv { grid-template-columns: 1.3fr 1fr; } }
+  .tv .card { height: 100%; }
+  .faq details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; margin: 10px 0; }
+  .faq summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  .faq details p { color: var(--muted); margin: 10px 0 2px; font-size: 15px; }
+  footer { color: var(--muted); font-size: 13px; padding: 48px 0 36px; }
+  [data-en] { display: none; }
+  html[lang="en"] [data-ko] { display: none; }
+  html[lang="en"] [data-en] { display: revert; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="logo.png" alt="">
+    <div class="name">NShare</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="ko" aria-pressed="true">한국어</button>
+      <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1 data-ko>휴대폰과 PC 화면을<br>TV로 바로</h1>
+    <h1 data-en>Your phone and PC,<br>on the TV</h1>
+    <p data-ko>Google TV·Android TV에 NShare를 설치하면 iPhone, iPad, Mac, Android 폰, Windows PC의 화면과 소리를 TV로 보낼 수 있습니다.</p>
+    <p data-en>Install NShare on your Google TV or Android TV, then share the screen and sound of an iPhone, iPad, Mac, Android phone or Windows PC.</p>
+  </section>
+
+  <h2 data-ko>1. TV에 설치</h2>
+  <h2 data-en>1. Install on the TV</h2>
+  <div class="tv">
+    <div class="card">
+      <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg></span>Google TV · Android TV</h3>
+      <p data-ko>TV의 Play 스토어에서 "NShare"를 검색해 설치하세요. 앱을 켜 두면 같은 Wi-Fi의 기기에서 바로 보입니다.</p>
+      <p data-en>Search for "NShare" in the TV's Play Store. Once it runs, devices on the same Wi-Fi can see the TV.</p>
+      <div class="actions">
+        <a class="btn" href="https://play.google.com/store/apps/details?id=namu0329.nshare.receiver" target="_blank" rel="noopener">
+          <span data-ko>Google Play에서 보기</span><span data-en>Get it on Google Play</span>
+        </a>
+      </div>
+    </div>
+    <div class="card">
+      <h3 data-ko>이렇게 연결해요</h3>
+      <h3 data-en>How it works</h3>
+      <ol class="steps">
+        <li data-ko>TV에서 NShare를 켭니다.</li>
+        <li data-en>Open NShare on the TV.</li>
+        <li data-ko>보낼 기기를 TV와 같은 Wi-Fi에 연결합니다.</li>
+        <li data-en>Put your device on the same Wi-Fi as the TV.</li>
+        <li data-ko>아래 방법으로 TV 이름을 고르면 끝입니다.</li>
+        <li data-en>Pick the TV's name as shown below. That's it.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2 data-ko>2. 보낼 기기에서 연결</h2>
+  <h2 data-en>2. Connect from your device</h2>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M15.5 1h-8A2.5 2.5 0 0 0 5 3.5v17A2.5 2.5 0 0 0 7.5 23h8a2.5 2.5 0 0 0 2.5-2.5v-17A2.5 2.5 0 0 0 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z"/></svg></span>iPhone · iPad · Mac</h3>
+      <p data-ko>앱이 필요 없습니다. 기본 기능인 AirPlay를 씁니다.</p>
+      <p data-en>No app needed: it uses the built-in AirPlay.</p>
+      <ol class="steps">
+        <li data-ko>제어 센터 열기 (Mac은 메뉴 막대의 제어 센터)</li>
+        <li data-en>Open Control Center (on a Mac, in the menu bar)</li>
+        <li data-ko>화면 미러링</li>
+        <li data-en>Screen Mirroring</li>
+        <li data-ko>TV 이름 선택 · 처음에는 TV에 뜬 코드 입력</li>
+        <li data-en>Choose the TV · the first time, enter the code it shows</li>
+      </ol>
+      <p class="note" data-ko>음악·동영상 앱의 AirPlay 버튼으로 보내면 TV가 직접 재생해 더 선명합니다(YouTube 등).</p>
+      <p class="note" data-en>Sending a video or song with the app's AirPlay button lets the TV play it directly, in full quality (YouTube and others).</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M17.6 9.48l1.84-3.18a.63.63 0 0 0-1.09-.63l-1.88 3.24a11.43 11.43 0 0 0-8.94 0L5.65 5.67a.63.63 0 0 0-1.09.63L6.4 9.48A10.78 10.78 0 0 0 1 18h22a10.78 10.78 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg></span>Android</h3>
+      <p data-ko>휴대폰과 태블릿에 NShare 앱을 설치하세요.</p>
+      <p data-en>Install the NShare app on your phone or tablet.</p>
+      <ol class="steps">
+        <li data-ko>NShare 앱 열기</li>
+        <li data-en>Open the NShare app</li>
+        <li data-ko>주변 TV에서 TV 선택</li>
+        <li data-en>Choose the TV under Nearby TVs</li>
+        <li data-ko>처음에는 TV에 뜬 6자리 PIN 입력</li>
+        <li data-en>The first time, enter the 6-digit PIN shown on the TV</li>
+      </ol>
+      <div class="actions">
+        <a class="btn" href="https://play.google.com/store/apps/details?id=namu0329.nshare.sender" target="_blank" rel="noopener">
+          <span data-ko>Google Play에서 보기</span><span data-en>Get it on Google Play</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></span>Windows PC</h3>
+      <p data-ko>Windows 10·11 PC의 화면과 소리를 보냅니다. 그래픽 카드의 하드웨어 인코더로 선명하고 빠르게 보냅니다.</p>
+      <p data-en>Shares a Windows 10 or 11 PC's screen and sound, encoded by the graphics card for a sharp, fast picture.</p>
+      <ol class="steps">
+        <li data-ko>NShare 앱 열기</li>
+        <li data-en>Open the NShare app</li>
+        <li data-ko>TV 선택 후 공유 시작</li>
+        <li data-en>Choose the TV and start sharing</li>
+        <li data-ko>처음에는 TV에 뜬 6자리 PIN 입력</li>
+        <li data-en>The first time, enter the 6-digit PIN shown on the TV</li>
+      </ol>
+      <div class="actions">
+        <span class="btn disabled"><span data-ko>Microsoft Store 출시 준비 중</span><span data-en>Microsoft Store: coming soon</span></span>
+        <a class="btn secondary" href="https://github.com/gainwoo3000/namuapplication.cloud/releases/download/nshare-windows-1.0.0-beta/NShare-1.0.0-beta.exe">
+          <span data-ko>베타 다운로드</span><span data-en>Download beta</span>
+        </a>
+      </div>
+      <p class="note" data-ko>베타는 아직 서명 전이라 "Windows의 PC 보호" 창이 뜰 수 있습니다. 추가 정보 → 실행을 누르세요. 처음 실행할 때 방화벽 창이 뜨면 허용해 주세요.</p>
+      <p class="note" data-en>The beta is not signed yet, so Windows may say it protected your PC: choose More info → Run anyway. Allow NShare when the firewall asks on first start.</p>
+    </div>
+  </div>
+
+  <h2 data-ko>자주 묻는 질문</h2>
+  <h2 data-en>Questions</h2>
+  <div class="faq">
+    <details>
+      <summary><span data-ko>TV가 목록에 안 보여요</span><span data-en>The TV doesn't show up</span></summary>
+      <p data-ko>TV에서 NShare가 켜져 있는지, 기기와 TV가 같은 Wi-Fi(같은 공유기)에 있는지 확인하세요. 게스트 Wi-Fi는 기기끼리 연결을 막는 경우가 많습니다. Android·Windows 앱에서는 TV 화면에 표시된 IP 주소로 직접 연결할 수도 있습니다.</p>
+      <p data-en>Check that NShare is open on the TV and that both are on the same Wi-Fi (same router). Guest networks often block devices from seeing each other. The Android and Windows apps can also connect to the IP address shown on the TV.</p>
+    </details>
+    <details>
+      <summary><span data-ko>넷플릭스 같은 영상이 검게 나와요</span><span data-en>Netflix and similar apps show a black screen</span></summary>
+      <p data-ko>저작권 보호(DRM) 영상은 화면 공유로 보낼 수 없도록 운영체제가 막습니다. 그런 앱은 앱 안의 Cast 버튼으로 TV에 내장된 Chromecast로 보내세요.</p>
+      <p data-en>The operating system blocks copy-protected (DRM) video from screen sharing. Use the app's own Cast button to send it to the TV's built-in Chromecast instead.</p>
+    </details>
+    <details>
+      <summary><span data-ko>공유를 끝내려면?</span><span data-en>How do I stop sharing?</span></summary>
+      <p data-ko>보내는 기기에서 끝내거나, TV 리모컨의 뒤로 버튼을 두 번 누르세요.</p>
+      <p data-en>Stop it on the sending device, or press Back twice on the TV remote.</p>
+    </details>
+    <details>
+      <summary><span data-ko>화면이 끊기거나 늦어요</span><span data-en>The picture stutters or lags</span></summary>
+      <p data-ko>5GHz Wi-Fi를 쓰고 공유기와 가까이 있으면 가장 좋습니다. PC는 유선 연결이 가장 안정적입니다. 네트워크가 느리면 앱이 화질을 자동으로 낮춥니다.</p>
+      <p data-en>5 GHz Wi-Fi close to the router works best, and a wired connection is best for a PC. On a slow network the apps lower the quality automatically.</p>
+    </details>
+  </div>
+
+  <footer>
+    <span data-ko>© NAMU Application · TV 앱 소스 코드(GPLv3): </span><span data-en>© NAMU Application · TV app source (GPLv3): </span>
+    <a href="https://github.com/gainwoo3000/NShare-TV" target="_blank" rel="noopener">github.com/gainwoo3000/NShare-TV</a>
+  </footer>
+</div>
+<script>
+  (function () {
+    var buttons = document.querySelectorAll('[data-set-lang]');
+    function apply(lang) {
+      document.documentElement.lang = lang;
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang)); });
+      document.title = lang === 'en' ? 'NShare · Your phone and PC on the TV' : 'NShare · 휴대폰과 PC 화면을 TV로';
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('nshare-lang'); } catch (e) {}
+    apply(saved || ((navigator.language || 'ko').toLowerCase().indexOf('ko') === 0 ? 'ko' : 'en'));
+    buttons.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var lang = b.getAttribute('data-set-lang');
+        apply(lang);
+        try { localStorage.setItem('nshare-lang', lang); } catch (e) {}
+      });
+    });
+  })();
+</script>
+</body>
+</html>
